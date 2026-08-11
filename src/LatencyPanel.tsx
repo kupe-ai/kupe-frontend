@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useDataChannel } from "@livekit/components-react";
-import type { LatencyMessage, TTFBEntry } from "./types";
+import type { LatencyMessage, TTFBEntry } from "@/types";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 type BreakdownState = {
   userTurnMs: number | null;
@@ -41,53 +43,62 @@ export default function LatencyPanel() {
     history.length > 0 ? Math.round(history.reduce((a, b) => a + b, 0) / history.length) : null;
 
   return (
-    <div className="latency-panel">
-      <h2>Latency</h2>
-      <div className="latency-hero">
-        <span className="latency-hero-label">
-          You stop talking &rarr; agent's first audible word
-        </span>
-        <span className="latency-hero-value">
-          {perceivedMs !== null ? `${Math.round(perceivedMs)} ms` : "—"}
-        </span>
-        {avg !== null && <span className="latency-hero-avg">avg over last {history.length}: {avg} ms</span>}
-      </div>
-
-      {firstGreetingMs !== null && (
-        <p className="latency-line">
-          Time to first greeting (connect &rarr; first speech): <strong>{Math.round(firstGreetingMs)} ms</strong>
-        </p>
-      )}
-
-      {breakdown && (
-        <div className="latency-breakdown">
-          <h3>Per-component breakdown (last turn)</h3>
-          {breakdown.userTurnMs !== null && (
-            <div className="latency-row">
-              <span>Turn detection (VAD + STT finalize)</span>
-              <span>{Math.round(breakdown.userTurnMs)} ms</span>
-            </div>
-          )}
-          {breakdown.ttfb.map((t, i) => (
-            <div className="latency-row" key={i}>
-              <span>
-                {t.processor} TTFB{t.model ? ` (${t.model})` : ""}
-              </span>
-              <span>{Math.round(t.value_ms)} ms</span>
-            </div>
-          ))}
-          {breakdown.textAggregationMs !== null && (
-            <div className="latency-row">
-              <span>Sentence aggregation before TTS</span>
-              <span>{Math.round(breakdown.textAggregationMs)} ms</span>
+    <Card className="flex h-full min-h-[320px] flex-col">
+      <CardHeader className="pb-3">
+        <CardTitle>Latency</CardTitle>
+        <CardDescription>Perceived response and per-component timing.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="rounded-md border border-border bg-muted/30 p-4">
+          <div className="text-xs text-muted-foreground">You stop talking → agent&apos;s first audible word</div>
+          <div className="mt-1 font-mono text-3xl font-medium tracking-tight text-foreground">
+            {perceivedMs !== null ? `${Math.round(perceivedMs)} ms` : "—"}
+          </div>
+          {avg !== null && (
+            <div className="mt-1 text-xs text-muted-foreground">
+              avg over last {history.length}: {avg} ms
             </div>
           )}
         </div>
-      )}
 
-      {!breakdown && perceivedMs === null && (
-        <p className="transcript-empty">Latency numbers appear after the first exchange.</p>
-      )}
-    </div>
+        {firstGreetingMs !== null && (
+          <p className="text-sm text-muted-foreground">
+            Time to first greeting:{" "}
+            <span className="font-medium text-foreground">{Math.round(firstGreetingMs)} ms</span>
+          </p>
+        )}
+
+        {breakdown && (
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Per-component breakdown</div>
+            <Separator />
+            {breakdown.userTurnMs !== null && (
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Turn detection (VAD + STT finalize)</span>
+                <span className="font-mono">{Math.round(breakdown.userTurnMs)} ms</span>
+              </div>
+            )}
+            {breakdown.ttfb.map((t, i) => (
+              <div className="flex justify-between gap-4 text-sm" key={i}>
+                <span className="text-muted-foreground">
+                  {t.processor} TTFB{t.model ? ` (${t.model})` : ""}
+                </span>
+                <span className="font-mono">{Math.round(t.value_ms)} ms</span>
+              </div>
+            ))}
+            {breakdown.textAggregationMs !== null && (
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">Sentence aggregation before TTS</span>
+                <span className="font-mono">{Math.round(breakdown.textAggregationMs)} ms</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!breakdown && perceivedMs === null && (
+          <p className="text-sm text-muted-foreground">Latency numbers appear after the first exchange.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }

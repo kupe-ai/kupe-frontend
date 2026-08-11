@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { api } from "./lib/api";
-import type { Agent } from "./types";
+import { api } from "@/lib/api";
+import type { Agent } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Props = {
   orgId: string;
@@ -28,35 +31,44 @@ export default function AgentPicker({ orgId, projectId, agentId, onChange }: Pro
   const selected = agents?.find((a) => a.id === agentId) ?? null;
 
   return (
-    <div className="agent-picker">
-      <label>
-        Agent
-        <select
-          value={agentId ?? ""}
-          onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+    <div className="space-y-3">
+      <div className="space-y-2">
+        <Label>Agent</Label>
+        <Select
+          value={agentId ?? "__none__"}
+          onValueChange={(v) => onChange(v === "__none__" ? null : v)}
         >
-          <option value="">No agent — pick providers manually</option>
-          {(agents ?? []).map((agent) => (
-            <option key={agent.id} value={agent.id}>
-              {agent.name} (v{agent.version})
-            </option>
-          ))}
-        </select>
-      </label>
+          <SelectTrigger>
+            <SelectValue placeholder="No agent — pick providers manually" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">No agent — pick providers manually</SelectItem>
+            {(agents ?? []).map((agent) => (
+              <SelectItem key={agent.id} value={agent.id}>
+                {agent.name} (v{agent.version})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {selected && (
-        <p className="transcript-empty">
-          Runs {selected.llm_id} / {selected.stt_id} / {selected.tts_id} with this agent&apos;s
-          prompt and its attached post-call analyses.
+        <p className="text-xs text-muted-foreground">
+          Runs {selected.llm_id} / {selected.stt_id} / {selected.tts_id} with this agent&apos;s prompt
+          and its attached post-call analyses.
         </p>
       )}
       {!selected && agents?.length === 0 && (
-        <p className="transcript-empty">
+        <p className="text-xs text-muted-foreground">
           No agents in this project yet — create one on the Agents tab to get transcripts and
           post-call analysis for a call.
         </p>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }

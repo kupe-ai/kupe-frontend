@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
-import { BACKEND_URL } from "./config";
-import { api } from "./lib/api";
-import type { Agent, AgentVersion, PostCallAnalysis, ProvidersResponse } from "./types";
+import { BACKEND_URL } from "@/config";
+import { api } from "@/lib/api";
+import type { Agent, AgentVersion, PostCallAnalysis, ProvidersResponse } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = { orgId: string; projectId: string };
 
@@ -82,117 +90,215 @@ export function AgentsPanel({ orgId, projectId }: Props) {
   }
 
   return (
-    <div className="panel">
-      <h2>Agents</h2>
-      {error && <p className="error">{error}</p>}
+    <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle>{editingId ? "Edit agent" : "Create agent"}</CardTitle>
+          <CardDescription>Configure prompt, greeting, and provider stack.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-      <div className="agent-form">
-        <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <textarea
-          placeholder="System prompt"
-          value={form.system_prompt}
-          onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
-        />
-        <input
-          placeholder="Greeting (optional)"
-          value={form.greeting}
-          onChange={(e) => setForm({ ...form, greeting: e.target.value })}
-        />
-        <select value={form.llm_id} onChange={(e) => setForm({ ...form, llm_id: e.target.value })}>
-          <option value="">LLM…</option>
-          {providers?.model_providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.provider_name} / {p.model_name}
-            </option>
-          ))}
-        </select>
-        <select value={form.stt_id} onChange={(e) => setForm({ ...form, stt_id: e.target.value })}>
-          <option value="">STT…</option>
-          {providers?.transcriber_providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.provider_name} / {p.model_name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={form.tts_id}
-          onChange={(e) => setForm({ ...form, tts_id: e.target.value, tts_voice_id: "" })}
-        >
-          <option value="">TTS…</option>
-          {providers?.tts_providers.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.provider_name} / {p.model_name}
-            </option>
-          ))}
-        </select>
-        <select
-          value={form.tts_voice_id}
-          onChange={(e) => setForm({ ...form, tts_voice_id: e.target.value })}
-          disabled={!ttsVoices?.voices?.length}
-        >
-          <option value="">Default voice</option>
-          {ttsVoices?.voices?.map((v) => (
-            <option key={v.voice_id} value={v.voice_id}>
-              {v.voice_name}
-            </option>
-          ))}
-        </select>
-        <button onClick={submit}>{editingId ? "Save" : "Create agent"}</button>
-      </div>
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>System prompt</Label>
+            <Textarea
+              rows={5}
+              value={form.system_prompt}
+              onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Greeting (optional)</Label>
+            <Input value={form.greeting} onChange={(e) => setForm({ ...form, greeting: e.target.value })} />
+          </div>
 
-      <ul className="agent-list">
-        {agents.map((a) => (
-          <li key={a.id}>
-            <button onClick={() => selectAgent(a)}>{a.name}</button>
-            <button
-              onClick={() => {
-                setEditingId(a.id);
-                setForm({
-                  name: a.name,
-                  system_prompt: a.system_prompt,
-                  greeting: a.greeting ?? "",
-                  llm_id: a.llm_id,
-                  stt_id: a.stt_id,
-                  tts_id: a.tts_id,
-                  tts_voice_id: a.tts_voice_id ?? "",
-                });
-              }}
-            >
-              Edit
-            </button>
-            <button onClick={() => api.archiveAgent(a.id).then(refresh)}>Archive</button>
-          </li>
-        ))}
-      </ul>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>LLM</Label>
+              <Select value={form.llm_id || undefined} onValueChange={(v) => setForm({ ...form, llm_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select LLM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.model_providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.provider_name} / {p.model_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>STT</Label>
+              <Select value={form.stt_id || undefined} onValueChange={(v) => setForm({ ...form, stt_id: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select STT" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.transcriber_providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.provider_name} / {p.model_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>TTS</Label>
+              <Select
+                value={form.tts_id || undefined}
+                onValueChange={(v) => setForm({ ...form, tts_id: v, tts_voice_id: "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select TTS" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.tts_providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.provider_name} / {p.model_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Voice</Label>
+              <Select
+                value={form.tts_voice_id || "__default__"}
+                onValueChange={(v) => setForm({ ...form, tts_voice_id: v === "__default__" ? "" : v })}
+                disabled={!ttsVoices?.voices?.length}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Default voice" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">Default voice</SelectItem>
+                  {ttsVoices?.voices?.map((v) => (
+                    <SelectItem key={v.voice_id} value={v.voice_id}>
+                      {v.voice_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      {selectedAgent && (
-        <div className="agent-detail">
-          <h3>{selectedAgent.name} — post-call analyses</h3>
-          <ul>
-            {orgAnalyses.map((analysis) => {
-              const attached = attachedAnalyses.some((a) => a.id === analysis.id);
-              return (
-                <li key={analysis.id}>
-                  <label>
-                    <input type="checkbox" checked={attached} onChange={(e) => toggleAnalysis(analysis, e.target.checked)} />
-                    {analysis.name}
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex gap-2">
+            <Button onClick={() => void submit()}>{editingId ? "Save" : "Create agent"}</Button>
+            {editingId && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(EMPTY_FORM);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
-          <h3>History</h3>
-          <ul>
-            {versions.map((v) => (
-              <li key={v.version}>
-                v{v.version} — {new Date(v.created_at).toLocaleString()}
-                <button onClick={() => revert(v.version)}>Revert to this version</button>
-              </li>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Agents</CardTitle>
+            <CardDescription>Select an agent to manage analyses and versions.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {agents.length === 0 && <p className="text-sm text-muted-foreground">No agents yet.</p>}
+            {agents.map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2">
+                <Button
+                  variant={selectedAgent?.id === a.id ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => void selectAgent(a)}
+                >
+                  {a.name}
+                </Button>
+                <div className="ml-auto flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingId(a.id);
+                      setForm({
+                        name: a.name,
+                        system_prompt: a.system_prompt,
+                        greeting: a.greeting ?? "",
+                        llm_id: a.llm_id,
+                        stt_id: a.stt_id,
+                        tts_id: a.tts_id,
+                        tts_voice_id: a.tts_voice_id ?? "",
+                      });
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => void api.archiveAgent(a.id).then(refresh)}>
+                    Archive
+                  </Button>
+                </div>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
+          </CardContent>
+        </Card>
+
+        {selectedAgent && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{selectedAgent.name}</CardTitle>
+              <CardDescription>Post-call analyses and version history.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Analyses</div>
+                {orgAnalyses.map((analysis) => {
+                  const attached = attachedAnalyses.some((a) => a.id === analysis.id);
+                  return (
+                    <label key={analysis.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={attached}
+                        onCheckedChange={(checked) => void toggleAnalysis(analysis, checked === true)}
+                      />
+                      {analysis.name}
+                    </label>
+                  );
+                })}
+                {orgAnalyses.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No analyses defined yet.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium">History</div>
+                {versions.map((v) => (
+                  <div
+                    key={v.version}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border p-2 text-sm"
+                  >
+                    <span>
+                      v{v.version} — {new Date(v.created_at).toLocaleString()}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={() => void revert(v.version)}>
+                      Revert
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }

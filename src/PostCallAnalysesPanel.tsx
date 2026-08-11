@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { api } from "./lib/api";
-import type { AnalysisField, AnalysisFieldType, PostCallAnalysis } from "./types";
+import { api } from "@/lib/api";
+import type { AnalysisField, AnalysisFieldType, PostCallAnalysis } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 type Props = { orgId: string };
 
@@ -65,86 +72,152 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
   }
 
   return (
-    <div className="panel">
-      <h2>Post-Call Analyses</h2>
-      {error && <p className="error">{error}</p>}
+    <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <Card>
+        <CardHeader>
+          <CardTitle>{editingId ? "Edit analysis" : "Create analysis"}</CardTitle>
+          <CardDescription>Define grading prompt and structured output fields.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
 
-      <div className="analysis-form">
-        <input placeholder="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input
-          placeholder="Description (optional)"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-        <textarea
-          placeholder="Grading prompt"
-          value={form.prompt}
-          onChange={(e) => setForm({ ...form, prompt: e.target.value })}
-        />
-        <input
-          placeholder="Eval LLM provider id"
-          value={form.eval_llm_id}
-          onChange={(e) => setForm({ ...form, eval_llm_id: e.target.value })}
-        />
-        <input
-          placeholder="Webhook URL (optional)"
-          value={form.webhook_url}
-          onChange={(e) => setForm({ ...form, webhook_url: e.target.value })}
-        />
-
-        <h4>Fields</h4>
-        {form.fields.map((f, i) => (
-          <div key={i} className="field-row">
-            <input placeholder="name" value={f.name} onChange={(e) => updateField(i, { name: e.target.value })} />
-            <select value={f.type} onChange={(e) => updateField(i, { type: e.target.value as AnalysisFieldType })}>
-              {FIELD_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-            <input
-              placeholder="description"
-              value={f.description}
-              onChange={(e) => updateField(i, { description: e.target.value })}
-            />
-            {f.type === "enum" && (
-              <input
-                placeholder="comma-separated values"
-                value={(f.enum_values || []).join(",")}
-                onChange={(e) => updateField(i, { enum_values: e.target.value.split(",").map((s) => s.trim()) })}
-              />
-            )}
-            <button onClick={() => removeField(i)}>Remove</button>
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
-        ))}
-        <button onClick={addField}>Add field</button>
-        <button onClick={submit}>{editingId ? "Save" : "Create analysis"}</button>
-      </div>
+          <div className="space-y-2">
+            <Label>Description</Label>
+            <Input
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Optional"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Grading prompt</Label>
+            <Textarea rows={4} value={form.prompt} onChange={(e) => setForm({ ...form, prompt: e.target.value })} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Eval LLM provider id</Label>
+              <Input
+                value={form.eval_llm_id}
+                onChange={(e) => setForm({ ...form, eval_llm_id: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Webhook URL</Label>
+              <Input
+                value={form.webhook_url}
+                onChange={(e) => setForm({ ...form, webhook_url: e.target.value })}
+                placeholder="Optional"
+              />
+            </div>
+          </div>
 
-      <ul className="analysis-list">
-        {analyses.map((a) => (
-          <li key={a.id}>
-            {a.name}
-            <button
-              onClick={() => {
-                setEditingId(a.id);
-                setForm({
-                  name: a.name,
-                  description: a.description ?? "",
-                  prompt: a.prompt,
-                  eval_llm_id: a.eval_llm_id,
-                  webhook_url: a.webhook_url ?? "",
-                  fields: a.fields,
-                });
-              }}
-            >
-              Edit
-            </button>
-            <button onClick={() => archive(a.id)}>Archive</button>
-          </li>
-        ))}
-      </ul>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label>Fields</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addField}>
+                Add field
+              </Button>
+            </div>
+            {form.fields.map((f, i) => (
+              <div key={i} className="grid gap-2 rounded-md border border-border p-3 sm:grid-cols-2">
+                <Input placeholder="name" value={f.name} onChange={(e) => updateField(i, { name: e.target.value })} />
+                <Select value={f.type} onValueChange={(v) => updateField(i, { type: v as AnalysisFieldType })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FIELD_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="sm:col-span-2"
+                  placeholder="description"
+                  value={f.description}
+                  onChange={(e) => updateField(i, { description: e.target.value })}
+                />
+                {f.type === "enum" && (
+                  <Input
+                    className="sm:col-span-2"
+                    placeholder="comma-separated values"
+                    value={(f.enum_values || []).join(",")}
+                    onChange={(e) =>
+                      updateField(i, { enum_values: e.target.value.split(",").map((s) => s.trim()) })
+                    }
+                  />
+                )}
+                <Button type="button" variant="ghost" size="sm" onClick={() => removeField(i)}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={() => void submit()}>{editingId ? "Save" : "Create analysis"}</Button>
+            {editingId && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingId(null);
+                  setForm(EMPTY_FORM);
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Saved analyses</CardTitle>
+          <CardDescription>Edit or archive existing definitions.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {analyses.length === 0 && <p className="text-sm text-muted-foreground">No analyses yet.</p>}
+          {analyses.map((a) => (
+            <div key={a.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border p-3">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{a.name}</div>
+                {a.description && <div className="truncate text-xs text-muted-foreground">{a.description}</div>}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingId(a.id);
+                  setForm({
+                    name: a.name,
+                    description: a.description ?? "",
+                    prompt: a.prompt,
+                    eval_llm_id: a.eval_llm_id,
+                    webhook_url: a.webhook_url ?? "",
+                    fields: a.fields,
+                  });
+                }}
+              >
+                Edit
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => void archive(a.id)}>
+                Archive
+              </Button>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 }

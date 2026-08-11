@@ -1,133 +1,27 @@
 import { useCallback, useRef, useState } from "react";
-import {
-  LiveKitRoom,
-  RoomAudioRenderer,
-  useConnectionState,
-  useLocalParticipant,
-  useDataChannel,
-} from "@livekit/components-react";
-import "@livekit/components-styles";
-import { ConnectionState } from "livekit-client";
-import AuthPanel from "./AuthPanel";
-import AgentPicker from "./AgentPicker";
-import { AgentsPanel } from "./AgentsPanel";
-import HistoryPanel from "./HistoryPanel";
-import LatencyPanel from "./LatencyPanel";
-import { PostCallAnalysesPanel } from "./PostCallAnalysesPanel";
-import ProvidersPanel from "./ProvidersPanel";
-import { api } from "./lib/api";
-import { useAuth } from "./lib/useAuth";
-import { useOrgContext } from "./lib/useOrgContext";
-import type { ProviderSelection, SessionInfo, TranscriptMessage } from "./types";
-import "./App.css";
-
-type TranscriptEntry = TranscriptMessage & { id: string };
-
-function TranscriptPanel() {
-  const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-
-  useDataChannel((msg) => {
-    try {
-      const text = new TextDecoder().decode(msg.payload);
-      const parsed = JSON.parse(text) as TranscriptMessage;
-      if (parsed.kind === "transcript" && parsed.role && parsed.text) {
-        setEntries((prev) => [
-          ...prev,
-          { ...parsed, id: `${parsed.role}-${prev.length}-${parsed.text.slice(0, 12)}` },
-        ]);
-      }
-    } catch {
-      // ignore non-transcript data messages
-    }
-  });
-
-  return (
-    <div className="transcript">
-      {entries.length === 0 && <p className="transcript-empty">Say something to start the conversation.</p>}
-      {entries.map((entry) => (
-        <div key={entry.id} className={`transcript-line transcript-${entry.role}`}>
-          <span className="transcript-role">{entry.role === "user" ? "You" : "Agent"}</span>
-          <span className="transcript-text">{entry.text}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MicToggle() {
-  const { localParticipant, isMicrophoneEnabled } = useLocalParticipant();
-
-  return (
-    <button
-      className={`mic-toggle ${isMicrophoneEnabled ? "on" : "off"}`}
-      onClick={() => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled)}
-    >
-      {isMicrophoneEnabled ? "Mute mic" : "Unmute mic"}
-    </button>
-  );
-}
-
-function StatusBadge() {
-  const state = useConnectionState();
-  const label =
-    state === ConnectionState.Connected
-      ? "Connected"
-      : state === ConnectionState.Connecting
-        ? "Connecting..."
-        : state === ConnectionState.Reconnecting
-          ? "Reconnecting..."
-          : "Disconnected";
-  return <span className={`status-badge status-${state}`}>{label}</span>;
-}
-
-function Session({ info, onEnd }: { info: SessionInfo; onEnd: () => void }) {
-  const [roomError, setRoomError] = useState<string | null>(null);
-
-  if (!info.ws_url || !info.token) {
-    // Only the livekit transport is wired up in this UI today.
-    return <p className="error">Session has no LiveKit connection info.</p>;
-  }
-
-  return (
-    <LiveKitRoom
-      serverUrl={info.ws_url}
-      token={info.token}
-      connect
-      audio
-      video={false}
-      onError={(err) => setRoomError(err.message)}
-      onDisconnected={() => {
-        // SDK already finished reconnect attempts. Clean up the server session.
-        onEnd();
-      }}
-    >
-      <RoomAudioRenderer />
-      <div className="session-header">
-        <StatusBadge />
-        <span className="room-name">{info.room_name}</span>
-      </div>
-      {roomError && <p className="error">{roomError}</p>}
-      <div className="controls">
-        <MicToggle />
-        <button className="disconnect" onClick={onEnd}>
-          Disconnect
-        </button>
-      </div>
-      <div className="session-columns">
-        <TranscriptPanel />
-        <LatencyPanel />
-      </div>
-    </LiveKitRoom>
-  );
-}
-
-type MainView = "voice" | "agents" | "analyses";
+import { Phone } from "lucide-react";
+import AgentPicker from "@/AgentPicker";
+import AuthPanel from "@/AuthPanel";
+import { AgentsPanel } from "@/AgentsPanel";
+import HistoryPanel from "@/HistoryPanel";
+import { PostCallAnalysesPanel } from "@/PostCallAnalysesPanel";
+import ProvidersPanel from "@/ProvidersPanel";
+import { AppShell } from "@/components/layout/AppShell";
+import type { AppView } from "@/components/layout/AppSidebar";
+import { VoiceSession } from "@/components/session/VoiceSession";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/useAuth";
+import { useOrgContext } from "@/lib/useOrgContext";
+import type { ProviderSelection, SessionInfo } from "@/types";
 
 function VoiceApp() {
   const { session, signOut } = useAuth();
   const { org, project, loading: orgLoading, error: orgError } = useOrgContext(true);
 
-  const [view, setView] = useState<MainView>("voice");
+  const [view, setView] = useState<AppView>("voice");
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
@@ -145,6 +39,7 @@ function VoiceApp() {
       // room teardown is best-effort; LiveKit empty_timeout is the backstop
     } finally {
       setInfo(null);
+      setView("voice");
       setHistoryKey((k) => k + 1);
     }
   }, []);
@@ -161,6 +56,7 @@ function VoiceApp() {
     try {
       const data = await api.createSession({ ...target, org_id: org.id, project_id: project.id });
       setInfo(data);
+      setView("session");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
     } finally {
@@ -172,66 +68,99 @@ function VoiceApp() {
     if (info) void endSession(info);
   }, [info, endSession]);
 
-  return (
-    <div className="app">
-      <div className="app-header">
-        <h1>Kupe Voice Agent</h1>
-        <div className="app-header-account">
-          <span className="account-email">{session?.user.email}</span>
-          {org && <span className="account-org">{org.name}</span>}
-          <button className="sign-out" onClick={() => void signOut()}>
-            Sign out
-          </button>
-        </div>
+  const titles: Record<AppView, { title: string; description: string }> = {
+    voice: {
+      title: "Voice",
+      description: "Pick an agent or providers and start a LiveKit session.",
+    },
+    agents: {
+      title: "Agents",
+      description: "Create and version voice agents for this project.",
+    },
+    analyses: {
+      title: "Post-call analyses",
+      description: "Define structured grading runs for completed sessions.",
+    },
+    session: {
+      title: "Live session",
+      description: "Connected voice room with LiveKit controls and metrics.",
+    },
+  };
+
+  const meta = titles[view];
+
+  if (orgLoading) {
+    return (
+      <div className="flex h-svh items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">Setting up your organization…</p>
       </div>
+    );
+  }
 
-      {orgLoading && <p className="transcript-empty">Setting up your organization...</p>}
-      {orgError && <p className="error">{orgError}</p>}
+  return (
+    <AppShell
+      view={view}
+      onNavigate={(next) => {
+        if (!info) setView(next);
+      }}
+      email={session?.user.email}
+      orgName={org?.name}
+      onSignOut={() => void signOut()}
+      sessionActive={Boolean(info)}
+      title={meta.title}
+      description={meta.description}
+    >
+      {orgError && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertDescription>{orgError}</AlertDescription>
+        </Alert>
+      )}
 
-      {!orgLoading && org && project && (
+      {org && project && (
         <>
-          {!info && (
-            <nav className="main-tabs">
-              <button className={view === "voice" ? "active" : ""} onClick={() => setView("voice")}>
-                Voice
-              </button>
-              <button className={view === "agents" ? "active" : ""} onClick={() => setView("agents")}>
-                Agents
-              </button>
-              <button className={view === "analyses" ? "active" : ""} onClick={() => setView("analyses")}>
-                Post-Call Analyses
-              </button>
-            </nav>
-          )}
-
           {view === "agents" && !info && <AgentsPanel orgId={org.id} projectId={project.id} />}
           {view === "analyses" && !info && <PostCallAnalysesPanel orgId={org.id} />}
 
           {view === "voice" && !info && (
-            <div className="connect-screen">
-              <AgentPicker
-                orgId={org.id}
-                projectId={project.id}
-                agentId={agentId}
-                onChange={setAgentId}
-              />
-              {!agentId && <ProvidersPanel selection={selection} onChange={setSelection} />}
-              <button
-                className="connect-button"
-                onClick={() => void handleConnect()}
-                disabled={connecting || (!agentId && !selection)}
-              >
-                {connecting ? "Connecting..." : "Connect"}
-              </button>
-              {error && <p className="error">{error}</p>}
+            <div className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Start a call</CardTitle>
+                  <CardDescription>
+                    Prefer a saved agent; otherwise pick providers for this session only.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <AgentPicker
+                    orgId={org.id}
+                    projectId={project.id}
+                    agentId={agentId}
+                    onChange={setAgentId}
+                  />
+                  {!agentId && <ProvidersPanel selection={selection} onChange={setSelection} />}
+                  <Button
+                    className="w-full"
+                    onClick={() => void handleConnect()}
+                    disabled={connecting || (!agentId && !selection)}
+                  >
+                    <Phone className="h-4 w-4" />
+                    {connecting ? "Connecting…" : "Connect"}
+                  </Button>
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+              <HistoryPanel org={org} refreshKey={historyKey} />
             </div>
           )}
-          {info && <Session info={info} onEnd={handleEnd} />}
 
-          {view === "voice" && !info && <HistoryPanel org={org} refreshKey={historyKey} />}
+          {view === "session" && info && <VoiceSession info={info} onEnd={handleEnd} />}
         </>
       )}
-    </div>
+    </AppShell>
   );
 }
 
@@ -240,16 +169,19 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="app">
-        <p className="transcript-empty">Loading...</p>
+      <div className="flex h-svh items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">Loading…</p>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="app">
-        <h1>Kupe Voice Agent</h1>
+      <div className="flex h-svh flex-col items-center justify-center gap-6 overflow-y-auto p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Kupe</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Voice agent console</p>
+        </div>
         <AuthPanel />
       </div>
     );

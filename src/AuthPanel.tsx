@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase } from "@/lib/supabase";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function AuthPanel() {
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
@@ -32,41 +37,65 @@ export default function AuthPanel() {
   };
 
   return (
-    <div className="auth-panel">
-      <h2>{mode === "sign-in" ? "Sign in" : "Create an account"}</h2>
-      <form onSubmit={handleSubmit}>
-        <label className="provider-field">
-          <span>Email</span>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
-        </label>
-        <label className="provider-field">
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
-          />
-        </label>
-        <button className="connect-button" type="submit" disabled={submitting}>
-          {submitting ? "Please wait..." : mode === "sign-in" ? "Sign in" : "Sign up"}
-        </button>
-      </form>
-      <button
-        className="auth-switch"
-        type="button"
-        onClick={() => {
-          setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-          setError(null);
-          setInfo(null);
-        }}
-      >
-        {mode === "sign-in" ? "Need an account? Sign up" : "Already have an account? Sign in"}
-      </button>
-      {info && <p className="auth-info">{info}</p>}
-      {error && <p className="error">{error}</p>}
-    </div>
+    <Card className="w-full max-w-md shadow-sm">
+      <CardHeader>
+        <CardTitle>{mode === "sign-in" ? "Sign in" : "Create an account"}</CardTitle>
+        <CardDescription>Access your organization&apos;s voice agent console.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+            />
+          </div>
+          <Button className="w-full" type="submit" disabled={submitting}>
+            {submitting ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Sign up"}
+          </Button>
+        </form>
+
+        <Button
+          variant="link"
+          className="mt-3 h-auto px-0"
+          type="button"
+          onClick={() => {
+            setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+            setError(null);
+            setInfo(null);
+          }}
+        >
+          {mode === "sign-in" ? "Need an account? Sign up" : "Already have an account? Sign in"}
+        </Button>
+
+        {info && (
+          <Alert className="mt-3">
+            <AlertDescription>{info}</AlertDescription>
+          </Alert>
+        )}
+        {error && (
+          <Alert variant="destructive" className="mt-3">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
   );
 }

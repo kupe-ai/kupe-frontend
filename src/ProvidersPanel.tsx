@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { BACKEND_URL } from "./config";
-import type { ProviderSelection, ProvidersResponse } from "./types";
+import { BACKEND_URL } from "@/config";
+import type { ProviderSelection, ProvidersResponse } from "@/types";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Props = {
   selection: ProviderSelection | null;
@@ -28,8 +31,17 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (error) return <p className="error">{error}</p>;
-  if (!data || !selection) return <p className="transcript-empty">Loading providers...</p>;
+  if (error) {
+    return (
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!data || !selection) {
+    return <p className="text-sm text-muted-foreground">Loading providers…</p>;
+  }
 
   const renderSelect = (
     label: string,
@@ -37,31 +49,31 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
     value: string,
     key: keyof ProviderSelection,
   ) => (
-    <label className="provider-field">
-      <span>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange({ ...selection, [key]: e.target.value })}
-      >
-        {items.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.provider_name} / {item.model_name}
-            {item.is_default ? " (default)" : ""}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={value} onValueChange={(v) => onChange({ ...selection, [key]: v })}>
+        <SelectTrigger>
+          <SelectValue placeholder={`Select ${label}`} />
+        </SelectTrigger>
+        <SelectContent>
+          {items.map((item) => (
+            <SelectItem key={item.id} value={item.id}>
+              {item.provider_name} / {item.model_name}
+              {item.is_default ? " (default)" : ""}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 
   return (
-    <div className="providers-panel">
-      <h2>Providers</h2>
+    <div className="space-y-4">
       {renderSelect("LLM", data.model_providers, selection.llm_id, "llm_id")}
       {renderSelect("Speech-to-text", data.transcriber_providers, selection.stt_id, "stt_id")}
       {renderSelect("Text-to-speech", data.tts_providers, selection.tts_id, "tts_id")}
-      <p className="provider-note">
-        VAD: {data.vad_providers[0]?.model_name} (local, fixed). Selection applies to this
-        session only.
+      <p className="text-xs text-muted-foreground">
+        VAD: {data.vad_providers[0]?.model_name} (local, fixed). Selection applies to this session only.
       </p>
     </div>
   );
