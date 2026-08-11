@@ -9,6 +9,7 @@ import {
 import "@livekit/components-styles";
 import { ConnectionState } from "livekit-client";
 import AuthPanel from "./AuthPanel";
+import AgentPicker from "./AgentPicker";
 import { AgentsPanel } from "./AgentsPanel";
 import HistoryPanel from "./HistoryPanel";
 import LatencyPanel from "./LatencyPanel";
@@ -129,6 +130,7 @@ function VoiceApp() {
   const [view, setView] = useState<MainView>("voice");
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
@@ -148,19 +150,23 @@ function VoiceApp() {
   }, []);
 
   const handleConnect = useCallback(async () => {
-    if (!selection || !org || !project) return;
+    if (!org || !project) return;
+    // An agent supersedes raw provider ids -- the backend resolves and
+    // snapshots providers from the agent, and sending both would be ambiguous.
+    const target = agentId ? { agent_id: agentId } : selection ? { ...selection } : null;
+    if (!target) return;
     setConnecting(true);
     setError(null);
     endingRef.current = false;
     try {
-      const data = await api.createSession({ ...selection, org_id: org.id, project_id: project.id });
+      const data = await api.createSession({ ...target, org_id: org.id, project_id: project.id });
       setInfo(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect");
     } finally {
       setConnecting(false);
     }
-  }, [selection, org, project]);
+  }, [agentId, selection, org, project]);
 
   const handleEnd = useCallback(() => {
     if (info) void endSession(info);
@@ -203,8 +209,18 @@ function VoiceApp() {
 
           {view === "voice" && !info && (
             <div className="connect-screen">
-              <ProvidersPanel selection={selection} onChange={setSelection} />
-              <button className="connect-button" onClick={handleConnect} disabled={connecting || !selection}>
+              <AgentPicker
+                orgId={org.id}
+                projectId={project.id}
+                agentId={agentId}
+                onChange={setAgentId}
+              />
+              {!agentId && <ProvidersPanel selection={selection} onChange={setSelection} />}
+              <button
+                className="connect-button"
+                onClick={() => void handleConnect()}
+                disabled={connecting || (!agentId && !selection)}
+              >
                 {connecting ? "Connecting..." : "Connect"}
               </button>
               {error && <p className="error">{error}</p>}
