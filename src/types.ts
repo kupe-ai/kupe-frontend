@@ -36,9 +36,10 @@ export type Project = {
   archived_at: string | null;
 };
 
-export type CreateSessionBody = ProviderSelection & {
+export type CreateSessionBody = Partial<ProviderSelection> & {
   org_id: string;
   project_id: string;
+  agent_id?: string;
   transport?: "livekit" | "realtime_ws";
   record?: boolean;
 };
@@ -93,4 +94,71 @@ export type TranscriptMessage = {
   kind: "transcript";
   role: "user" | "assistant";
   text: string;
+};
+
+export type AnalysisFieldType = "string" | "number" | "boolean" | "enum";
+
+export type AnalysisField = {
+  name: string;
+  type: AnalysisFieldType;
+  description: string;
+  enum_values?: string[] | null;
+};
+
+export type PostCallAnalysis = {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string | null;
+  prompt: string;
+  eval_llm_id: string;
+  fields: AnalysisField[];
+  webhook_url: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+export type Agent = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  name: string;
+  system_prompt: string;
+  greeting: string | null;
+  llm_id: string;
+  stt_id: string;
+  tts_id: string;
+  tts_voice_id: string | null;
+  config: Record<string, unknown>;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+export type AgentVersion = {
+  version: number;
+  snapshot: Record<string, unknown>;
+  changed_by: string | null;
+  created_at: string;
+};
+
+export type TranscriptTurn = { role: string; text: string; ts?: string | null };
+
+export type TranscriptInfo = {
+  session_id: string;
+  transcript: string;
+  turns: TranscriptTurn[];
+  created_at: string;
+};
+
+export type AnalysisResult = {
+  post_call_analysis_id: string;
+  name: string;
+  status: "pending" | "skipped" | "completed" | "failed";
+  result: Record<string, unknown> | null;
+  error: string | null;
+  created_at: string;
+  completed_at: string | null;
 };
