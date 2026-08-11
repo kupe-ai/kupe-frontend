@@ -9,8 +9,10 @@ import {
 import "@livekit/components-styles";
 import { ConnectionState } from "livekit-client";
 import AuthPanel from "./AuthPanel";
+import { AgentsPanel } from "./AgentsPanel";
 import HistoryPanel from "./HistoryPanel";
 import LatencyPanel from "./LatencyPanel";
+import { PostCallAnalysesPanel } from "./PostCallAnalysesPanel";
 import ProvidersPanel from "./ProvidersPanel";
 import { api } from "./lib/api";
 import { useAuth } from "./lib/useAuth";
@@ -118,10 +120,13 @@ function Session({ info, onEnd }: { info: SessionInfo; onEnd: () => void }) {
   );
 }
 
+type MainView = "voice" | "agents" | "analyses";
+
 function VoiceApp() {
   const { session, signOut } = useAuth();
   const { org, project, loading: orgLoading, error: orgError } = useOrgContext(true);
 
+  const [view, setView] = useState<MainView>("voice");
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -180,6 +185,23 @@ function VoiceApp() {
       {!orgLoading && org && project && (
         <>
           {!info && (
+            <nav className="main-tabs">
+              <button className={view === "voice" ? "active" : ""} onClick={() => setView("voice")}>
+                Voice
+              </button>
+              <button className={view === "agents" ? "active" : ""} onClick={() => setView("agents")}>
+                Agents
+              </button>
+              <button className={view === "analyses" ? "active" : ""} onClick={() => setView("analyses")}>
+                Post-Call Analyses
+              </button>
+            </nav>
+          )}
+
+          {view === "agents" && !info && <AgentsPanel orgId={org.id} projectId={project.id} />}
+          {view === "analyses" && !info && <PostCallAnalysesPanel orgId={org.id} />}
+
+          {view === "voice" && !info && (
             <div className="connect-screen">
               <ProvidersPanel selection={selection} onChange={setSelection} />
               <button className="connect-button" onClick={handleConnect} disabled={connecting || !selection}>
@@ -190,7 +212,7 @@ function VoiceApp() {
           )}
           {info && <Session info={info} onEnd={handleEnd} />}
 
-          {!info && <HistoryPanel org={org} refreshKey={historyKey} />}
+          {view === "voice" && !info && <HistoryPanel org={org} refreshKey={historyKey} />}
         </>
       )}
     </div>

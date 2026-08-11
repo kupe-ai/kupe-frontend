@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./lib/api";
 import { supabase } from "./lib/supabase";
-import type { Organization, UsageSummaryRow } from "./types";
+import type { AnalysisResult, Organization, TranscriptInfo, UsageSummaryRow } from "./types";
 
 type SessionRow = {
   id: string;
@@ -31,6 +31,22 @@ export default function HistoryPanel({ org, refreshKey }: { org: Organization; r
   const [recordings, setRecordings] = useState<Record<string, RecordingRow>>({});
   const [usage, setUsage] = useState<UsageSummaryRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [transcript, setTranscript] = useState<TranscriptInfo | null>(null);
+  const [results, setResults] = useState<AnalysisResult[]>([]);
+
+  async function toggleExpand(sessionId: string) {
+    if (expandedId === sessionId) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(sessionId);
+    setTranscript(null);
+    setResults([]);
+    const [t, r] = await Promise.allSettled([api.getTranscript(sessionId), api.getAnalysisResults(sessionId)]);
+    setTranscript(t.status === "fulfilled" ? t.value : null);
+    setResults(r.status === "fulfilled" ? r.value : []);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -77,13 +93,33 @@ export default function HistoryPanel({ org, refreshKey }: { org: Organization; r
       {sessions.map((s) => {
         const recording = recordings[s.id];
         return (
-          <div key={s.id} className="history-row">
-            <span className={`status-badge status-${s.status}`}>{s.status}</span>
-            <span className="room-name">{new Date(s.created_at).toLocaleString()}</span>
-            <span className="history-providers">
-              {s.llm_id.slice(0, 8)} / {s.stt_id.slice(0, 8)} / {s.tts_id.slice(0, 8)}
-            </span>
-            {recording && <span className="history-recording">recording: {recording.status}</span>}
+          <div key={s.id} className="history-row-wrapper">
+            <div className="history-row">
+              <span className={`status-badge status-${s.status}`}>{s.status}</span>
+              <span className="room-name">{new Date(s.created_at).toLocaleString()}</span>
+              <span className="history-providers">
+                {s.llm_id.slice(0, 8)} / {s.stt_id.slice(0, 8)} / {s.tts_id.slice(0, 8)}
+              </span>
+              {recording && <span className="history-recording">recording: {recording.status}</span>}
+              <button className="history-expand" onClick={() => void toggleExpand(s.id)}>
+                {expandedId === s.id ? "Hide details" : "Show details"}
+              </button>
+            </div>
+            {expandedId === s.id && (
+              <div className="session-detail">
+                <h4>Transcript</h4>
+                <pre>{transcript?.transcript ?? "No transcript captured."}</pre>
+                <h4>Post-call analysis</h4>
+                {results.length === 0 && <p>No analyses attached or still pending.</p>}
+                {results.map((r) => (
+                  <div key={r.post_call_analysis_id}>
+                    <strong>{r.name}</strong> — {r.status}
+                    {r.result && <pre>{JSON.stringify(r.result, null, 2)}</pre>}
+                    {r.error && <p className="error">{r.error}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
