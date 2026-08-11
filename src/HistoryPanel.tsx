@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "./lib/api";
 import { supabase } from "./lib/supabase";
 import type { AnalysisResult, Organization, TranscriptInfo, UsageSummaryRow } from "./types";
@@ -32,18 +32,22 @@ export default function HistoryPanel({ org, refreshKey }: { org: Organization; r
   const [usage, setUsage] = useState<UsageSummaryRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const expandedIdRef = useRef<string | null>(null);
   const [transcript, setTranscript] = useState<TranscriptInfo | null>(null);
   const [results, setResults] = useState<AnalysisResult[]>([]);
 
   async function toggleExpand(sessionId: string) {
-    if (expandedId === sessionId) {
+    if (expandedIdRef.current === sessionId) {
+      expandedIdRef.current = null;
       setExpandedId(null);
       return;
     }
+    expandedIdRef.current = sessionId;
     setExpandedId(sessionId);
     setTranscript(null);
     setResults([]);
     const [t, r] = await Promise.allSettled([api.getTranscript(sessionId), api.getAnalysisResults(sessionId)]);
+    if (expandedIdRef.current !== sessionId) return;
     setTranscript(t.status === "fulfilled" ? t.value : null);
     setResults(r.status === "fulfilled" ? r.value : []);
   }
