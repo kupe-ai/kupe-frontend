@@ -1,9 +1,17 @@
+export type ProviderVoice = {
+  id: string;
+  voice_id: string;
+  voice_name: string;
+  supported_languages?: string[];
+};
+
 export type ProviderOption = {
   id: string;
   provider_name: string;
   model_name: string;
   is_default?: boolean;
   default_voice?: string;
+  voices?: ProviderVoice[];
 };
 
 export type ProviderSelection = {
