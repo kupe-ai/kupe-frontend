@@ -29,6 +29,13 @@ export type ProvidersResponse = {
   selected?: ProviderSelection;
 };
 
+export type Page<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type Organization = {
   id: string;
   name: string;
@@ -48,7 +55,9 @@ export type CreateSessionBody = Partial<ProviderSelection> & {
   org_id: string;
   project_id: string;
   agent_id?: string;
-  transport?: "livekit" | "realtime_ws";
+  post_call_analysis_ids?: string[];
+  channel?: "web" | "telephony";
+  provider?: "twilio" | "plivo";
   record?: boolean;
 };
 
@@ -56,11 +65,18 @@ export type SessionInfo = {
   session_id: string;
   org_id: string;
   project_id: string;
+  channel: string;
+  provider?: string | null;
   transport: string;
   status: string;
   room_name: string | null;
-  ws_url: string | null;
-  token: string | null;
+  ws_url?: string | null;
+  token?: string | null;
+  media_ws_url?: string | null;
+  ws_ticket?: string | null;
+  llm_id: string;
+  stt_id: string;
+  tts_id: string;
   created_at: string;
   ended_at: string | null;
 };
@@ -72,13 +88,39 @@ export type UsageSummaryRow = {
   total_quantity: number;
 };
 
+export type SessionUsageMetric = {
+  metric_type: string;
+  provider_name: string;
+  model_name: string;
+  total_quantity: number;
+};
+
+export type SessionUsage = {
+  session_id: string;
+  created_at: string | null;
+  status: string | null;
+  metrics: SessionUsageMetric[];
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+};
+
 export type Recording = {
   id: string;
   session_id: string;
+  org_id: string;
+  project_id: string;
   status: string;
   storage_path: string | null;
   duration_seconds: number | null;
   size_bytes: number | null;
+  created_at: string | null;
+  ended_at: string | null;
+};
+
+export type PlaybackUrl = {
+  url: string;
+  expires_in: number;
 };
 
 export type TTFBEntry = {
@@ -126,6 +168,8 @@ export type PostCallAnalysis = {
   updated_at: string;
   archived_at: string | null;
 };
+
+export type AgentAnalysis = PostCallAnalysis & { enabled: boolean };
 
 export type Agent = {
   id: string;

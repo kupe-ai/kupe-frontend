@@ -1,9 +1,9 @@
-import { AudioLines, Bot, FileSearch, LogOut, Phone } from "lucide-react";
+import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, LogOut, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-export type AppView = "voice" | "agents" | "analyses" | "session";
+export type AppView = "voice" | "agents" | "analyses" | "usage" | "recordings" | "session";
 
 type Props = {
   view: AppView;
@@ -18,6 +18,8 @@ const NAV: { id: Exclude<AppView, "session">; label: string; icon: typeof Phone 
   { id: "voice", label: "Voice", icon: Phone },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "analyses", label: "Analyses", icon: FileSearch },
+  { id: "usage", label: "Usage", icon: CircleGauge },
+  { id: "recordings", label: "Recordings", icon: Disc3 },
 ];
 
 export function AppSidebar({ view, onNavigate, email, orgName, onSignOut, sessionActive }: Props) {

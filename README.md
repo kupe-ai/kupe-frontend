@@ -35,6 +35,6 @@ Supabase reads (for data with no dedicated CRUD endpoint, like the session
 list) with CRUD's summarized usage endpoint — the same hybrid pattern the
 backend was designed around.
 
-Only the LiveKit/WebRTC transport is wired up in this UI (`transport:
-"livekit"`, the default) — the Realtime WS gateway is for API clients that
-want an OpenAI-Realtime-shaped integration, not this browser UI.
+Only the web/LiveKit channel is wired up in this UI (`channel: "web"`, the
+default). Telephony sessions (`channel: "telephony"` + Twilio/Plivo) connect
+a provider media stream to the agents `/v1/media` WebSocket, not this browser.

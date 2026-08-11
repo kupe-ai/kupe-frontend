@@ -23,8 +23,8 @@ export default function AgentPicker({ orgId, projectId, agentId, onChange }: Pro
 
   useEffect(() => {
     api
-      .listAgents(orgId, projectId)
-      .then(setAgents)
+      .listAgents(orgId, projectId, { limit: 100 })
+      .then((page) => setAgents(page.items))
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load agents"));
   }, [orgId, projectId]);
 

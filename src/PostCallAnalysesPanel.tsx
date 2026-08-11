@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { BACKEND_URL } from "@/config";
+import { PaginationControls } from "@/components/PaginationControls";
 import { api } from "@/lib/api";
-import type { AnalysisField, AnalysisFieldType, PostCallAnalysis } from "@/types";
+import type { AnalysisField, AnalysisFieldType, PostCallAnalysis, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 type Props = { orgId: string };
 
 const FIELD_TYPES: AnalysisFieldType[] = ["string", "number", "boolean", "enum"];
+const PAGE_SIZE = 20;
 
 const EMPTY_FORM = {
   name: "",
@@ -24,16 +27,36 @@ const EMPTY_FORM = {
 
 export function PostCallAnalysesPanel({ orgId }: Props) {
   const [analyses, setAnalyses] = useState<PostCallAnalysis[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [providers, setProviders] = useState<ProvidersResponse | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => api.listAnalyses(orgId).then(setAnalyses).catch((e) => setError(e.message));
+  const refresh = () =>
+    api
+      .listAnalyses(orgId, { limit: PAGE_SIZE, offset })
+      .then((page) => {
+        setAnalyses(page.items);
+        setTotal(page.total);
+      })
+      .catch((e) => setError(e.message));
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/v1/providers`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Backend returned ${res.status}`);
+        return res.json();
+      })
+      .then((res: ProvidersResponse) => setProviders(res))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
+  }, [orgId, offset]);
 
   function addField() {
     setForm({ ...form, fields: [...form.fields, { name: "", type: "string", description: "" }] });
@@ -103,11 +126,22 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Eval LLM provider id</Label>
-              <Input
-                value={form.eval_llm_id}
-                onChange={(e) => setForm({ ...form, eval_llm_id: e.target.value })}
-              />
+              <Label>Eval LLM</Label>
+              <Select
+                value={form.eval_llm_id || undefined}
+                onValueChange={(v) => setForm({ ...form, eval_llm_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select LLM" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers?.model_providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.provider_name} / {p.model_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Webhook URL</Label>
@@ -216,6 +250,7 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
               </Button>
             </div>
           ))}
+          <PaginationControls total={total} limit={PAGE_SIZE} offset={offset} onPageChange={setOffset} />
         </CardContent>
       </Card>
     </div>

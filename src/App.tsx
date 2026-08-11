@@ -1,17 +1,21 @@
 import { useCallback, useRef, useState } from "react";
 import { Phone } from "lucide-react";
 import AgentPicker from "@/AgentPicker";
+import AnalysisPicker from "@/AnalysisPicker";
 import AuthPanel from "@/AuthPanel";
 import { AgentsPanel } from "@/AgentsPanel";
 import HistoryPanel from "@/HistoryPanel";
 import { PostCallAnalysesPanel } from "@/PostCallAnalysesPanel";
 import ProvidersPanel from "@/ProvidersPanel";
+import { RecordingsPanel } from "@/RecordingsPanel";
+import { UsagePanel } from "@/UsagePanel";
 import { AppShell } from "@/components/layout/AppShell";
 import type { AppView } from "@/components/layout/AppSidebar";
 import { VoiceSession } from "@/components/session/VoiceSession";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 import { useOrgContext } from "@/lib/useOrgContext";
@@ -25,6 +29,7 @@ function VoiceApp() {
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [analysisIds, setAnalysisIds] = useState<string[]>([]);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
@@ -54,7 +59,12 @@ function VoiceApp() {
     setError(null);
     endingRef.current = false;
     try {
-      const data = await api.createSession({ ...target, org_id: org.id, project_id: project.id });
+      const data = await api.createSession({
+        ...target,
+        org_id: org.id,
+        project_id: project.id,
+        post_call_analysis_ids: analysisIds,
+      });
       setInfo(data);
       setView("session");
     } catch (err) {
@@ -62,7 +72,7 @@ function VoiceApp() {
     } finally {
       setConnecting(false);
     }
-  }, [agentId, selection, org, project]);
+  }, [agentId, selection, analysisIds, org, project]);
 
   const handleEnd = useCallback(() => {
     if (info) void endSession(info);
@@ -80,6 +90,14 @@ function VoiceApp() {
     analyses: {
       title: "Post-call analyses",
       description: "Define structured grading runs for completed sessions.",
+    },
+    usage: {
+      title: "Usage",
+      description: "Per-call token and provider usage for this organization.",
+    },
+    recordings: {
+      title: "Recordings",
+      description: "Browse and play call recordings.",
     },
     session: {
       title: "Live session",
@@ -120,6 +138,8 @@ function VoiceApp() {
         <>
           {view === "agents" && !info && <AgentsPanel orgId={org.id} projectId={project.id} />}
           {view === "analyses" && !info && <PostCallAnalysesPanel orgId={org.id} />}
+          {view === "usage" && !info && <UsagePanel orgId={org.id} />}
+          {view === "recordings" && !info && <RecordingsPanel orgId={org.id} />}
 
           {view === "voice" && !info && (
             <div className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-[0.9fr_1.1fr]">
@@ -138,6 +158,13 @@ function VoiceApp() {
                     onChange={setAgentId}
                   />
                   {!agentId && <ProvidersPanel selection={selection} onChange={setSelection} />}
+                  <Separator />
+                  <AnalysisPicker
+                    orgId={org.id}
+                    agentId={agentId}
+                    selectedIds={analysisIds}
+                    onChange={setAnalysisIds}
+                  />
                   <Button
                     className="w-full"
                     onClick={() => void handleConnect()}

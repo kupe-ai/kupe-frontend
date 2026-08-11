@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@/config";
+import { PaginationControls } from "@/components/PaginationControls";
 import { api } from "@/lib/api";
-import type { Agent, AgentVersion, PostCallAnalysis, ProvidersResponse } from "@/types";
+import type { Agent, AgentAnalysis, AgentVersion, PostCallAnalysis, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,19 +24,32 @@ const EMPTY_FORM = {
   tts_voice_id: "",
 };
 
+const PAGE_SIZE = 20;
+
 export function AgentsPanel({ orgId, projectId }: Props) {
   const [providers, setProviders] = useState<ProvidersResponse | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsTotal, setAgentsTotal] = useState(0);
+  const [agentsOffset, setAgentsOffset] = useState(0);
   const [orgAnalyses, setOrgAnalyses] = useState<PostCallAnalysis[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [attachedAnalyses, setAttachedAnalyses] = useState<PostCallAnalysis[]>([]);
+  const [attachedAnalyses, setAttachedAnalyses] = useState<AgentAnalysis[]>([]);
+  const [attachSelectId, setAttachSelectId] = useState<string>("");
   const [versions, setVersions] = useState<AgentVersion[]>([]);
+  const [versionsTotal, setVersionsTotal] = useState(0);
+  const [versionsOffset, setVersionsOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = () => {
-    api.listAgents(orgId, projectId).then(setAgents).catch((e) => setError(e.message));
+  const refreshAgents = () => {
+    api
+      .listAgents(orgId, projectId, { limit: PAGE_SIZE, offset: agentsOffset })
+      .then((page) => {
+        setAgents(page.items);
+        setAgentsTotal(page.total);
+      })
+      .catch((e) => setError(e.message));
   };
 
   useEffect(() => {
@@ -46,10 +60,14 @@ export function AgentsPanel({ orgId, projectId }: Props) {
       })
       .then((res: ProvidersResponse) => setProviders(res))
       .catch(() => {});
-    refresh();
-    api.listAnalyses(orgId).then(setOrgAnalyses).catch(() => {});
+    api.listAnalyses(orgId, { limit: 100 }).then((page) => setOrgAnalyses(page.items)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orgId, projectId]);
+
+  useEffect(() => {
+    refreshAgents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId, projectId, agentsOffset]);
 
   const ttsVoices = providers?.tts_providers.find((p) => p.id === form.tts_id);
 
@@ -63,31 +81,58 @@ export function AgentsPanel({ orgId, projectId }: Props) {
       }
       setForm(EMPTY_FORM);
       setEditingId(null);
-      refresh();
+      refreshAgents();
     } catch (e) {
       setError((e as Error).message);
     }
   }
 
-  async function selectAgent(agent: Agent) {
-    setSelectedAgent(agent);
-    setAttachedAnalyses(await api.listAgentAnalyses(agent.id));
-    setVersions(await api.listAgentVersions(agent.id));
+  async function loadAttachments(agentId: string) {
+    const page = await api.listAgentAnalyses(agentId, { limit: 100 });
+    setAttachedAnalyses(page.items);
   }
 
-  async function toggleAnalysis(analysis: PostCallAnalysis, attach: boolean) {
+  async function loadVersions(agentId: string, offset = versionsOffset) {
+    const page = await api.listAgentVersions(agentId, { limit: PAGE_SIZE, offset });
+    setVersions(page.items);
+    setVersionsTotal(page.total);
+  }
+
+  async function selectAgent(agent: Agent) {
+    setSelectedAgent(agent);
+    setAttachSelectId("");
+    setVersionsOffset(0);
+    await loadAttachments(agent.id);
+    await loadVersions(agent.id, 0);
+  }
+
+  async function addAnalysis() {
+    if (!selectedAgent || !attachSelectId) return;
+    await api.attachAnalysis(selectedAgent.id, attachSelectId, true);
+    setAttachSelectId("");
+    await loadAttachments(selectedAgent.id);
+  }
+
+  async function toggleAnalysis(analysis: AgentAnalysis, enabled: boolean) {
     if (!selectedAgent) return;
-    if (attach) await api.attachAnalysis(selectedAgent.id, analysis.id);
-    else await api.detachAnalysis(selectedAgent.id, analysis.id);
-    setAttachedAnalyses(await api.listAgentAnalyses(selectedAgent.id));
+    await api.attachAnalysis(selectedAgent.id, analysis.id, enabled);
+    await loadAttachments(selectedAgent.id);
+  }
+
+  async function removeAnalysis(analysisId: string) {
+    if (!selectedAgent) return;
+    await api.detachAnalysis(selectedAgent.id, analysisId);
+    await loadAttachments(selectedAgent.id);
   }
 
   async function revert(version: number) {
     if (!selectedAgent) return;
     const updated = await api.revertAgent(selectedAgent.id, version);
-    refresh();
+    refreshAgents();
     selectAgent(updated);
   }
+
+  const availableToAttach = orgAnalyses.filter((a) => !attachedAnalyses.some((x) => x.id === a.id));
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
@@ -244,12 +289,18 @@ export function AgentsPanel({ orgId, projectId }: Props) {
                   >
                     Edit
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => void api.archiveAgent(a.id).then(refresh)}>
+                  <Button variant="ghost" size="sm" onClick={() => void api.archiveAgent(a.id).then(refreshAgents)}>
                     Archive
                   </Button>
                 </div>
               </div>
             ))}
+            <PaginationControls
+              total={agentsTotal}
+              limit={PAGE_SIZE}
+              offset={agentsOffset}
+              onPageChange={setAgentsOffset}
+            />
           </CardContent>
         </Card>
 
@@ -260,23 +311,51 @@ export function AgentsPanel({ orgId, projectId }: Props) {
               <CardDescription>Post-call analyses and version history.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Analyses</div>
-                {orgAnalyses.map((analysis) => {
-                  const attached = attachedAnalyses.some((a) => a.id === analysis.id);
-                  return (
-                    <label key={analysis.id} className="flex items-center gap-2 text-sm">
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Post-call analyses</div>
+                <div className="flex flex-wrap gap-2">
+                  <Select value={attachSelectId || undefined} onValueChange={setAttachSelectId}>
+                    <SelectTrigger className="min-w-[220px] flex-1">
+                      <SelectValue placeholder="Select analysis" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableToAttach.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button onClick={() => void addAnalysis()} disabled={!attachSelectId}>
+                    Add
+                  </Button>
+                </div>
+                {attachedAnalyses.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No analyses attached yet.</p>
+                )}
+                {attachedAnalyses.map((analysis) => (
+                  <div
+                    key={analysis.id}
+                    className="flex flex-wrap items-center gap-3 rounded-md border border-border p-2 text-sm"
+                  >
+                    <label className="flex items-center gap-2">
                       <Checkbox
-                        checked={attached}
+                        checked={analysis.enabled}
                         onCheckedChange={(checked) => void toggleAnalysis(analysis, checked === true)}
                       />
-                      {analysis.name}
+                      <span>{analysis.name}</span>
                     </label>
-                  );
-                })}
-                {orgAnalyses.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No analyses defined yet.</p>
-                )}
+                    <BadgeLike enabled={analysis.enabled} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => void removeAnalysis(analysis.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ))}
               </div>
 
               <div className="space-y-2">
@@ -294,11 +373,28 @@ export function AgentsPanel({ orgId, projectId }: Props) {
                     </Button>
                   </div>
                 ))}
+                <PaginationControls
+                  total={versionsTotal}
+                  limit={PAGE_SIZE}
+                  offset={versionsOffset}
+                  onPageChange={(next) => {
+                    setVersionsOffset(next);
+                    if (selectedAgent) void loadVersions(selectedAgent.id, next);
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
         )}
       </div>
     </div>
+  );
+}
+
+function BadgeLike({ enabled }: { enabled: boolean }) {
+  return (
+    <span className={`text-xs ${enabled ? "text-emerald-700" : "text-muted-foreground"}`}>
+      {enabled ? "Enabled" : "Disabled"}
+    </span>
   );
 }

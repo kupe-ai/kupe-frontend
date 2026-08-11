@@ -26,18 +26,18 @@ export function useOrgContext(enabled: boolean) {
     setError(null);
     (async () => {
       try {
-        const orgs = await api.listOrgs();
+        const orgsPage = await api.listOrgs({ limit: 100 });
         if (cancelled) return;
-        const firstOrg = orgs[0] ?? null;
+        const firstOrg = orgsPage.items[0] ?? null;
         setOrg(firstOrg);
         if (!firstOrg) {
           setError("No organization yet — sign out and create a new account, or create an org via the API.");
           return;
         }
-        const projects = await api.listProjects(firstOrg.id);
+        const projectsPage = await api.listProjects(firstOrg.id, { limit: 100 });
         if (cancelled) return;
-        setProject(projects[0] ?? null);
-        if (!projects[0]) {
+        setProject(projectsPage.items[0] ?? null);
+        if (!projectsPage.items[0]) {
           setError("Your organization has no projects yet.");
         }
       } catch (err) {
