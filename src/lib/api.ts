@@ -3,9 +3,16 @@ import { supabase } from "./supabase";
 import type {
   Agent,
   AgentAnalysis,
+  AgentTool,
   AgentVersion,
   AnalysisResult,
+  ApiKey,
+  CatalogTool,
   CreateSessionBody,
+  CreatedApiKey,
+  Flow,
+  Member,
+  Membership,
   Organization,
   Page,
   PlaybackUrl,
@@ -62,8 +69,32 @@ async function authedJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   listOrgs: (params?: ListParams) => authedJson<Page<Organization>>(`/v1/orgs${qs(params)}`),
+  createOrg: (name: string) =>
+    authedJson<Organization>("/v1/orgs", { method: "POST", body: JSON.stringify({ name }) }),
+  getMembership: (orgId: string) => authedJson<Membership>(`/v1/orgs/${orgId}/members/me`),
+  listMembers: (orgId: string, params?: ListParams) =>
+    authedJson<Page<Member>>(`/v1/orgs/${orgId}/members${qs(params)}`),
+  addMember: (orgId: string, body: { email: string; role: string; project_ids?: string[] }) =>
+    authedJson<Member>(`/v1/orgs/${orgId}/members`, { method: "POST", body: JSON.stringify(body) }),
+  updateMember: (orgId: string, userId: string, body: { role: string; project_ids?: string[] }) =>
+    authedJson<Member>(`/v1/orgs/${orgId}/members/${userId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  removeMember: (orgId: string, userId: string) =>
+    authedJson<{ status: string }>(`/v1/orgs/${orgId}/members/${userId}`, { method: "DELETE" }),
   listProjects: (orgId: string, params?: ListParams) =>
     authedJson<Page<Project>>(`/v1/orgs/${orgId}/projects${qs(params)}`),
+  createProject: (orgId: string, name: string) =>
+    authedJson<Project>(`/v1/orgs/${orgId}/projects`, { method: "POST", body: JSON.stringify({ name }) }),
+  archiveProject: (projectId: string) =>
+    authedJson<Project>(`/v1/projects/${projectId}/archive`, { method: "POST" }),
+  listApiKeys: (projectId: string, params?: ListParams) =>
+    authedJson<Page<ApiKey>>(`/v1/projects/${projectId}/api-keys${qs(params)}`),
+  createApiKey: (projectId: string, name: string) =>
+    authedJson<CreatedApiKey>(`/v1/projects/${projectId}/api-keys`, {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  revokeApiKey: (projectId: string, keyId: string) =>
+    authedJson<ApiKey>(`/v1/projects/${projectId}/api-keys/${keyId}`, { method: "DELETE" }),
   createSession: (body: CreateSessionBody) =>
     authedJson<SessionInfo>("/v1/sessions", { method: "POST", body: JSON.stringify(body) }),
   endSession: (sessionId: string) => authedJson<SessionInfo>(`/v1/sessions/${sessionId}/end`, { method: "POST" }),
@@ -85,6 +116,7 @@ export const api = {
   // Agents
   listAgents: (orgId: string, projectId: string, params?: ListParams) =>
     authedJson<Page<Agent>>(`/v1/orgs/${orgId}/projects/${projectId}/agents${qs(params)}`),
+  getAgent: (agentId: string) => authedJson<Agent>(`/v1/agents/${agentId}`),
   createAgent: (orgId: string, projectId: string, body: Partial<Agent>) =>
     authedJson<Agent>(`/v1/orgs/${orgId}/projects/${projectId}/agents`, { method: "POST", body: JSON.stringify(body) }),
   updateAgent: (agentId: string, body: Partial<Agent>) =>
@@ -118,4 +150,39 @@ export const api = {
   getTranscript: (sessionId: string) => authedJson<TranscriptInfo>(`/v1/sessions/${sessionId}/transcript`),
   getAnalysisResults: (sessionId: string, params?: ListParams) =>
     authedJson<Page<AnalysisResult>>(`/v1/sessions/${sessionId}/analysis${qs(params)}`),
+
+  listTools: (orgId: string, params?: ListParams) =>
+    authedJson<Page<CatalogTool>>(`/v1/orgs/${orgId}/tools${qs(params)}`),
+  createTool: (orgId: string, body: Partial<CatalogTool> & { http_headers?: Record<string, string> }) =>
+    authedJson<CatalogTool>(`/v1/orgs/${orgId}/tools`, { method: "POST", body: JSON.stringify(body) }),
+  updateTool: (toolId: string, body: Partial<CatalogTool> & { http_headers?: Record<string, string> }) =>
+    authedJson<CatalogTool>(`/v1/tools/${toolId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  archiveTool: (toolId: string) => authedJson<CatalogTool>(`/v1/tools/${toolId}/archive`, { method: "POST" }),
+  listAgentTools: (agentId: string, params?: ListParams) =>
+    authedJson<Page<AgentTool>>(`/v1/agents/${agentId}/tools${qs(params)}`),
+  attachAgentTool: (agentId: string, toolId: string, enabled = true) =>
+    authedJson(`/v1/agents/${agentId}/tools`, { method: "POST", body: JSON.stringify({ tool_id: toolId, enabled }) }),
+  detachAgentTool: (agentId: string, toolId: string) =>
+    authedJson(`/v1/agents/${agentId}/tools/${toolId}`, { method: "DELETE" }),
+  listAnalysisTools: (analysisId: string, params?: ListParams) =>
+    authedJson<Page<AgentTool>>(`/v1/post-call-analyses/${analysisId}/tools${qs(params)}`),
+  attachAnalysisTool: (analysisId: string, toolId: string, enabled = true) =>
+    authedJson(`/v1/post-call-analyses/${analysisId}/tools`, {
+      method: "POST",
+      body: JSON.stringify({ tool_id: toolId, enabled }),
+    }),
+  detachAnalysisTool: (analysisId: string, toolId: string) =>
+    authedJson(`/v1/post-call-analyses/${analysisId}/tools/${toolId}`, { method: "DELETE" }),
+
+  listFlows: (orgId: string, projectId: string, params?: ListParams) =>
+    authedJson<Page<Flow>>(`/v1/orgs/${orgId}/projects/${projectId}/flows${qs(params)}`),
+  createFlow: (orgId: string, projectId: string, body: Partial<Flow>) =>
+    authedJson<Flow>(`/v1/orgs/${orgId}/projects/${projectId}/flows`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getFlow: (flowId: string) => authedJson<Flow>(`/v1/flows/${flowId}`),
+  updateFlow: (flowId: string, body: Partial<Flow>) =>
+    authedJson<Flow>(`/v1/flows/${flowId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  archiveFlow: (flowId: string) => authedJson<Flow>(`/v1/flows/${flowId}/archive`, { method: "POST" }),
 };

@@ -171,6 +171,17 @@ export type PostCallAnalysis = {
 
 export type AgentAnalysis = PostCallAnalysis & { enabled: boolean };
 
+/** Feature knobs persisted on `agents.config` (jsonb). */
+export type AgentConfig = {
+  temperature?: number;
+  max_tokens?: number;
+  language?: string;
+  allow_interruptions?: boolean;
+  end_on_silence_ms?: number;
+  max_call_duration_seconds?: number;
+  record_calls?: boolean;
+};
+
 export type Agent = {
   id: string;
   org_id: string;
@@ -182,7 +193,8 @@ export type Agent = {
   stt_id: string;
   tts_id: string;
   tts_voice_id: string | null;
-  config: Record<string, unknown>;
+  config: AgentConfig;
+  flow_id: string | null;
   version: number;
   created_at: string;
   updated_at: string;
@@ -203,6 +215,80 @@ export type TranscriptInfo = {
   transcript: string;
   turns: TranscriptTurn[];
   created_at: string;
+};
+
+export type Member = {
+  user_id: string;
+  email: string;
+  role: "owner" | "admin" | "member";
+  created_at: string;
+  project_ids: string[];
+};
+
+export type Membership = {
+  org_id: string;
+  user_id: string;
+  role: "owner" | "admin" | "member" | "api_key";
+  project_ids: string[];
+};
+
+export type ApiKey = {
+  id: string;
+  project_id: string;
+  org_id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  revoked_at: string | null;
+  last_used_at: string | null;
+};
+
+export type CreatedApiKey = ApiKey & { api_key: string };
+
+export type CatalogTool = {
+  id: string;
+  org_id: string;
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  required: string[];
+  http_url: string | null;
+  http_method: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+export type AgentTool = CatalogTool & { enabled: boolean };
+
+export type FlowDefinition = {
+  initial_node: string;
+  nodes: Record<string, FlowNode>;
+};
+
+export type FlowNodeFunction =
+  | { kind: "transition"; name: string; description: string; next_node: string }
+  | { kind: "tool"; tool_id: string };
+
+export type FlowNode = {
+  name: string;
+  role_message?: string;
+  task_messages: { role: string; content: string }[];
+  functions?: FlowNodeFunction[];
+  respond_immediately?: boolean;
+  position?: { x: number; y: number };
+};
+
+export type Flow = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  definition: FlowDefinition;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
 };
 
 export type AnalysisResult = {

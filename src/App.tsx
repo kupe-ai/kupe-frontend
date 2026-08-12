@@ -1,11 +1,15 @@
 import { useCallback, useRef, useState } from "react";
 import { Phone } from "lucide-react";
 import AgentPicker from "@/AgentPicker";
-import AnalysisPicker from "@/AnalysisPicker";
 import AuthPanel from "@/AuthPanel";
+import { AgentBuilderPage } from "@/AgentBuilderPage";
 import { AgentsPanel } from "@/AgentsPanel";
+import { FlowBuilderPage } from "@/FlowBuilderPage";
+import { FlowsPanel } from "@/FlowsPanel";
 import HistoryPanel from "@/HistoryPanel";
 import { PostCallAnalysesPanel } from "@/PostCallAnalysesPanel";
+import { SettingsPanel } from "@/SettingsPanel";
+import { ToolsPanel } from "@/ToolsPanel";
 import ProvidersPanel from "@/ProvidersPanel";
 import { RecordingsPanel } from "@/RecordingsPanel";
 import { UsagePanel } from "@/UsagePanel";
@@ -15,7 +19,6 @@ import { VoiceSession } from "@/components/session/VoiceSession";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/useAuth";
 import { useOrgContext } from "@/lib/useOrgContext";
@@ -23,13 +26,25 @@ import type { ProviderSelection, SessionInfo } from "@/types";
 
 function VoiceApp() {
   const { session, signOut } = useAuth();
-  const { org, project, loading: orgLoading, error: orgError } = useOrgContext(true);
+  const {
+    orgs,
+    org,
+    projects,
+    project,
+    membership,
+    loading: orgLoading,
+    error: orgError,
+    selectOrg,
+    selectProject,
+    refresh: refreshOrg,
+  } = useOrgContext(true);
 
   const [view, setView] = useState<AppView>("voice");
   const [info, setInfo] = useState<SessionInfo | null>(null);
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
-  const [analysisIds, setAnalysisIds] = useState<string[]>([]);
+  const [builderAgentId, setBuilderAgentId] = useState<string | null>(null);
+  const [builderFlowId, setBuilderFlowId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
@@ -53,6 +68,7 @@ function VoiceApp() {
     if (!org || !project) return;
     // An agent supersedes raw provider ids -- the backend resolves and
     // snapshots providers from the agent, and sending both would be ambiguous.
+    // Post-call analyses come from agent attachments (configured in the builder).
     const target = agentId ? { agent_id: agentId } : selection ? { ...selection } : null;
     if (!target) return;
     setConnecting(true);
@@ -63,7 +79,6 @@ function VoiceApp() {
         ...target,
         org_id: org.id,
         project_id: project.id,
-        post_call_analysis_ids: analysisIds,
       });
       setInfo(data);
       setView("session");
@@ -72,7 +87,7 @@ function VoiceApp() {
     } finally {
       setConnecting(false);
     }
-  }, [agentId, selection, analysisIds, org, project]);
+  }, [agentId, selection, org, project]);
 
   const handleEnd = useCallback(() => {
     if (info) void endSession(info);
@@ -85,11 +100,31 @@ function VoiceApp() {
     },
     agents: {
       title: "Agents",
-      description: "Create and version voice agents for this project.",
+      description: "Open the builder to configure prompts, features, tools, and post-call analyses.",
+    },
+    "agent-builder": {
+      title: "Agent builder",
+      description: "Edit identity, voice stack, features, and attachments.",
     },
     analyses: {
       title: "Post-call analyses",
-      description: "Define structured grading runs for completed sessions.",
+      description: "Define structured grading runs, then attach them on an agent.",
+    },
+    tools: {
+      title: "Tools",
+      description: "Org catalog of client and HTTP tools to attach to agents and analyses.",
+    },
+    flows: {
+      title: "Flows",
+      description: "Open the flow builder to edit conversation graphs and transition paths.",
+    },
+    "flow-builder": {
+      title: "Flow builder",
+      description: "Edit nodes and connecting paths for Pipecat Flows.",
+    },
+    settings: {
+      title: "Settings",
+      description: "Organizations, projects, members, and API keys.",
     },
     usage: {
       title: "Usage",
@@ -106,6 +141,7 @@ function VoiceApp() {
   };
 
   const meta = titles[view];
+  const flush = view === "agent-builder" || view === "flow-builder";
 
   if (orgLoading) {
     return (
@@ -123,10 +159,12 @@ function VoiceApp() {
       }}
       email={session?.user.email}
       orgName={org?.name}
+      projectName={project?.name}
       onSignOut={() => void signOut()}
       sessionActive={Boolean(info)}
       title={meta.title}
       description={meta.description}
+      flush={flush}
     >
       {orgError && (
         <Alert variant="destructive" className="mb-4">
@@ -134,10 +172,69 @@ function VoiceApp() {
         </Alert>
       )}
 
+      {org && view === "settings" && !info && (
+        <SettingsPanel
+          orgs={orgs}
+          org={org}
+          projects={projects}
+          project={project}
+          membership={membership}
+          onSelectOrg={selectOrg}
+          onSelectProject={selectProject}
+          onRefresh={refreshOrg}
+        />
+      )}
+
       {org && project && (
         <>
-          {view === "agents" && !info && <AgentsPanel orgId={org.id} projectId={project.id} />}
+          {view === "agents" && !info && (
+            <AgentsPanel
+              orgId={org.id}
+              projectId={project.id}
+              onCreate={() => {
+                setBuilderAgentId(null);
+                setView("agent-builder");
+              }}
+              onOpen={(id) => {
+                setBuilderAgentId(id);
+                setView("agent-builder");
+              }}
+            />
+          )}
+          {view === "agent-builder" && !info && (
+            <AgentBuilderPage
+              orgId={org.id}
+              projectId={project.id}
+              agentId={builderAgentId}
+              onBack={() => setView("agents")}
+              onSaved={(agent) => setBuilderAgentId(agent.id)}
+            />
+          )}
           {view === "analyses" && !info && <PostCallAnalysesPanel orgId={org.id} />}
+          {view === "tools" && !info && <ToolsPanel orgId={org.id} />}
+          {view === "flows" && !info && (
+            <FlowsPanel
+              orgId={org.id}
+              projectId={project.id}
+              onCreate={() => {
+                setBuilderFlowId(null);
+                setView("flow-builder");
+              }}
+              onOpen={(id) => {
+                setBuilderFlowId(id);
+                setView("flow-builder");
+              }}
+            />
+          )}
+          {view === "flow-builder" && !info && (
+            <FlowBuilderPage
+              orgId={org.id}
+              projectId={project.id}
+              flowId={builderFlowId}
+              onBack={() => setView("flows")}
+              onSaved={(flow) => setBuilderFlowId(flow.id)}
+            />
+          )}
           {view === "usage" && !info && <UsagePanel orgId={org.id} />}
           {view === "recordings" && !info && <RecordingsPanel orgId={org.id} />}
 
@@ -147,7 +244,7 @@ function VoiceApp() {
                 <CardHeader>
                   <CardTitle>Start a call</CardTitle>
                   <CardDescription>
-                    Prefer a saved agent; otherwise pick providers for this session only.
+                    Prefer a saved agent. Post-call analyses run from analyses attached on that agent.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -158,15 +255,8 @@ function VoiceApp() {
                     onChange={setAgentId}
                   />
                   {!agentId && <ProvidersPanel selection={selection} onChange={setSelection} />}
-                  <Separator />
-                  <AnalysisPicker
-                    orgId={org.id}
-                    agentId={agentId}
-                    selectedIds={analysisIds}
-                    onChange={setAnalysisIds}
-                  />
                   <Button
-                    className="w-full"
+                    className="w-full cursor-pointer"
                     onClick={() => void handleConnect()}
                     disabled={connecting || (!agentId && !selection)}
                   >

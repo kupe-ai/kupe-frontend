@@ -7,6 +7,7 @@ import {
   RoomName,
   useConnectionState,
   useDataChannel,
+  useRoomContext,
   useVoiceAssistant,
   VoiceAssistantControlBar,
 } from "@livekit/components-react";
@@ -55,6 +56,51 @@ function AgentVisualizer() {
       />
     </div>
   );
+}
+
+function executeClientTool(name: string, rawArgs: string): string {
+  let args: Record<string, unknown> = {};
+  try {
+    args = rawArgs ? JSON.parse(rawArgs) : {};
+  } catch {
+    args = {};
+  }
+  if (name === "get_current_time") {
+    return JSON.stringify({ now: new Date().toISOString() });
+  }
+  if (name === "transfer_to_human") {
+    return JSON.stringify({ status: "transfer_requested", reason: args.reason ?? null });
+  }
+  if (name === "end_call") {
+    return JSON.stringify({ status: "ending" });
+  }
+  return JSON.stringify({ status: "acknowledged", name, arguments: args });
+}
+
+function ToolCallExecutor() {
+  const room = useRoomContext();
+  useDataChannel((msg) => {
+    try {
+      const parsed = JSON.parse(new TextDecoder().decode(msg.payload)) as {
+        kind?: string;
+        call_id?: string;
+        name?: string;
+        arguments?: string;
+      };
+      if (parsed.kind !== "tool_call" || !parsed.call_id || !parsed.name) return;
+      const output = executeClientTool(parsed.name, parsed.arguments ?? "");
+      void room.localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify({ kind: "tool_call_output", call_id: parsed.call_id, output })),
+        { reliable: true },
+      );
+      if (parsed.name === "end_call") {
+        void room.disconnect();
+      }
+    } catch {
+      // ignore non-tool messages
+    }
+  });
+  return null;
 }
 
 function TranscriptPanel() {
@@ -143,6 +189,7 @@ export function VoiceSession({ info, onEnd }: { info: SessionInfo; onEnd: () => 
     >
       <RoomAudioRenderer />
       <ConnectionStateToast />
+      <ToolCallExecutor />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { BACKEND_URL } from "@/config";
 import { PaginationControls } from "@/components/PaginationControls";
 import { api } from "@/lib/api";
-import type { AnalysisField, AnalysisFieldType, PostCallAnalysis, ProvidersResponse } from "@/types";
+import type { AgentTool, AnalysisField, AnalysisFieldType, CatalogTool, PostCallAnalysis, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,9 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [orgTools, setOrgTools] = useState<CatalogTool[]>([]);
+  const [attachedTools, setAttachedTools] = useState<AgentTool[]>([]);
+  const [attachToolId, setAttachToolId] = useState("");
 
   const refresh = () =>
     api
@@ -51,7 +54,8 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
       })
       .then((res: ProvidersResponse) => setProviders(res))
       .catch(() => {});
-  }, []);
+    api.listTools(orgId, { limit: 100 }).then((page) => setOrgTools(page.items.filter((t) => t.http_url))).catch(() => {});
+  }, [orgId]);
 
   useEffect(() => {
     refresh();
@@ -83,6 +87,18 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
     } catch (e) {
       setError((e as Error).message);
     }
+  }
+
+  async function loadTools(analysisId: string) {
+    const page = await api.listAnalysisTools(analysisId, { limit: 100 });
+    setAttachedTools(page.items);
+  }
+
+  async function addTool() {
+    if (!editingId || !attachToolId) return;
+    await api.attachAnalysisTool(editingId, attachToolId, true);
+    setAttachToolId("");
+    await loadTools(editingId);
   }
 
   async function archive(id: string) {
@@ -198,6 +214,44 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
             ))}
           </div>
 
+          {editingId && (
+            <div className="space-y-2">
+              <Label>HTTP tools</Label>
+              <div className="flex flex-wrap gap-2">
+                <Select value={attachToolId || undefined} onValueChange={setAttachToolId}>
+                  <SelectTrigger className="min-w-[220px] flex-1">
+                    <SelectValue placeholder="Select HTTP tool" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orgTools
+                      .filter((t) => !attachedTools.some((x) => x.id === t.id))
+                      .map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => void addTool()} disabled={!attachToolId}>
+                  Attach
+                </Button>
+              </div>
+              {attachedTools.map((tool) => (
+                <div key={tool.id} className="flex items-center gap-2 text-sm">
+                  <span>{tool.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto"
+                    onClick={() => void api.detachAnalysisTool(editingId, tool.id).then(() => loadTools(editingId))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={() => void submit()}>{editingId ? "Save" : "Create analysis"}</Button>
             {editingId && (
@@ -233,6 +287,7 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
                 size="sm"
                 onClick={() => {
                   setEditingId(a.id);
+                  void loadTools(a.id);
                   setForm({
                     name: a.name,
                     description: a.description ?? "",

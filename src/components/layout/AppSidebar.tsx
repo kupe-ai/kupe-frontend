@@ -1,28 +1,50 @@
-import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, LogOut, Phone } from "lucide-react";
+import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, GitBranch, KeyRound, LogOut, Phone, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-export type AppView = "voice" | "agents" | "analyses" | "usage" | "recordings" | "session";
+export type AppView =
+  | "voice"
+  | "agents"
+  | "agent-builder"
+  | "analyses"
+  | "tools"
+  | "flows"
+  | "flow-builder"
+  | "usage"
+  | "recordings"
+  | "settings"
+  | "session";
 
 type Props = {
   view: AppView;
-  onNavigate: (view: Exclude<AppView, "session">) => void;
+  onNavigate: (view: Exclude<AppView, "session" | "agent-builder" | "flow-builder">) => void;
   email?: string | null;
   orgName?: string | null;
+  projectName?: string | null;
   onSignOut: () => void;
   sessionActive?: boolean;
 };
 
-const NAV: { id: Exclude<AppView, "session">; label: string; icon: typeof Phone }[] = [
+const NAV: { id: Exclude<AppView, "session" | "agent-builder" | "flow-builder">; label: string; icon: typeof Phone }[] = [
   { id: "voice", label: "Voice", icon: Phone },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "analyses", label: "Analyses", icon: FileSearch },
+  { id: "tools", label: "Tools", icon: Wrench },
+  { id: "flows", label: "Flows", icon: GitBranch },
   { id: "usage", label: "Usage", icon: CircleGauge },
   { id: "recordings", label: "Recordings", icon: Disc3 },
+  { id: "settings", label: "Settings", icon: KeyRound },
 ];
 
-export function AppSidebar({ view, onNavigate, email, orgName, onSignOut, sessionActive }: Props) {
+function navActive(view: AppView, id: (typeof NAV)[number]["id"]) {
+  if (id === "voice") return view === "voice" || view === "session";
+  if (id === "agents") return view === "agents" || view === "agent-builder";
+  if (id === "flows") return view === "flows" || view === "flow-builder";
+  return view === id;
+}
+
+export function AppSidebar({ view, onNavigate, email, orgName, projectName, onSignOut, sessionActive }: Props) {
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex items-center gap-2 px-4 py-5">
@@ -39,7 +61,7 @@ export function AppSidebar({ view, onNavigate, email, orgName, onSignOut, sessio
 
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {NAV.map(({ id, label, icon: Icon }) => {
-          const active = view === id || (id === "voice" && view === "session");
+          const active = navActive(view, id);
           return (
             <button
               key={id}
@@ -47,7 +69,7 @@ export function AppSidebar({ view, onNavigate, email, orgName, onSignOut, sessio
               disabled={sessionActive && id !== "voice"}
               onClick={() => onNavigate(id)}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
+                "flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors duration-150",
                 active
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
@@ -65,8 +87,9 @@ export function AppSidebar({ view, onNavigate, email, orgName, onSignOut, sessio
         <div className="min-w-0 px-1 text-left">
           <div className="truncate text-xs font-medium text-foreground">{email}</div>
           {orgName && <div className="truncate text-xs text-muted-foreground">{orgName}</div>}
+          {projectName && <div className="truncate text-xs text-muted-foreground">{projectName}</div>}
         </div>
-        <Button variant="outline" size="sm" className="w-full justify-start" onClick={onSignOut}>
+        <Button variant="outline" size="sm" className="w-full cursor-pointer justify-start" onClick={onSignOut}>
           <LogOut className="h-4 w-4" />
           Sign out
         </Button>
