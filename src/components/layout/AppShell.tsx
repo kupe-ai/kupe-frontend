@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   view: AppView;
-  onNavigate: (view: Exclude<AppView, "session" | "agent-builder">) => void;
+  onNavigate: (view: Exclude<AppView, "session" | "agent-builder" | "batch-detail">) => void;
   email?: string | null;
   orgName?: string | null;
   projectName?: string | null;

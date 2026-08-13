@@ -1,4 +1,4 @@
-import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, KeyRound, LogOut, Phone, Wrench } from "lucide-react";
+import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, KeyRound, ListTodo, LogOut, Phone, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,8 @@ export type AppView =
   | "voice"
   | "agents"
   | "agent-builder"
+  | "batches"
+  | "batch-detail"
   | "analyses"
   | "tools"
   | "usage"
@@ -16,7 +18,7 @@ export type AppView =
 
 type Props = {
   view: AppView;
-  onNavigate: (view: Exclude<AppView, "session" | "agent-builder">) => void;
+  onNavigate: (view: Exclude<AppView, "session" | "agent-builder" | "batch-detail">) => void;
   email?: string | null;
   orgName?: string | null;
   projectName?: string | null;
@@ -24,9 +26,10 @@ type Props = {
   sessionActive?: boolean;
 };
 
-const NAV: { id: Exclude<AppView, "session" | "agent-builder">; label: string; icon: typeof Phone }[] = [
+const NAV: { id: Exclude<AppView, "session" | "agent-builder" | "batch-detail">; label: string; icon: typeof Phone }[] = [
   { id: "voice", label: "Voice", icon: Phone },
   { id: "agents", label: "Agents", icon: Bot },
+  { id: "batches", label: "Batches", icon: ListTodo },
   { id: "analyses", label: "Analyses", icon: FileSearch },
   { id: "tools", label: "Tools", icon: Wrench },
   { id: "usage", label: "Usage", icon: CircleGauge },
@@ -37,6 +40,7 @@ const NAV: { id: Exclude<AppView, "session" | "agent-builder">; label: string; i
 function navActive(view: AppView, id: (typeof NAV)[number]["id"]) {
   if (id === "voice") return view === "voice" || view === "session";
   if (id === "agents") return view === "agents" || view === "agent-builder";
+  if (id === "batches") return view === "batches" || view === "batch-detail";
   return view === id;
 }
 

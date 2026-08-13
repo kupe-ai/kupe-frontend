@@ -57,7 +57,7 @@ export type CreateSessionBody = Partial<ProviderSelection> & {
   agent_id?: string;
   post_call_analysis_ids?: string[];
   channel?: "web" | "telephony";
-  provider?: "twilio" | "plivo";
+  provider?: "twilio" | "plivo" | "exotel";
   record?: boolean;
 };
 
@@ -366,4 +366,95 @@ export type AnalysisResult = {
   error: string | null;
   created_at: string;
   completed_at: string | null;
+};
+
+export type TelephonyProviderName = "twilio" | "plivo" | "exotel";
+
+export type BatchStatus = "draft" | "running" | "paused" | "completed" | "cancelled";
+export type ContactStatus = "pending" | "in_progress" | "completed" | "failed" | "exhausted" | "cancelled";
+
+export type RetryPolicy = {
+  max_retries: number;
+  retry_delay_seconds: number;
+  retryable_outcomes: string[];
+};
+
+export type TelephonyAccount = {
+  id: string;
+  org_id: string;
+  provider: TelephonyProviderName;
+  label: string;
+  account_sid: string;
+  from_number: string;
+  exotel_subdomain: string | null;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TelephonyAccountBody = {
+  provider: TelephonyProviderName;
+  label?: string;
+  account_sid: string;
+  api_key: string;
+  from_number: string;
+  exotel_subdomain?: string | null;
+  is_default?: boolean;
+};
+
+export type Batch = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  agent_id: string;
+  telephony_account_id: string;
+  name: string;
+  status: BatchStatus;
+  max_concurrent_calls: number;
+  retry_policy: RetryPolicy;
+  created_by: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+export type BatchCreateBody = {
+  org_id: string;
+  project_id: string;
+  agent_id: string;
+  telephony_account_id: string;
+  name: string;
+  max_concurrent_calls?: number;
+  retry_policy?: RetryPolicy;
+};
+
+export type BatchContact = {
+  id: string;
+  batch_id: string;
+  phone_number: string;
+  variables: Record<string, unknown>;
+  status: ContactStatus;
+  attempt_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type BatchStats = {
+  batch_id: string;
+  contacts_by_status: Record<string, number>;
+  attempts_by_status: Record<string, number>;
+};
+
+export type RateLimitScope = "workspace" | "telephony" | "llm" | "tts" | "stt";
+
+export type RateLimitConfig = {
+  id: string;
+  org_id: string | null;
+  scope: RateLimitScope;
+  provider_or_model_key: string;
+  max_concurrent: number;
+  requests_per_second: number;
+  burst: number;
+  created_at: string;
+  updated_at: string;
 };

@@ -4,6 +4,8 @@ import AgentPicker from "@/AgentPicker";
 import AuthPanel from "@/AuthPanel";
 import { AgentBuilderPage } from "@/AgentBuilderPage";
 import { AgentsPanel } from "@/AgentsPanel";
+import { BatchDetailPage } from "@/BatchDetailPage";
+import { BatchesPanel } from "@/BatchesPanel";
 import HistoryPanel from "@/HistoryPanel";
 import { PostCallAnalysesPanel } from "@/PostCallAnalysesPanel";
 import { SettingsPanel } from "@/SettingsPanel";
@@ -42,6 +44,7 @@ function VoiceApp() {
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [builderAgentId, setBuilderAgentId] = useState<string | null>(null);
+  const [detailBatchId, setDetailBatchId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
@@ -102,6 +105,14 @@ function VoiceApp() {
     "agent-builder": {
       title: "Agent builder",
       description: "Edit identity, voice stack, conversation flow, features, and attachments.",
+    },
+    batches: {
+      title: "Batches",
+      description: "Upload contacts and run outbound calling campaigns through Twilio, Plivo, or Exotel.",
+    },
+    "batch-detail": {
+      title: "Batch",
+      description: "Contacts, dialing controls, and live attempt stats.",
     },
     analyses: {
       title: "Post-call analyses",
@@ -197,6 +208,31 @@ function VoiceApp() {
               agentId={builderAgentId}
               onBack={() => setView("agents")}
               onSaved={(agent) => setBuilderAgentId(agent.id)}
+            />
+          )}
+          {view === "batches" && !info && (
+            <BatchesPanel
+              orgId={org.id}
+              projectId={project.id}
+              onCreate={() => {
+                setDetailBatchId(null);
+                setView("batch-detail");
+              }}
+              onOpen={(id) => {
+                setDetailBatchId(id);
+                setView("batch-detail");
+              }}
+            />
+          )}
+          {view === "batch-detail" && !info && (
+            <BatchDetailPage
+              orgId={org.id}
+              projectId={project.id}
+              batchId={detailBatchId}
+              onBack={() => setView("batches")}
+              onCreated={(id) => {
+                setDetailBatchId(id);
+              }}
             />
           )}
           {view === "analyses" && !info && <PostCallAnalysesPanel orgId={org.id} />}

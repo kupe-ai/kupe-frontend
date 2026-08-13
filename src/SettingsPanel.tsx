@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { ApiKey, CreatedApiKey, Member, Membership, Organization, Project } from "@/types";
+import { TelephonyAccountsCard } from "@/TelephonyAccountsCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -358,6 +359,8 @@ export function SettingsPanel({
           </CardContent>
         </Card>
       )}
+
+      <TelephonyAccountsCard orgId={org.id} isAdmin={Boolean(isAdmin)} />
     </div>
   );
 }

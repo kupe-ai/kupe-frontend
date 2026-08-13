@@ -9,6 +9,10 @@ import type {
   ApiKey,
   AudioAsset,
   AudioAssetList,
+  Batch,
+  BatchContact,
+  BatchCreateBody,
+  BatchStats,
   CatalogTool,
   CreateSessionBody,
   CreatedApiKey,
@@ -19,9 +23,12 @@ import type {
   PlaybackUrl,
   PostCallAnalysis,
   Project,
+  RateLimitConfig,
   Recording,
   SessionInfo,
   SessionUsage,
+  TelephonyAccount,
+  TelephonyAccountBody,
   TranscriptInfo,
   UsageSummaryRow,
 } from "../types";
@@ -198,4 +205,59 @@ export const api = {
   },
   archiveAudioAsset: (assetId: string) =>
     authedJson<AudioAsset>(`/v1/audio-assets/${assetId}/archive`, { method: "POST" }),
+
+  // Telephony accounts
+  listTelephonyAccounts: (orgId: string) =>
+    authedJson<TelephonyAccount[]>(`/v1/orgs/${orgId}/telephony-accounts`),
+  createTelephonyAccount: (orgId: string, body: TelephonyAccountBody) =>
+    authedJson<TelephonyAccount>(`/v1/orgs/${orgId}/telephony-accounts`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  deleteTelephonyAccount: (accountId: string) =>
+    authedJson<void>(`/v1/telephony-accounts/${accountId}`, { method: "DELETE" }),
+
+  listRateLimitConfigs: (orgId?: string) =>
+    authedJson<RateLimitConfig[]>(`/v1/rate-limit-configs${orgId ? `?org_id=${orgId}` : ""}`),
+  upsertRateLimitConfig: (body: Partial<RateLimitConfig> & { scope: string }) =>
+    authedJson<RateLimitConfig>("/v1/rate-limit-configs", { method: "POST", body: JSON.stringify(body) }),
+  deleteRateLimitConfig: (configId: string) =>
+    authedJson<void>(`/v1/rate-limit-configs/${configId}`, { method: "DELETE" }),
+
+  // Batches
+  listBatches: (orgId: string, projectId: string, params?: ListParams) =>
+    authedJson<Page<Batch>>(`/v1/orgs/${orgId}/projects/${projectId}/batches${qs(params)}`),
+  createBatch: (body: BatchCreateBody) =>
+    authedJson<Batch>("/v1/batches", { method: "POST", body: JSON.stringify(body) }),
+  getBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}`),
+  getBatchStats: (batchId: string) => authedJson<BatchStats>(`/v1/batches/${batchId}/stats`),
+  listBatchContacts: (batchId: string, params?: ListParams) =>
+    authedJson<Page<BatchContact>>(`/v1/batches/${batchId}/contacts${qs(params)}`),
+  addBatchContactsBulk: (batchId: string, contacts: { phone_number: string; variables?: Record<string, unknown> }[]) =>
+    authedJson<BatchContact[]>(`/v1/batches/${batchId}/contacts:bulk`, {
+      method: "POST",
+      body: JSON.stringify({ contacts }),
+    }),
+  uploadBatchContactsCsv: async (batchId: string, file: File) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    const form = new FormData();
+    form.append("file", file);
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${BACKEND_URL}/v1/batches/${batchId}/contacts`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Upload failed (${res.status})`);
+    }
+    return (await res.json()) as BatchContact[];
+  },
+  startBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/start`, { method: "POST" }),
+  pauseBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/pause`, { method: "POST" }),
+  resumeBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/resume`, { method: "POST" }),
+  cancelBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/cancel`, { method: "POST" }),
 };
