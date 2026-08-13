@@ -4,8 +4,6 @@ import AgentPicker from "@/AgentPicker";
 import AuthPanel from "@/AuthPanel";
 import { AgentBuilderPage } from "@/AgentBuilderPage";
 import { AgentsPanel } from "@/AgentsPanel";
-import { FlowBuilderPage } from "@/FlowBuilderPage";
-import { FlowsPanel } from "@/FlowsPanel";
 import HistoryPanel from "@/HistoryPanel";
 import { PostCallAnalysesPanel } from "@/PostCallAnalysesPanel";
 import { SettingsPanel } from "@/SettingsPanel";
@@ -44,7 +42,6 @@ function VoiceApp() {
   const [selection, setSelection] = useState<ProviderSelection | null>(null);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [builderAgentId, setBuilderAgentId] = useState<string | null>(null);
-  const [builderFlowId, setBuilderFlowId] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
@@ -68,7 +65,7 @@ function VoiceApp() {
     if (!org || !project) return;
     // An agent supersedes raw provider ids -- the backend resolves and
     // snapshots providers from the agent, and sending both would be ambiguous.
-    // Post-call analyses come from agent attachments (configured in the builder).
+    // Post-call analyses and flow come from the agent (configured in the builder).
     const target = agentId ? { agent_id: agentId } : selection ? { ...selection } : null;
     if (!target) return;
     setConnecting(true);
@@ -100,11 +97,11 @@ function VoiceApp() {
     },
     agents: {
       title: "Agents",
-      description: "Open the builder to configure prompts, features, tools, and post-call analyses.",
+      description: "Open the builder to configure prompts, flow, features, tools, and post-call analyses.",
     },
     "agent-builder": {
       title: "Agent builder",
-      description: "Edit identity, voice stack, features, and attachments.",
+      description: "Edit identity, voice stack, conversation flow, features, and attachments.",
     },
     analyses: {
       title: "Post-call analyses",
@@ -113,14 +110,6 @@ function VoiceApp() {
     tools: {
       title: "Tools",
       description: "Org catalog of client and HTTP tools to attach to agents and analyses.",
-    },
-    flows: {
-      title: "Flows",
-      description: "Open the flow builder to edit conversation graphs and transition paths.",
-    },
-    "flow-builder": {
-      title: "Flow builder",
-      description: "Edit nodes and connecting paths for Pipecat Flows.",
     },
     settings: {
       title: "Settings",
@@ -141,7 +130,7 @@ function VoiceApp() {
   };
 
   const meta = titles[view];
-  const flush = view === "agent-builder" || view === "flow-builder";
+  const flush = view === "agent-builder";
 
   if (orgLoading) {
     return (
@@ -212,29 +201,6 @@ function VoiceApp() {
           )}
           {view === "analyses" && !info && <PostCallAnalysesPanel orgId={org.id} />}
           {view === "tools" && !info && <ToolsPanel orgId={org.id} />}
-          {view === "flows" && !info && (
-            <FlowsPanel
-              orgId={org.id}
-              projectId={project.id}
-              onCreate={() => {
-                setBuilderFlowId(null);
-                setView("flow-builder");
-              }}
-              onOpen={(id) => {
-                setBuilderFlowId(id);
-                setView("flow-builder");
-              }}
-            />
-          )}
-          {view === "flow-builder" && !info && (
-            <FlowBuilderPage
-              orgId={org.id}
-              projectId={project.id}
-              flowId={builderFlowId}
-              onBack={() => setView("flows")}
-              onSaved={(flow) => setBuilderFlowId(flow.id)}
-            />
-          )}
           {view === "usage" && !info && <UsagePanel orgId={org.id} />}
           {view === "recordings" && !info && <RecordingsPanel orgId={org.id} />}
 
@@ -244,7 +210,7 @@ function VoiceApp() {
                 <CardHeader>
                   <CardTitle>Start a call</CardTitle>
                   <CardDescription>
-                    Prefer a saved agent. Post-call analyses run from analyses attached on that agent.
+                    Prefer a saved agent. Its conversation flow (if any) is used automatically.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">

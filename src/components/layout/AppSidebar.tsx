@@ -1,4 +1,4 @@
-import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, GitBranch, KeyRound, LogOut, Phone, Wrench } from "lucide-react";
+import { AudioLines, Bot, CircleGauge, Disc3, FileSearch, KeyRound, LogOut, Phone, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
@@ -9,8 +9,6 @@ export type AppView =
   | "agent-builder"
   | "analyses"
   | "tools"
-  | "flows"
-  | "flow-builder"
   | "usage"
   | "recordings"
   | "settings"
@@ -18,7 +16,7 @@ export type AppView =
 
 type Props = {
   view: AppView;
-  onNavigate: (view: Exclude<AppView, "session" | "agent-builder" | "flow-builder">) => void;
+  onNavigate: (view: Exclude<AppView, "session" | "agent-builder">) => void;
   email?: string | null;
   orgName?: string | null;
   projectName?: string | null;
@@ -26,12 +24,11 @@ type Props = {
   sessionActive?: boolean;
 };
 
-const NAV: { id: Exclude<AppView, "session" | "agent-builder" | "flow-builder">; label: string; icon: typeof Phone }[] = [
+const NAV: { id: Exclude<AppView, "session" | "agent-builder">; label: string; icon: typeof Phone }[] = [
   { id: "voice", label: "Voice", icon: Phone },
   { id: "agents", label: "Agents", icon: Bot },
   { id: "analyses", label: "Analyses", icon: FileSearch },
   { id: "tools", label: "Tools", icon: Wrench },
-  { id: "flows", label: "Flows", icon: GitBranch },
   { id: "usage", label: "Usage", icon: CircleGauge },
   { id: "recordings", label: "Recordings", icon: Disc3 },
   { id: "settings", label: "Settings", icon: KeyRound },
@@ -40,7 +37,6 @@ const NAV: { id: Exclude<AppView, "session" | "agent-builder" | "flow-builder">;
 function navActive(view: AppView, id: (typeof NAV)[number]["id"]) {
   if (id === "voice") return view === "voice" || view === "session";
   if (id === "agents") return view === "agents" || view === "agent-builder";
-  if (id === "flows") return view === "flows" || view === "flow-builder";
   return view === id;
 }
 

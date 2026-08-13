@@ -172,14 +172,93 @@ export type PostCallAnalysis = {
 export type AgentAnalysis = PostCallAnalysis & { enabled: boolean };
 
 /** Feature knobs persisted on `agents.config` (jsonb). */
+export type NoiseCancellation = "off" | "low" | "medium" | "high";
+export type BackgroundNoiseSource = "preset" | "asset";
+export type EndOfCallWarningMode = "simple" | "session_aware";
+
+export type AgentLlmConfig = {
+  temperature: number;
+  max_tokens: number;
+  language: string;
+};
+
+export type AgentSessionConfig = {
+  max_duration_seconds: number;
+  allow_interruptions: boolean;
+  record_calls: boolean;
+};
+
+export type AgentTurnConfig = {
+  vad_stop_secs: number;
+  user_speech_timeout_secs: number;
+};
+
+export type BackgroundNoiseConfig = {
+  enabled: boolean;
+  source: BackgroundNoiseSource;
+  id: string;
+  volume: number;
+};
+
+export type AgentAudioConfig = {
+  noise_cancellation: NoiseCancellation;
+  background_noise: BackgroundNoiseConfig;
+};
+
+export type EndOfCallWarningConfig = {
+  enabled: boolean;
+  warn_before_seconds: number;
+  mode: EndOfCallWarningMode;
+  simple_message: string;
+  session_aware_template: string;
+};
+
+export type SilenceBreakerConfig = {
+  enabled: boolean;
+  idle_seconds: number;
+};
+
 export type AgentConfig = {
-  temperature?: number;
-  max_tokens?: number;
-  language?: string;
-  allow_interruptions?: boolean;
-  end_on_silence_ms?: number;
-  max_call_duration_seconds?: number;
-  record_calls?: boolean;
+  llm: AgentLlmConfig;
+  session: AgentSessionConfig;
+  turn: AgentTurnConfig;
+  audio: AgentAudioConfig;
+  end_of_call_warning: EndOfCallWarningConfig;
+  silence_breaker: SilenceBreakerConfig;
+};
+
+export type AmbientPreset = {
+  id: string;
+  name: string;
+  description: string;
+  kind: string;
+  is_preset: true;
+};
+
+export type AudioAsset = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  kind: string;
+  name: string;
+  storage_bucket: string;
+  storage_path: string;
+  sample_rate: number | null;
+  duration_ms: number | null;
+  content_type: string;
+  size_bytes: number | null;
+  is_preset: boolean;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+export type AudioAssetList = {
+  presets: AmbientPreset[];
+  items: AudioAsset[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 export type Agent = {
@@ -194,7 +273,7 @@ export type Agent = {
   tts_id: string;
   tts_voice_id: string | null;
   config: AgentConfig;
-  flow_id: string | null;
+  flow_definition: FlowDefinition;
   version: number;
   created_at: string;
   updated_at: string;
@@ -277,18 +356,6 @@ export type FlowNode = {
   functions?: FlowNodeFunction[];
   respond_immediately?: boolean;
   position?: { x: number; y: number };
-};
-
-export type Flow = {
-  id: string;
-  org_id: string;
-  project_id: string;
-  name: string;
-  description: string | null;
-  definition: FlowDefinition;
-  created_at: string;
-  updated_at: string;
-  archived_at: string | null;
 };
 
 export type AnalysisResult = {

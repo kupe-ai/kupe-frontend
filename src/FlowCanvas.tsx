@@ -15,8 +15,7 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { ArrowLeft, Check, Loader2, Trash2 } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -24,17 +23,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
-import type { CatalogTool, Flow, FlowDefinition, FlowNode } from "@/types";
+import type { CatalogTool, FlowDefinition, FlowNode } from "@/types";
 
 type Props = {
   orgId: string;
-  projectId: string;
-  flowId: string | null;
-  onBack: () => void;
-  onSaved: (flow: Flow) => void;
+  definition: FlowDefinition;
+  onChange: (next: FlowDefinition) => void;
 };
 
-const EMPTY_DEF: FlowDefinition = {
+export const EMPTY_FLOW: FlowDefinition = {
+  initial_node: "start",
+  nodes: {},
+};
+
+export const STARTER_FLOW: FlowDefinition = {
   initial_node: "start",
   nodes: {
     start: {
@@ -79,8 +81,8 @@ function toGraph(definition: FlowDefinition): { nodes: Node[]; edges: Edge[] } {
             id: `${id}-${fn.next_node}-${fn.name ?? "next"}`,
             source: id,
             target: fn.next_node,
-            label: fn.name ?? "next",
-            data: { description: fn.description ?? "" },
+            label: fn.name || "next",
+            data: { description: fn.description || "" },
           }),
         );
       }
@@ -94,7 +96,7 @@ function applyGraph(definition: FlowDefinition, nodes: Node[], edges: Edge[]): F
   for (const rf of nodes) {
     const existing = definition.nodes[rf.id] ?? {
       name: rf.id,
-      task_messages: [{ role: "system", content: rf.id }],
+      task_messages: [{ role: "system", content: "Continue the conversation." }],
       functions: [],
       respond_immediately: true,
     };
@@ -118,34 +120,30 @@ function applyGraph(definition: FlowDefinition, nodes: Node[], edges: Edge[]): F
   return { initial_node: initial, nodes: nextNodes };
 }
 
-export function FlowBuilderPage({ orgId, projectId, flowId, onBack, onSaved }: Props) {
+export function FlowCanvas({ orgId, definition, onChange }: Props) {
   return (
     <ReactFlowProvider>
-      <FlowBuilderInner orgId={orgId} projectId={projectId} flowId={flowId} onBack={onBack} onSaved={onSaved} />
+      <FlowCanvasInner orgId={orgId} definition={definition} onChange={onChange} />
     </ReactFlowProvider>
   );
 }
 
-function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) {
+function FlowCanvasInner({ orgId, definition, onChange }: Props) {
   const [tools, setTools] = useState<CatalogTool[]>([]);
-  const [selected, setSelected] = useState<Flow | null>(null);
-  const [name, setName] = useState("New flow");
-  const [definition, setDefinition] = useState<FlowDefinition>(EMPTY_DEF);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>("start");
+  const [localDef, setLocalDef] = useState<FlowDefinition>(definition);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
+    Object.keys(definition.nodes)[0] ?? null,
+  );
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [savedFlash, setSavedFlash] = useState(false);
-  const [loading, setLoading] = useState(Boolean(flowId));
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
   function loadDefinition(next: FlowDefinition) {
-    setDefinition(next);
+    setLocalDef(next);
     const graph = toGraph(next);
     setNodes(graph.nodes);
     setEdges(graph.edges);
-    setSelectedNodeId(next.initial_node);
+    setSelectedNodeId(next.initial_node in next.nodes ? next.initial_node : Object.keys(next.nodes)[0] ?? null);
     setSelectedEdgeId(null);
   }
 
@@ -154,58 +152,61 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
   }, [orgId]);
 
   useEffect(() => {
-    if (!flowId) {
-      setSelected(null);
-      setName("New flow");
-      loadDefinition(EMPTY_DEF);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    api
-      .getFlow(flowId)
-      .then((found) => {
-        setSelected(found);
-        setName(found.name);
-        loadDefinition(found.definition);
-        setError(null);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load flow"))
-      .finally(() => setLoading(false));
+    loadDefinition(definition);
+    // Mount / remount only — parent bumps `key` on agent load / revert.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowId, orgId, projectId]);
+  }, []);
+
+  function commit(next: FlowDefinition) {
+    setLocalDef(next);
+    onChange(next);
+  }
+
+  function flushGraph(nextNodes = nodes, nextEdges = edges, base = localDef) {
+    const next = applyGraph(base, nextNodes, nextEdges);
+    loadDefinition(next);
+    onChange(next);
+  }
 
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
-      setEdges((eds) =>
-        addEdge(
+      setEdges((eds) => {
+        const next = addEdge(
           edgeDefaults({
             id: `${connection.source}-${connection.target}-${Date.now()}`,
-            source: connection.source,
-            target: connection.target,
+            source: connection.source!,
+            target: connection.target!,
             sourceHandle: connection.sourceHandle ?? undefined,
             targetHandle: connection.targetHandle ?? undefined,
             label: "next",
             data: { description: `Continue to ${connection.target}` },
           }),
           eds,
-        ),
-      );
+        );
+        queueMicrotask(() => flushGraph(nodes, next));
+        return next;
+      });
       setSelectedEdgeId(null);
     },
-    [setEdges],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, localDef, setEdges],
   );
 
   const onReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
-      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+      setEdges((eds) => {
+        const next = reconnectEdge(oldEdge, newConnection, eds);
+        queueMicrotask(() => flushGraph(nodes, next));
+        return next;
+      });
     },
-    [setEdges],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, localDef, setEdges],
   );
 
   function addNode() {
-    const id = `node_${Object.keys(definition.nodes).length + 1}`;
+    const id = `node_${Object.keys(localDef.nodes).length + 1}`;
     const node: FlowNode = {
       name: id,
       task_messages: [{ role: "system", content: "Continue the conversation." }],
@@ -213,22 +214,25 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
       respond_immediately: true,
       position: { x: 160 + nodes.length * 24, y: 200 + nodes.length * 16 },
     };
-    const nextDef = { ...definition, nodes: { ...definition.nodes, [id]: node } };
+    const nextDef = { ...localDef, nodes: { ...localDef.nodes, [id]: node } };
     const nextNodes = [...nodes, { id, position: node.position!, data: { label: id }, deletable: true }];
-    loadDefinition(applyGraph(nextDef, nextNodes, edges));
+    const applied = applyGraph(nextDef, nextNodes, edges);
+    loadDefinition(applied);
+    onChange(applied);
     setSelectedNodeId(id);
     setSelectedEdgeId(null);
   }
 
   function updateSelectedNode(patch: Partial<FlowNode>) {
     if (!selectedNodeId) return;
-    const current = definition.nodes[selectedNodeId];
+    const current = localDef.nodes[selectedNodeId];
     if (!current) return;
     const updated = { ...current, ...patch };
-    setDefinition({
-      ...definition,
-      nodes: { ...definition.nodes, [selectedNodeId]: updated },
-    });
+    const next = {
+      ...localDef,
+      nodes: { ...localDef.nodes, [selectedNodeId]: updated },
+    };
+    commit(next);
     if (patch.name !== undefined) {
       setNodes((nds) =>
         nds.map((n) => (n.id === selectedNodeId ? { ...n, data: { ...n.data, label: patch.name } } : n)),
@@ -238,8 +242,8 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
 
   function updateSelectedEdge(patch: { label?: string; description?: string; target?: string }) {
     if (!selectedEdgeId) return;
-    setEdges((eds) =>
-      eds.map((e) => {
+    setEdges((eds) => {
+      const next = eds.map((e) => {
         if (e.id !== selectedEdgeId) return e;
         return {
           ...e,
@@ -250,100 +254,95 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
             description: patch.description ?? (e.data as { description?: string })?.description,
           },
         };
-      }),
-    );
+      });
+      queueMicrotask(() => flushGraph(nodes, next));
+      return next;
+    });
   }
 
   function deleteSelectedEdge() {
     if (!selectedEdgeId) return;
-    setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
+    const next = edges.filter((e) => e.id !== selectedEdgeId);
     setSelectedEdgeId(null);
+    flushGraph(nodes, next);
   }
 
   function deleteSelectedNode() {
     if (!selectedNodeId || nodes.length <= 1) return;
     const nextNodes = nodes.filter((n) => n.id !== selectedNodeId);
     const nextEdges = edges.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId);
-    const { [selectedNodeId]: _removed, ...rest } = definition.nodes;
-    const nextDef = applyGraph({ ...definition, nodes: rest }, nextNodes, nextEdges);
+    const { [selectedNodeId]: _removed, ...rest } = localDef.nodes;
+    const nextDef = applyGraph({ ...localDef, nodes: rest }, nextNodes, nextEdges);
     loadDefinition(nextDef);
+    onChange(nextDef);
   }
 
-  async function save() {
-    setSaving(true);
-    setError(null);
-    try {
-      const nextDef = applyGraph(definition, nodes, edges);
-      setDefinition(nextDef);
-      const saved = selected
-        ? await api.updateFlow(selected.id, { name, definition: nextDef })
-        : await api.createFlow(orgId, projectId, { name, definition: nextDef });
-      setSelected(saved);
-      loadDefinition(saved.definition);
-      onSaved(saved);
-      setSavedFlash(true);
-      window.setTimeout(() => setSavedFlash(false), 1800);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const selectedNode = selectedNodeId ? definition.nodes[selectedNodeId] : null;
+  const selectedNode = selectedNodeId ? localDef.nodes[selectedNodeId] : null;
   const selectedEdge = edges.find((e) => e.id === selectedEdgeId) ?? null;
   const attachedToolIds = useMemo(
     () => new Set((selectedNode?.functions ?? []).filter((fn) => fn.kind === "tool").map((fn) => fn.tool_id)),
     [selectedNode],
   );
 
-  if (loading) {
+  const empty = Object.keys(localDef.nodes).length === 0;
+
+  if (empty) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <p className="text-sm text-muted-foreground">Loading flow builder…</p>
+      <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-md border border-dashed border-border bg-muted/20 p-8 text-center">
+        <p className="text-sm text-muted-foreground">
+          No conversation graph. The agent will run as a linear voice agent until you add one.
+        </p>
+        <Button
+          variant="outline"
+          className="cursor-pointer"
+          onClick={() => {
+            loadDefinition(STARTER_FLOW);
+            onChange(STARTER_FLOW);
+          }}
+        >
+          Add starter flow
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-border bg-card px-4 py-3 sm:px-6">
-        <Button variant="ghost" size="sm" className="cursor-pointer" onClick={onBack} aria-label="Back to flows">
-          <ArrowLeft className="h-4 w-4" />
-          Flows
-        </Button>
-        <div className="min-w-0 flex-1 space-y-1">
-          <Label className="sr-only">Flow name</Label>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="h-9 max-w-md font-medium"
-            aria-label="Flow name"
-          />
-        </div>
-        <Button variant="outline" className="cursor-pointer" onClick={addNode}>
+    <div className="flex min-h-[520px] flex-col overflow-hidden rounded-md border border-border">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2">
+        <Button variant="outline" size="sm" className="cursor-pointer" onClick={addNode}>
           Add node
         </Button>
-        <Button className="cursor-pointer" onClick={() => void save()} disabled={saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : savedFlash ? <Check className="h-4 w-4" /> : null}
-          {saving ? "Saving…" : savedFlash ? "Saved" : selected ? "Save flow" : "Create flow"}
+        <Button
+          variant="outline"
+          size="sm"
+          className="cursor-pointer"
+          onClick={() => {
+            loadDefinition(EMPTY_FLOW);
+            onChange(EMPTY_FLOW);
+          }}
+        >
+          Clear flow
         </Button>
+        <p className="ml-auto text-xs text-muted-foreground">Saved with the agent</p>
       </div>
 
-      {error && (
-        <Alert variant="destructive" className="mx-4 mt-3 sm:mx-6" role="alert">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <div className="grid min-h-0 flex-1 xl:grid-cols-[1fr_300px]">
-        <div className="relative min-h-[420px] border-b border-border xl:border-b-0 xl:border-r">
+      <div className="grid min-h-0 flex-1 xl:grid-cols-[1fr_280px]">
+        <div className="relative min-h-[360px] border-b border-border xl:border-b-0 xl:border-r">
           <ReactFlow
-            className="h-full bg-muted/20"
+            className="h-full min-h-[360px] bg-muted/20"
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
+            onNodesChange={(changes) => {
+              onNodesChange(changes);
+            }}
+            onNodeDragStop={() => flushGraph()}
+            onEdgesChange={(changes) => {
+              onEdgesChange(changes);
+              const removed = changes.some((c) => c.type === "remove");
+              if (removed) {
+                queueMicrotask(() => flushGraph());
+              }
+            }}
             onConnect={onConnect}
             onReconnect={onReconnect}
             edgesReconnectable
@@ -378,7 +377,7 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
               <div>
                 <h3 className="text-sm font-semibold text-foreground">Transition path</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Edit the function name, description, or destination. Drag the path ends on the canvas to reconnect.
+                  Edit the function name, description, or destination.
                 </p>
               </div>
               <div className="space-y-2">
@@ -462,16 +461,16 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
               <div className="space-y-2">
                 <Label>Initial node</Label>
                 <Select
-                  value={definition.initial_node}
-                  onValueChange={(v) => setDefinition({ ...definition, initial_node: v })}
+                  value={localDef.initial_node}
+                  onValueChange={(v) => commit({ ...localDef, initial_node: v })}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.keys(definition.nodes).map((id) => (
+                    {Object.keys(localDef.nodes).map((id) => (
                       <SelectItem key={id} value={id}>
-                        {definition.nodes[id].name || id}
+                        {localDef.nodes[id].name || id}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -509,19 +508,6 @@ function FlowBuilderInner({ orgId, projectId, flowId, onBack, onSaved }: Props) 
                 <Trash2 className="h-4 w-4" />
                 Delete node
               </Button>
-              {selected && (
-                <Button
-                  variant="outline"
-                  className="w-full cursor-pointer text-destructive"
-                  onClick={() =>
-                    void api.archiveFlow(selected.id).then(() => {
-                      onBack();
-                    })
-                  }
-                >
-                  Archive flow
-                </Button>
-              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Select a node or a connecting path on the canvas.</p>

@@ -99,7 +99,9 @@ export function AgentsPanel({ orgId, projectId, onCreate, onOpen }: Props) {
                 <div className="truncate text-sm font-medium text-foreground">{agent.name}</div>
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">
                   v{agent.version} · updated {new Date(agent.updated_at).toLocaleString()}
-                  {agent.flow_id ? " · flow attached" : ""}
+                  {agent.flow_definition?.nodes && Object.keys(agent.flow_definition.nodes).length > 0
+                    ? " · flow"
+                    : ""}
                 </div>
               </div>
               <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5" />

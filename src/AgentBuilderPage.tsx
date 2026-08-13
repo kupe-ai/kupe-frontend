@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { BACKEND_URL } from "@/config";
+import { FlowCanvas, EMPTY_FLOW } from "@/FlowCanvas";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,11 @@ import type {
   AgentConfig,
   AgentTool,
   AgentVersion,
+  AmbientPreset,
+  AudioAsset,
   CatalogTool,
-  Flow,
+  FlowDefinition,
+  NoiseCancellation,
   PostCallAnalysis,
   ProvidersResponse,
 } from "@/types";
@@ -31,24 +35,34 @@ type Props = {
   onSaved: (agent: Agent) => void;
 };
 
-type Section = "identity" | "voice" | "features" | "attachments" | "history";
+type Section = "identity" | "voice" | "flow" | "features" | "attachments" | "history";
 
 const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: "identity", label: "Identity", hint: "Name, prompt, greeting" },
-  { id: "voice", label: "Voice stack", hint: "LLM, STT, TTS, flow" },
-  { id: "features", label: "Features", hint: "Saved in agent config" },
-  { id: "attachments", label: "Attachments", hint: "Tools & analyses" },
+  { id: "voice", label: "Voice stack", hint: "LLM, STT, TTS" },
+  { id: "flow", label: "Flow", hint: "Conversation graph" },
+  { id: "features", label: "Features", hint: "Runtime + tools" },
+  { id: "attachments", label: "Attachments", hint: "Post-call analyses" },
   { id: "history", label: "History", hint: "Version snapshots" },
 ];
 
 const DEFAULT_CONFIG: AgentConfig = {
-  temperature: 0.5,
-  max_tokens: 1024,
-  language: "en",
-  allow_interruptions: true,
-  end_on_silence_ms: 0,
-  max_call_duration_seconds: 0,
-  record_calls: true,
+  llm: { temperature: 0.5, max_tokens: 1024, language: "en" },
+  session: { max_duration_seconds: 180, allow_interruptions: true, record_calls: true },
+  turn: { vad_stop_secs: 0.2, user_speech_timeout_secs: 0.4 },
+  audio: {
+    noise_cancellation: "off",
+    background_noise: { enabled: false, source: "preset", id: "office", volume: 0.25 },
+  },
+  end_of_call_warning: {
+    enabled: false,
+    warn_before_seconds: 30,
+    mode: "simple",
+    simple_message: "This call will end in {remaining_seconds} seconds.",
+    session_aware_template:
+      "Just a heads up — we have about {remaining_seconds} seconds left in this {duration_seconds}-second call with {agent_name}.",
+  },
+  silence_breaker: { enabled: false, idle_seconds: 8 },
 };
 
 const EMPTY_FORM = {
@@ -59,28 +73,70 @@ const EMPTY_FORM = {
   stt_id: "",
   tts_id: "",
   tts_voice_id: "",
-  flow_id: "",
-  config: { ...DEFAULT_CONFIG },
+  flow_definition: { ...EMPTY_FLOW } as FlowDefinition,
+  config: structuredClone(DEFAULT_CONFIG),
 };
 
 const PAGE_SIZE = 20;
 
 function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefined): AgentConfig {
-  return { ...DEFAULT_CONFIG, ...(raw ?? {}) };
+  const data = (raw ?? {}) as Record<string, unknown>;
+  const legacy = data as Record<string, unknown>;
+  const llm = (data.llm as AgentConfig["llm"] | undefined) ?? {
+    temperature: typeof legacy.temperature === "number" ? legacy.temperature : DEFAULT_CONFIG.llm.temperature,
+    max_tokens: typeof legacy.max_tokens === "number" ? legacy.max_tokens : DEFAULT_CONFIG.llm.max_tokens,
+    language: typeof legacy.language === "string" ? legacy.language : DEFAULT_CONFIG.llm.language,
+  };
+  const session = (data.session as AgentConfig["session"] | undefined) ?? {
+    max_duration_seconds:
+      typeof legacy.max_call_duration_seconds === "number"
+        ? legacy.max_call_duration_seconds
+        : DEFAULT_CONFIG.session.max_duration_seconds,
+    allow_interruptions:
+      typeof legacy.allow_interruptions === "boolean"
+        ? legacy.allow_interruptions
+        : DEFAULT_CONFIG.session.allow_interruptions,
+    record_calls:
+      typeof legacy.record_calls === "boolean" ? legacy.record_calls : DEFAULT_CONFIG.session.record_calls,
+  };
+  return {
+    llm: { ...DEFAULT_CONFIG.llm, ...llm },
+    session: { ...DEFAULT_CONFIG.session, ...session },
+    turn: { ...DEFAULT_CONFIG.turn, ...((data.turn as AgentConfig["turn"]) ?? {}) },
+    audio: {
+      ...DEFAULT_CONFIG.audio,
+      ...((data.audio as Partial<AgentConfig["audio"]>) ?? {}),
+      background_noise: {
+        ...DEFAULT_CONFIG.audio.background_noise,
+        ...(((data.audio as AgentConfig["audio"] | undefined)?.background_noise) ?? {}),
+      },
+    },
+    end_of_call_warning: {
+      ...DEFAULT_CONFIG.end_of_call_warning,
+      ...((data.end_of_call_warning as AgentConfig["end_of_call_warning"]) ?? {}),
+    },
+    silence_breaker: {
+      ...DEFAULT_CONFIG.silence_breaker,
+      ...((data.silence_breaker as AgentConfig["silence_breaker"]) ?? {}),
+    },
+  };
 }
 
 export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }: Props) {
   const [section, setSection] = useState<Section>("identity");
   const [providers, setProviders] = useState<ProvidersResponse | null>(null);
-  const [flows, setFlows] = useState<Flow[]>([]);
   const [orgAnalyses, setOrgAnalyses] = useState<PostCallAnalysis[]>([]);
   const [orgTools, setOrgTools] = useState<CatalogTool[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [flowCanvasKey, setFlowCanvasKey] = useState(0);
   const [agent, setAgent] = useState<Agent | null>(null);
   const [attachedAnalyses, setAttachedAnalyses] = useState<AgentAnalysis[]>([]);
   const [attachedTools, setAttachedTools] = useState<AgentTool[]>([]);
   const [attachSelectId, setAttachSelectId] = useState("");
   const [attachToolId, setAttachToolId] = useState("");
+  const [presets, setPresets] = useState<AmbientPreset[]>([]);
+  const [uploadedAssets, setUploadedAssets] = useState<AudioAsset[]>([]);
+  const [uploadingAmbient, setUploadingAmbient] = useState(false);
   const [versions, setVersions] = useState<AgentVersion[]>([]);
   const [versionsTotal, setVersionsTotal] = useState(0);
   const [versionsOffset, setVersionsOffset] = useState(0);
@@ -99,13 +155,20 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
       .catch(() => {});
     api.listAnalyses(orgId, { limit: 100 }).then((page) => setOrgAnalyses(page.items)).catch(() => {});
     api.listTools(orgId, { limit: 100 }).then((page) => setOrgTools(page.items)).catch(() => {});
-    api.listFlows(orgId, projectId, { limit: 100 }).then((page) => setFlows(page.items)).catch(() => {});
+    api
+      .listAudioAssets(orgId, projectId, { limit: 100 })
+      .then((page) => {
+        setPresets(page.presets);
+        setUploadedAssets(page.items);
+      })
+      .catch(() => {});
   }, [orgId, projectId]);
 
   useEffect(() => {
     if (!agentId) {
       setAgent(null);
       setForm(EMPTY_FORM);
+      setFlowCanvasKey((k) => k + 1);
       setAttachedAnalyses([]);
       setAttachedTools([]);
       setVersions([]);
@@ -125,9 +188,10 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
           stt_id: found.stt_id,
           tts_id: found.tts_id,
           tts_voice_id: found.tts_voice_id ?? "",
-          flow_id: found.flow_id ?? "",
+          flow_definition: found.flow_definition ?? { ...EMPTY_FLOW },
           config: mergeConfig(found.config),
         });
+        setFlowCanvasKey((k) => k + 1);
         const [analyses, tools, vers] = await Promise.all([
           api.listAgentAnalyses(found.id, { limit: 100 }),
           api.listAgentTools(found.id, { limit: 100 }),
@@ -149,7 +213,38 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
   const availableTools = orgTools.filter((t) => !attachedTools.some((x) => x.id === t.id));
 
   function patchConfig(patch: Partial<AgentConfig>) {
-    setForm((prev) => ({ ...prev, config: { ...prev.config, ...patch } }));
+    setForm((prev) => ({
+      ...prev,
+      config: {
+        ...prev.config,
+        ...patch,
+        llm: { ...prev.config.llm, ...(patch.llm ?? {}) },
+        session: { ...prev.config.session, ...(patch.session ?? {}) },
+        turn: { ...prev.config.turn, ...(patch.turn ?? {}) },
+        audio: {
+          ...prev.config.audio,
+          ...(patch.audio ?? {}),
+          background_noise: {
+            ...prev.config.audio.background_noise,
+            ...(patch.audio?.background_noise ?? {}),
+          },
+        },
+        end_of_call_warning: {
+          ...prev.config.end_of_call_warning,
+          ...(patch.end_of_call_warning ?? {}),
+        },
+        silence_breaker: {
+          ...prev.config.silence_breaker,
+          ...(patch.silence_breaker ?? {}),
+        },
+      },
+    }));
+  }
+
+  async function refreshAudioAssets() {
+    const page = await api.listAudioAssets(orgId, projectId, { limit: 100 });
+    setPresets(page.presets);
+    setUploadedAssets(page.items);
   }
 
   async function refreshAttachments(id: string) {
@@ -178,14 +273,18 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
         stt_id: form.stt_id,
         tts_id: form.tts_id,
         tts_voice_id: form.tts_voice_id || null,
-        flow_id: form.flow_id || null,
+        flow_definition: form.flow_definition,
         config: form.config,
       };
       const saved = agent
         ? await api.updateAgent(agent.id, body)
         : await api.createAgent(orgId, projectId, body);
       setAgent(saved);
-      setForm((prev) => ({ ...prev, config: mergeConfig(saved.config) }));
+      setForm((prev) => ({
+        ...prev,
+        config: mergeConfig(saved.config),
+        flow_definition: saved.flow_definition ?? prev.flow_definition,
+      }));
       onSaved(saved);
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 1800);
@@ -369,25 +468,22 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Conversation flow (optional)" className="sm:col-span-2">
-                    <Select
-                      value={form.flow_id || "__none__"}
-                      onValueChange={(v) => setForm({ ...form, flow_id: v === "__none__" ? "" : v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Linear conversation" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">Linear conversation</SelectItem>
-                        {flows.map((f) => (
-                          <SelectItem key={f.id} value={f.id}>
-                            {f.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
                 </div>
+              </>
+            )}
+
+            {section === "flow" && (
+              <>
+                <SectionTitle
+                  title="Conversation flow"
+                  description="Optional graph. Empty means a linear agent. Edits save with the agent."
+                />
+                <FlowCanvas
+                  key={flowCanvasKey}
+                  orgId={orgId}
+                  definition={form.flow_definition}
+                  onChange={(flow_definition) => setForm((prev) => ({ ...prev, flow_definition }))}
+                />
               </>
             )}
 
@@ -395,79 +491,486 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
               <>
                 <SectionTitle
                   title="Features"
-                  description="These knobs are stored on the agent config and versioned with each save."
+                  description="Runtime knobs applied on every call. Changes version with each save."
                 />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Temperature">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={2}
-                      step={0.1}
-                      value={form.config.temperature ?? 0.5}
-                      onChange={(e) => patchConfig({ temperature: Number(e.target.value) })}
+
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium">Session</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Max duration (seconds, 0 = unlimited)">
+                      <Input
+                        type="number"
+                        min={0}
+                        step={30}
+                        value={form.config.session.max_duration_seconds}
+                        onChange={(e) =>
+                          patchConfig({ session: { ...form.config.session, max_duration_seconds: Number(e.target.value) } })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.session.allow_interruptions}
+                      onCheckedChange={(v) =>
+                        patchConfig({ session: { ...form.config.session, allow_interruptions: v === true } })
+                      }
                     />
-                  </Field>
-                  <Field label="Max tokens">
-                    <Input
-                      type="number"
-                      min={64}
-                      max={8192}
-                      step={64}
-                      value={form.config.max_tokens ?? 1024}
-                      onChange={(e) => patchConfig({ max_tokens: Number(e.target.value) })}
+                    <span>
+                      <span className="font-medium">Allow interruptions</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Caller can barge in while the agent is speaking.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.session.record_calls}
+                      onCheckedChange={(v) =>
+                        patchConfig({ session: { ...form.config.session, record_calls: v === true } })
+                      }
                     />
-                  </Field>
-                  <Field label="Language">
-                    <Input
-                      value={form.config.language ?? "en"}
-                      onChange={(e) => patchConfig({ language: e.target.value })}
-                      placeholder="en"
-                    />
-                  </Field>
-                  <Field label="End on silence (ms, 0 = off)">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={100}
-                      value={form.config.end_on_silence_ms ?? 0}
-                      onChange={(e) => patchConfig({ end_on_silence_ms: Number(e.target.value) })}
-                    />
-                  </Field>
-                  <Field label="Max call duration (seconds, 0 = off)" className="sm:col-span-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      step={30}
-                      value={form.config.max_call_duration_seconds ?? 0}
-                      onChange={(e) => patchConfig({ max_call_duration_seconds: Number(e.target.value) })}
-                    />
-                  </Field>
+                    <span>
+                      <span className="font-medium">Record calls by default</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Prefer recording when the transport supports it.
+                      </span>
+                    </span>
+                  </label>
                 </div>
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
-                  <Checkbox
-                    checked={form.config.allow_interruptions !== false}
-                    onCheckedChange={(v) => patchConfig({ allow_interruptions: v === true })}
-                  />
-                  <span>
-                    <span className="font-medium">Allow interruptions</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      Caller can barge in while the agent is speaking.
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">Turn detection</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="End of speech (VAD stop, seconds)">
+                      <Input
+                        type="number"
+                        min={0.05}
+                        step={0.05}
+                        value={form.config.turn.vad_stop_secs}
+                        onChange={(e) =>
+                          patchConfig({ turn: { ...form.config.turn, vad_stop_secs: Number(e.target.value) } })
+                        }
+                      />
+                    </Field>
+                    <Field label="Speech timeout (seconds)">
+                      <Input
+                        type="number"
+                        min={0.05}
+                        step={0.05}
+                        value={form.config.turn.user_speech_timeout_secs}
+                        onChange={(e) =>
+                          patchConfig({
+                            turn: { ...form.config.turn, user_speech_timeout_secs: Number(e.target.value) },
+                          })
+                        }
+                      />
+                    </Field>
+                  </div>
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">Audio</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Noise cancellation">
+                      <Select
+                        value={form.config.audio.noise_cancellation}
+                        onValueChange={(v) =>
+                          patchConfig({
+                            audio: {
+                              ...form.config.audio,
+                              noise_cancellation: v as NoiseCancellation,
+                            },
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="off">Off</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Background volume (0–1)">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={form.config.audio.background_noise.volume}
+                        onChange={(e) =>
+                          patchConfig({
+                            audio: {
+                              ...form.config.audio,
+                              background_noise: {
+                                ...form.config.audio.background_noise,
+                                volume: Number(e.target.value),
+                              },
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.audio.background_noise.enabled}
+                      onCheckedChange={(v) =>
+                        patchConfig({
+                          audio: {
+                            ...form.config.audio,
+                            background_noise: {
+                              ...form.config.audio.background_noise,
+                              enabled: v === true,
+                            },
+                          },
+                        })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">Background noise loop</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Mix a looping ambient track under the agent voice.
+                      </span>
                     </span>
-                  </span>
-                </label>
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
-                  <Checkbox
-                    checked={form.config.record_calls !== false}
-                    onCheckedChange={(v) => patchConfig({ record_calls: v === true })}
-                  />
-                  <span>
-                    <span className="font-medium">Record calls by default</span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">
-                      Prefer recording when the transport supports it.
+                  </label>
+                  {form.config.audio.background_noise.enabled && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Source">
+                        <Select
+                          value={form.config.audio.background_noise.source}
+                          onValueChange={(v) =>
+                            patchConfig({
+                              audio: {
+                                ...form.config.audio,
+                                background_noise: {
+                                  ...form.config.audio.background_noise,
+                                  source: v as "preset" | "asset",
+                                  id:
+                                    v === "preset"
+                                      ? presets[0]?.id || "office"
+                                      : uploadedAssets[0]?.id || form.config.audio.background_noise.id,
+                                },
+                              },
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="preset">Preset</SelectItem>
+                            <SelectItem value="asset">Uploaded</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Track">
+                        <Select
+                          value={form.config.audio.background_noise.id}
+                          onValueChange={(v) =>
+                            patchConfig({
+                              audio: {
+                                ...form.config.audio,
+                                background_noise: {
+                                  ...form.config.audio.background_noise,
+                                  id: v,
+                                },
+                              },
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select track" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {form.config.audio.background_noise.source === "preset"
+                              ? presets.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name}
+                                  </SelectItem>
+                                ))
+                              : uploadedAssets.map((a) => (
+                                  <SelectItem key={a.id} value={a.id}>
+                                    {a.name}
+                                  </SelectItem>
+                                ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Upload ambient WAV/MP3" className="sm:col-span-2">
+                        <Input
+                          type="file"
+                          accept="audio/wav,audio/mpeg,.wav,.mp3"
+                          disabled={uploadingAmbient}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingAmbient(true);
+                            void api
+                              .uploadAudioAsset(orgId, projectId, file.name.replace(/\.[^.]+$/, ""), file)
+                              .then(async (asset) => {
+                                await refreshAudioAssets();
+                                patchConfig({
+                                  audio: {
+                                    ...form.config.audio,
+                                    background_noise: {
+                                      ...form.config.audio.background_noise,
+                                      enabled: true,
+                                      source: "asset",
+                                      id: asset.id,
+                                    },
+                                  },
+                                });
+                              })
+                              .catch((err) => setError(err instanceof Error ? err.message : "Upload failed"))
+                              .finally(() => {
+                                setUploadingAmbient(false);
+                                e.target.value = "";
+                              });
+                          }}
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">End-of-call warning</h3>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.end_of_call_warning.enabled}
+                      onCheckedChange={(v) =>
+                        patchConfig({
+                          end_of_call_warning: {
+                            ...form.config.end_of_call_warning,
+                            enabled: v === true,
+                          },
+                        })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">Warn before hangup</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Speaks a warning before max duration ends the call.
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                  {form.config.end_of_call_warning.enabled && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Warn before (seconds)">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={5}
+                          value={form.config.end_of_call_warning.warn_before_seconds}
+                          onChange={(e) =>
+                            patchConfig({
+                              end_of_call_warning: {
+                                ...form.config.end_of_call_warning,
+                                warn_before_seconds: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field label="Mode">
+                        <Select
+                          value={form.config.end_of_call_warning.mode}
+                          onValueChange={(v) =>
+                            patchConfig({
+                              end_of_call_warning: {
+                                ...form.config.end_of_call_warning,
+                                mode: v as "simple" | "session_aware",
+                              },
+                            })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="simple">Simple message</SelectItem>
+                            <SelectItem value="session_aware">Session-aware template</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      {form.config.end_of_call_warning.mode === "simple" ? (
+                        <Field label="Simple message" className="sm:col-span-2">
+                          <Textarea
+                            rows={2}
+                            value={form.config.end_of_call_warning.simple_message}
+                            onChange={(e) =>
+                              patchConfig({
+                                end_of_call_warning: {
+                                  ...form.config.end_of_call_warning,
+                                  simple_message: e.target.value,
+                                },
+                              })
+                            }
+                          />
+                        </Field>
+                      ) : (
+                        <Field
+                          label="Template ({remaining_seconds}, {duration_seconds}, {agent_name})"
+                          className="sm:col-span-2"
+                        >
+                          <Textarea
+                            rows={3}
+                            value={form.config.end_of_call_warning.session_aware_template}
+                            onChange={(e) =>
+                              patchConfig({
+                                end_of_call_warning: {
+                                  ...form.config.end_of_call_warning,
+                                  session_aware_template: e.target.value,
+                                },
+                              })
+                            }
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">Silence breaker</h3>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.silence_breaker.enabled}
+                      onCheckedChange={(v) =>
+                        patchConfig({
+                          silence_breaker: {
+                            ...form.config.silence_breaker,
+                            enabled: v === true,
+                          },
+                        })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">Nudge when user is idle</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Context-aware check-in after idle; never hangs up.
+                      </span>
+                    </span>
+                  </label>
+                  {form.config.silence_breaker.enabled && (
+                    <Field label="Idle seconds">
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={form.config.silence_breaker.idle_seconds}
+                        onChange={(e) =>
+                          patchConfig({
+                            silence_breaker: {
+                              ...form.config.silence_breaker,
+                              idle_seconds: Number(e.target.value),
+                            },
+                          })
+                        }
+                      />
+                    </Field>
+                  )}
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">Tools</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Attach catalog tools for live function calling. Save the agent first to manage attachments.
+                  </p>
+                  {!agent && (
+                    <p className="text-sm text-muted-foreground">Create the agent to attach tools.</p>
+                  )}
+                  {agent && (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        <Select value={attachToolId || undefined} onValueChange={setAttachToolId}>
+                          <SelectTrigger className="min-w-[220px] flex-1">
+                            <SelectValue placeholder="Select tool" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableTools.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          className="cursor-pointer"
+                          disabled={!attachToolId}
+                          onClick={() =>
+                            void api.attachAgentTool(agent.id, attachToolId, true).then(async () => {
+                              setAttachToolId("");
+                              await refreshAttachments(agent.id);
+                            })
+                          }
+                        >
+                          Add tool
+                        </Button>
+                      </div>
+                      {attachedTools.map((tool) => (
+                        <div
+                          key={tool.id}
+                          className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{tool.name}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="cursor-pointer"
+                            onClick={() =>
+                              void api.detachAgentTool(agent.id, tool.id).then(() => refreshAttachments(agent.id))
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">LLM</h3>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Temperature">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={2}
+                        step={0.1}
+                        value={form.config.llm.temperature}
+                        onChange={(e) =>
+                          patchConfig({ llm: { ...form.config.llm, temperature: Number(e.target.value) } })
+                        }
+                      />
+                    </Field>
+                    <Field label="Max tokens">
+                      <Input
+                        type="number"
+                        min={64}
+                        max={8192}
+                        step={64}
+                        value={form.config.llm.max_tokens}
+                        onChange={(e) =>
+                          patchConfig({ llm: { ...form.config.llm, max_tokens: Number(e.target.value) } })
+                        }
+                      />
+                    </Field>
+                    <Field label="Language" className="sm:col-span-2">
+                      <Input
+                        value={form.config.llm.language}
+                        onChange={(e) => patchConfig({ llm: { ...form.config.llm, language: e.target.value } })}
+                        placeholder="en"
+                      />
+                    </Field>
+                  </div>
+                </div>
               </>
             )}
 
@@ -475,52 +978,9 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
               <>
                 <SectionTitle
                   title="Attachments"
-                  description="Tools run live; post-call analyses run automatically when a call with this agent ends."
+                  description="Post-call analyses run automatically when a call with this agent ends. Tools live under Features."
                 />
                 <div className="space-y-3">
-                  <h3 className="text-sm font-medium">Tools</h3>
-                  <div className="flex flex-wrap gap-2">
-                    <Select value={attachToolId || undefined} onValueChange={setAttachToolId}>
-                      <SelectTrigger className="min-w-[220px] flex-1">
-                        <SelectValue placeholder="Select tool" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableTools.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      className="cursor-pointer"
-                      disabled={!attachToolId}
-                      onClick={() =>
-                        void api.attachAgentTool(agent.id, attachToolId, true).then(async () => {
-                          setAttachToolId("");
-                          await refreshAttachments(agent.id);
-                        })
-                      }
-                    >
-                      Add tool
-                    </Button>
-                  </div>
-                  {attachedTools.map((tool) => (
-                    <div key={tool.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                      <span className="min-w-0 flex-1 truncate">{tool.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="cursor-pointer"
-                        onClick={() => void api.detachAgentTool(agent.id, tool.id).then(() => refreshAttachments(agent.id))}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-3 border-t border-border pt-6">
                   <h3 className="text-sm font-medium">Post-call analyses</h3>
                   <p className="text-xs text-muted-foreground">
                     Attach analyses here — not on the dial screen. Enabled analyses run after every call.
@@ -615,9 +1075,10 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                             stt_id: updated.stt_id,
                             tts_id: updated.tts_id,
                             tts_voice_id: updated.tts_voice_id ?? "",
-                            flow_id: updated.flow_id ?? "",
+                            flow_definition: updated.flow_definition ?? { ...EMPTY_FLOW },
                             config: mergeConfig(updated.config),
                           });
+                          setFlowCanvasKey((k) => k + 1);
                           onSaved(updated);
                         })
                       }

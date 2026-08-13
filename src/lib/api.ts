@@ -7,10 +7,11 @@ import type {
   AgentVersion,
   AnalysisResult,
   ApiKey,
+  AudioAsset,
+  AudioAssetList,
   CatalogTool,
   CreateSessionBody,
   CreatedApiKey,
-  Flow,
   Member,
   Membership,
   Organization,
@@ -174,15 +175,27 @@ export const api = {
   detachAnalysisTool: (analysisId: string, toolId: string) =>
     authedJson(`/v1/post-call-analyses/${analysisId}/tools/${toolId}`, { method: "DELETE" }),
 
-  listFlows: (orgId: string, projectId: string, params?: ListParams) =>
-    authedJson<Page<Flow>>(`/v1/orgs/${orgId}/projects/${projectId}/flows${qs(params)}`),
-  createFlow: (orgId: string, projectId: string, body: Partial<Flow>) =>
-    authedJson<Flow>(`/v1/orgs/${orgId}/projects/${projectId}/flows`, {
+  listAudioAssets: (orgId: string, projectId: string, params?: ListParams) =>
+    authedJson<AudioAssetList>(`/v1/orgs/${orgId}/projects/${projectId}/audio-assets${qs(params)}`),
+  uploadAudioAsset: async (orgId: string, projectId: string, name: string, file: File) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    const form = new FormData();
+    form.append("name", name);
+    form.append("file", file);
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${BACKEND_URL}/v1/orgs/${orgId}/projects/${projectId}/audio-assets`, {
       method: "POST",
-      body: JSON.stringify(body),
-    }),
-  getFlow: (flowId: string) => authedJson<Flow>(`/v1/flows/${flowId}`),
-  updateFlow: (flowId: string, body: Partial<Flow>) =>
-    authedJson<Flow>(`/v1/flows/${flowId}`, { method: "PATCH", body: JSON.stringify(body) }),
-  archiveFlow: (flowId: string) => authedJson<Flow>(`/v1/flows/${flowId}/archive`, { method: "POST" }),
+      headers,
+      body: form,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Upload failed (${res.status})`);
+    }
+    return (await res.json()) as AudioAsset;
+  },
+  archiveAudioAsset: (assetId: string) =>
+    authedJson<AudioAsset>(`/v1/audio-assets/${assetId}/archive`, { method: "POST" }),
 };

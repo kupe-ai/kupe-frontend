@@ -55,7 +55,10 @@ export default function AgentPicker({ orgId, projectId, agentId, onChange }: Pro
       {selected && (
         <p className="text-xs text-muted-foreground">
           Runs {selected.llm_id} / {selected.stt_id} / {selected.tts_id} with this agent&apos;s prompt
-          and its attached post-call analyses.
+          and its attached post-call analyses
+          {selected.flow_definition?.nodes && Object.keys(selected.flow_definition.nodes).length > 0
+            ? " (includes a conversation flow)."
+            : "."}
         </p>
       )}
       {!selected && agents?.length === 0 && (
