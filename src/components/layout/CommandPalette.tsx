@@ -62,7 +62,7 @@ export function CommandPalette({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-lg" showCloseButton={false}>
+      <DialogContent className="overflow-hidden rounded-2xl p-0 sm:max-w-lg" showCloseButton={false}>
         <DialogHeader className="sr-only">
           <DialogTitle>Quick search</DialogTitle>
           <DialogDescription>Jump to a Voice Agents page or change theme.</DialogDescription>
@@ -129,12 +129,12 @@ export function SearchTrigger({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex h-9 w-full max-w-xs items-center gap-2 rounded-full border border-border bg-card px-3 text-left text-sm text-muted-foreground shadow-sm transition-colors hover:bg-muted/60",
+        "inline-flex h-9 w-full max-w-xs items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 text-left text-sm text-muted-foreground shadow-sm backdrop-blur-xl pressable hover:bg-muted/60 hover:text-foreground",
       )}
     >
       <Search className="size-4 shrink-0" />
       <span className="flex-1 truncate">Quick search</span>
-      <kbd className="hidden rounded-md border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px] sm:inline">
+      <kbd className="hidden rounded-md border border-border/80 bg-muted/80 px-1.5 py-0.5 font-mono text-[10px] tracking-[0.04em] sm:inline">
         {getShortcutLabel("⌘K")}
       </kbd>
     </button>

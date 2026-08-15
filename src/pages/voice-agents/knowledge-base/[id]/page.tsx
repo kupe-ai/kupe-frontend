@@ -91,7 +91,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
 
   if (!kb) {
     return (
-      <div className="mx-auto w-full max-w-5xl px-4 py-8 md:px-8">
+      <div className="voice-page">
         <Link
           to="/voice-agents/knowledge-base"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -107,7 +107,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
           <Link
@@ -147,7 +147,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
       </div>
 
       {/* Overview card */}
-      <section className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <section className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-elevated">
         <div className="flex items-start gap-3">
           <div className="flex size-10 items-center justify-center rounded-md bg-muted">
             <AsciiIcon kind="folder" tone="amber" size="sm" />

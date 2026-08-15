@@ -15,8 +15,8 @@ export function BrandLockup({
       </div>
       {!collapsed && (
         <div className="min-w-0 text-left">
-          <div className="truncate text-sm font-semibold tracking-tight">Kupe</div>
-          <div className="truncate text-[11px] text-muted-foreground">Voice Agents</div>
+          <div className="truncate text-sm font-semibold tracking-[-0.014em]">Kupe</div>
+          <div className="text-caption truncate">Voice Agents</div>
         </div>
       )}
     </div>

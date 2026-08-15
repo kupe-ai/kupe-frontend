@@ -105,7 +105,7 @@ export default function VoiceAgentsKnowledgePage() {
   const showEmptyState = !loading && items.length === 0 && !search;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page">
       <VoicePageHeader
         title="Knowledge base"
         actions={

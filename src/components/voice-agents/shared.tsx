@@ -34,19 +34,25 @@ export function VoicePageHeader({
   title,
   actions,
   className,
+  size = "title",
 }: {
   title: string;
   actions?: ReactNode;
   className?: string;
+  size?: "title" | "eyebrow";
 }) {
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3",
+        "flex flex-wrap items-end justify-between gap-4",
         className,
       )}
     >
-      <p className="text-sm text-muted-foreground">{title}</p>
+      {size === "eyebrow" ? (
+        <p className="text-caption">{title}</p>
+      ) : (
+        <h1 className="text-title">{title}</h1>
+      )}
       {actions}
     </div>
   );
@@ -200,7 +206,7 @@ export function RecentAgentsTable({
               <li key={agent.id}>
                 <Link
                   to={`/voice-agents/agents/${agent.id}`}
-                  className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                  className="pressable grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <div className="flex size-9 items-center justify-center rounded-full bg-muted">
@@ -291,7 +297,7 @@ export function AgentTemplatesSection({
   return (
     <section>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">Agent templates</h2>
+        <h2 className="text-headline">Agent templates</h2>
         <div className="flex flex-wrap gap-1.5">
           {TEMPLATE_FILTERS.map((f) => (
             <button
@@ -302,7 +308,7 @@ export function AgentTemplatesSection({
                 setShowAll(false);
               }}
               className={cn(
-                "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                "pressable rounded-full px-3 py-1.5 text-xs font-medium",
                 filter === f.id
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -320,7 +326,7 @@ export function AgentTemplatesSection({
             key={tpl.id}
             type="button"
             onClick={() => openTemplate(tpl)}
-            className="rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/30"
+            className="pressable rounded-2xl border border-border bg-card p-5 text-left shadow-elevated hover:bg-muted/20"
           >
             <div className="flex size-10 items-center justify-center rounded-full bg-muted">
               <PetSprite seed={tpl.seed} size={26} frame="stand" />

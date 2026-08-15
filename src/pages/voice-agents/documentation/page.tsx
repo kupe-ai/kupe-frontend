@@ -11,8 +11,8 @@ export default function VoiceAgentsDocsPage() {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
-      <p className="text-sm text-muted-foreground">Documentation</p>
+    <div className="voice-page voice-page-narrow">
+      <p className="text-caption">Documentation</p>
       <AsciiEmptyState
         kind="docs"
         tone="sky"

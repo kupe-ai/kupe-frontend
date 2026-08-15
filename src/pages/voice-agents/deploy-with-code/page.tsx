@@ -49,9 +49,10 @@ export default function VoiceAgentsDeployCodePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page">
       <VoicePageHeader
         title="Deploy with code"
+        size="eyebrow"
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="rounded-full" onClick={() => navigate("/voice-agents/settings")}>
@@ -73,7 +74,7 @@ export default function VoiceAgentsDeployCodePage() {
       />
 
       <section className="mt-14 flex flex-col items-center text-center">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="text-display">
           Build voice agents with code
         </h1>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
@@ -120,7 +121,7 @@ export default function VoiceAgentsDeployCodePage() {
             <Link
               key={card.slug}
               to={`/voice-agents/deploy-with-code/apis/${card.slug}`}
-              className="rounded-2xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-muted/30"
+              className="pressable rounded-2xl border border-border bg-card p-5 shadow-elevated hover:bg-muted/20"
             >
               <AsciiIcon kind={card.kind} tone={card.tone} size="md" />
               <h3 className="mt-3 text-sm font-semibold">{card.title}</h3>

@@ -59,7 +59,7 @@ export default function DeployApiDetailPage() {
   const agents = agentsQuery.data?.items ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page">
       <DeployBreadcrumb
         section="apis"
         sectionLabel="APIs"
@@ -69,7 +69,7 @@ export default function DeployApiDetailPage() {
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{api.title}</h1>
+          <h1 className="text-title">{api.title}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{api.headline}</p>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             {api.description}

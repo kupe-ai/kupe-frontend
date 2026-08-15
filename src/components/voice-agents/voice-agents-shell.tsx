@@ -28,13 +28,7 @@ function NavLinkRow({
     <Link
       to={href}
       title={collapsed ? label : undefined}
-      className={cn(
-        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
-        collapsed && "justify-center px-2",
-        active
-          ? "bg-muted font-medium text-foreground ring-1 ring-primary/15"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-      )}
+      className={cn("nav-item", collapsed && "justify-center px-2", active && "is-active")}
     >
       <Icon className="size-4 shrink-0" />
       {!collapsed && <span className="truncate">{label}</span>}
@@ -58,18 +52,18 @@ export function VoiceAgentsShell({ children }: { children: ReactNode }) {
     <div className="flex h-full min-h-0 w-full overflow-hidden">
       <aside
         className={cn(
-          "hidden shrink-0 flex-col border-r border-border bg-pane md:flex",
-          collapsed ? "w-14" : "w-[220px]",
+          "material-sidebar hidden shrink-0 flex-col md:flex",
+          collapsed ? "w-14" : "w-[232px]",
         )}
       >
         <div
           className={cn(
-            "flex h-12 shrink-0 items-center border-b border-border",
+            "flex h-12 shrink-0 items-center",
             collapsed ? "justify-center px-2" : "justify-between px-3",
           )}
         >
           {!collapsed && (
-            <span className="truncate text-sm font-semibold tracking-tight">
+            <span className="truncate text-sm font-semibold tracking-[-0.014em]">
               Voice Agents
             </span>
           )}
@@ -92,7 +86,7 @@ export function VoiceAgentsShell({ children }: { children: ReactNode }) {
           {VOICE_AGENTS_NAV.map((section) => (
             <div key={section.id} className="flex flex-col gap-0.5">
               {section.label && !collapsed && (
-                <div className="px-2.5 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground/80">
+                <div className="text-caption px-2.5 pb-1 uppercase tracking-[0.06em]">
                   {section.label}
                 </div>
               )}
@@ -110,7 +104,7 @@ export function VoiceAgentsShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="flex shrink-0 flex-col gap-0.5 border-t border-border px-2 py-3">
+        <div className="flex shrink-0 flex-col gap-0.5 px-2 py-3">
           {VOICE_AGENTS_FOOTER_NAV.map((item) => (
             <NavLinkRow
               key={item.id}

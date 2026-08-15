@@ -125,17 +125,10 @@ export default function VoiceAgentsAnalyticsPage() {
   }, [refreshTabData]);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-6 md:py-6">
-      {/* Breadcrumb */}
-      <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-        <span className="text-foreground">Agent Analytics</span>
-        <span>/</span>
-        <span>All Agents</span>
-      </div>
-
-      {/* Actions */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <div className="ml-auto flex items-center gap-1">
+    <div className="voice-page voice-page-wide">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-title">Analytics</h1>
+        <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={() => setEvalOpen(true)}>
             <Upload className="size-3.5" />
             Upload evaluation criteria
@@ -164,7 +157,7 @@ export default function VoiceAgentsAnalyticsPage() {
                 setPage(1);
               }}
               className={cn(
-                "border-b-2 px-2.5 py-2 text-sm transition-colors",
+                "pressable border-b-2 px-2.5 py-2 text-sm",
                 tab === t.id ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >

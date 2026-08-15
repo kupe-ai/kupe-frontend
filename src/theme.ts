@@ -14,7 +14,7 @@ export const kupe = {
   border: "#E1DEED",
   radius: 16,
   radiusLarge: 20,
-  shadow: "0 20px 60px rgba(34, 23, 53, 0.12)",
+  shadow: "0 1px 2px rgba(34, 23, 53, 0.04), 0 8px 24px rgba(34, 23, 53, 0.06)",
 
   text: {
     primary: "#050305",
@@ -49,6 +49,33 @@ export const kupe = {
     marketingCta: "linear-gradient(100deg, #F86C1E, #F96B44, #FAACDB)",
     dashboard: "linear-gradient(100deg, #6D5CB2, #746FD1, #968BF3)",
     voice: "linear-gradient(100deg, #6D5CB2, #968BF3, #A379F9, #CD93D9, #FAACDB)",
+  },
+
+  /** Apple-design skill: critically damped springs, press feedback, materials, type. */
+  motion: {
+    pressScale: 0.97,
+    pressDuration: "100ms",
+    uiResponse: "320ms",
+    sheetResponse: "380ms",
+    easeSpring: "cubic-bezier(0.32, 0.72, 0, 1)",
+    easeOut: "ease-out",
+  },
+
+  materials: {
+    blur: "20px",
+    saturate: "180%",
+  },
+
+  type: {
+    trackingDisplay: "-0.022em",
+    trackingTitle: "-0.018em",
+    trackingHeadline: "-0.014em",
+    trackingBody: "-0.011em",
+    trackingCaption: "0.006em",
+    leadingDisplay: 1.08,
+    leadingTitle: 1.12,
+    leadingBody: 1.47,
+    leadingCaption: 1.35,
   },
 } as const;
 

@@ -129,9 +129,9 @@ export default function VoiceAgentsPricingPage() {
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-5 md:px-8 md:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Plans & Pricing</p>
+    <div className="voice-page voice-page-wide">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h1 className="text-title">Plans & Pricing</h1>
         <Button variant="outline" className="rounded-full" size="sm">
           <ShoppingBag className="size-3.5" />
           {credits.toLocaleString("en-IN")} Credits
@@ -139,9 +139,9 @@ export default function VoiceAgentsPricingPage() {
       </div>
 
       <div className="mt-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
+        <h2 className="text-display">
           Voice Agents pricing
-        </h1>
+        </h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Pay at your scale. Get lower per-minute rates with a monthly plan.
         </p>
@@ -151,7 +151,7 @@ export default function VoiceAgentsPricingPage() {
         {PLANS.map((plan) => (
           <div
             key={plan.id}
-            className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm"
+            className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-elevated"
           >
             <div className="flex h-20 items-center justify-center rounded-xl bg-muted/50">
               <AsciiIcon

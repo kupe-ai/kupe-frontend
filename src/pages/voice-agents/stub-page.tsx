@@ -17,9 +17,9 @@ export function VoiceAgentsStubPage({
   }, [title]);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-8 md:px-8">
-      <p className="text-sm text-muted-foreground">Voice Agents</p>
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="voice-page voice-page-narrow flex flex-col gap-4">
+      <p className="text-caption">Voice Agents</p>
+      <h1 className="text-title">{title}</h1>
       <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
         {description}
       </p>

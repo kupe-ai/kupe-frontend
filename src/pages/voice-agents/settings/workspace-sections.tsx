@@ -91,7 +91,7 @@ export function KupeWorkspaceSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <section className="rounded-2xl border border-border bg-card p-5 shadow-elevated">
         <h2 className="text-sm font-semibold tracking-tight">Workspace</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Organization, project, and calling country for this console.
@@ -210,7 +210,7 @@ export function KupeWorkspaceSettings() {
       </section>
 
       {isAdmin && (
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+        <section className="rounded-2xl border border-border bg-card p-5 shadow-elevated">
           <h2 className="text-sm font-semibold tracking-tight">Members</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Invite an existing Kupe user by email. Members need a project allowlist.

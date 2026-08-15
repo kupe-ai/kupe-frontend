@@ -50,8 +50,8 @@ export default function VoiceAgentsPhoneNumbersPage() {
   const latestKyc = applications[0] ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8 md:py-10">
-      <h1 className="text-center text-2xl font-semibold tracking-tight md:text-3xl">
+    <div className="voice-page voice-page-md">
+      <h1 className="text-display text-center">
         Take your agent live.
       </h1>
 
@@ -75,7 +75,7 @@ export default function VoiceAgentsPhoneNumbersPage() {
       )}
 
       <div className="mx-auto mt-10 max-w-lg">
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-elevated">
           <div className="flex items-start justify-between gap-3">
             <AsciiIcon kind="folder" tone="coral" size="lg" title="Rent from Kupe" />
           </div>
@@ -232,7 +232,7 @@ function KycWizard({
               <div className="mt-5 space-y-3">
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/40"
+                  className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
                   onClick={() => {
                     setKind("individual");
                     setStep("verify");
@@ -254,7 +254,7 @@ function KycWizard({
 
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left transition-colors hover:bg-muted/40"
+                  className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
                   onClick={() => {
                     setKind("company");
                     setStep("verify");

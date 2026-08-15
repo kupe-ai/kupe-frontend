@@ -17,7 +17,7 @@ export default function DeployRecipeDetailPage() {
 
   if (!recipe) {
     return (
-      <div className="px-6 py-8 text-sm text-muted-foreground">
+      <div className="voice-page voice-page-narrow text-sm text-muted-foreground">
         Recipe not found.{" "}
         <Link to="/voice-agents/deploy-with-code" className="underline">
           Back
@@ -27,7 +27,7 @@ export default function DeployRecipeDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page voice-page-narrow">
       <DeployBreadcrumb
         section="recipes"
         sectionLabel="Recipes & Guides"
@@ -35,7 +35,7 @@ export default function DeployRecipeDetailPage() {
         currentTitle={recipe.title}
       />
 
-      <h1 className="mt-6 text-3xl font-semibold tracking-tight">
+      <h1 className="text-title mt-6">
         {recipe.title}
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">

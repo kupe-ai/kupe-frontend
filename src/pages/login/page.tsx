@@ -9,7 +9,7 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div className="flex h-svh items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-caption">Loading…</p>
       </div>
     );
   }
@@ -19,10 +19,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-svh flex-col items-center justify-center gap-8 overflow-y-auto bg-background p-6">
+    <div className="flex h-svh flex-col items-center justify-center gap-10 overflow-y-auto bg-background p-6">
       <div className="flex flex-col items-center gap-3 text-center">
         <BrandLockup />
-        <p className="text-sm text-muted-foreground">Sign in to your voice agent console.</p>
+        <p className="text-caption max-w-xs">Sign in to your voice agent console.</p>
       </div>
       <AuthPanel />
     </div>

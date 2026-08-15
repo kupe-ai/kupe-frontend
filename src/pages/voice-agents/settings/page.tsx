@@ -80,7 +80,7 @@ export default function VoiceAgentsSettingsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page">
       <VoicePageHeader
         title="Settings"
         actions={
@@ -99,14 +99,14 @@ export default function VoiceAgentsSettingsPage() {
         }
       />
 
-      <div className="mt-4 inline-flex rounded-full bg-muted/70 p-1">
+      <div className="mt-6 inline-flex rounded-full bg-muted/70 p-1">
         {SETTINGS_TABS.map((t) => (
           <button
             key={t.id}
             type="button"
             onClick={() => setTab(t.id)}
             className={cn(
-              "rounded-full px-3.5 py-1.5 text-sm transition-colors",
+              "pressable rounded-full px-3.5 py-1.5 text-sm",
               tab === t.id
                 ? "bg-background font-medium text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",

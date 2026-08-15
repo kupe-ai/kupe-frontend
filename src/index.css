@@ -48,6 +48,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --shadow-elevated: var(--elevation);
   --shadow-elevated-right: var(--elevation-right);
+  --shadow-modal: var(--elevation-modal);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -59,6 +60,7 @@
 /* ------------------------------------------------------------------ *
  * Kupe product tokens — white / off-white / near-black + purple accents.
  * Light is the default dashboard. Dark uses #050305 / #110E20 / #221735.
+ * Apple-design skill: springs, materials, size-specific type, a11y.
  * ------------------------------------------------------------------ */
 :root {
   --radius: 16px;
@@ -88,13 +90,41 @@
   --kupe-marketing-cta: linear-gradient(100deg, #f86c1e, #f96b44, #faacdb);
   --kupe-dashboard: linear-gradient(100deg, #6d5cb2, #746fd1, #968bf3);
   --kupe-voice: linear-gradient(100deg, #6d5cb2, #968bf3, #a379f9, #cd93d9, #faacdb);
-  --kupe-card-shadow: 0 20px 60px rgba(34, 23, 53, 0.12);
+  --kupe-card-shadow: 0 1px 2px rgba(34, 23, 53, 0.04), 0 8px 24px rgba(34, 23, 53, 0.06);
 
-  --elevation: 0 20px 60px rgba(34, 23, 53, 0.12);
-  --elevation-right: -1px 0 12px rgba(34, 23, 53, 0.06);
+  /* Depth: quiet cards, stronger modals. Never noisy dashboard gradients. */
+  --elevation: 0 1px 2px rgba(34, 23, 53, 0.04), 0 8px 24px rgba(34, 23, 53, 0.06);
+  --elevation-right: -1px 0 12px rgba(34, 23, 53, 0.05);
+  --elevation-modal: 0 24px 80px rgba(34, 23, 53, 0.18), 0 2px 8px rgba(34, 23, 53, 0.06);
 
-  --ease-pop: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Motion — critically damped (damping 1.0). Press is 100ms ease-out. */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-spring-exit: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-soft: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-pop: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-press: 100ms;
+  --duration-ui: 320ms;
+  --duration-sheet: 380ms;
+  --press-scale: 0.97;
+
+  /* Materials — translucent chrome; content surfaces stay opaque. */
+  --material-blur: 20px;
+  --material-saturate: 180%;
+  --material-thin: rgba(254, 253, 253, 0.72);
+  --material-regular: rgba(254, 253, 253, 0.78);
+  --material-thick: rgba(254, 253, 253, 0.88);
+  --material-highlight: rgba(255, 255, 255, 0.55);
+
+  /* Type — size-specific tracking; never one letter-spacing for all sizes. */
+  --tracking-display: -0.022em;
+  --tracking-title: -0.018em;
+  --tracking-headline: -0.014em;
+  --tracking-body: -0.011em;
+  --tracking-caption: 0.006em;
+  --leading-display: 1.08;
+  --leading-title: 1.12;
+  --leading-body: 1.47;
+  --leading-caption: 1.35;
 
   --background: #f6f4f3;
   --foreground: #050305;
@@ -156,8 +186,14 @@
   --popover: #110e20;
   --popover-foreground: #f6f4f3;
 
-  --elevation: 0 20px 60px rgba(5, 3, 5, 0.45);
+  --elevation: 0 1px 2px rgba(5, 3, 5, 0.4), 0 8px 24px rgba(5, 3, 5, 0.35);
   --elevation-right: -1px 0 12px rgba(5, 3, 5, 0.35);
+  --elevation-modal: 0 24px 80px rgba(5, 3, 5, 0.55), 0 2px 8px rgba(5, 3, 5, 0.3);
+
+  --material-thin: rgba(17, 14, 32, 0.72);
+  --material-regular: rgba(17, 14, 32, 0.78);
+  --material-thick: rgba(17, 14, 32, 0.88);
+  --material-highlight: rgba(255, 255, 255, 0.08);
 
   --primary: #746fd1;
   --primary-foreground: #fefdfd;
@@ -207,8 +243,30 @@
     @apply h-svh w-full overflow-hidden;
   }
 
+  html {
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply m-0 bg-background font-sans text-foreground antialiased;
+    letter-spacing: var(--tracking-body);
+    line-height: var(--leading-body);
+    font-size: 0.9375rem;
+    touch-action: manipulation;
+  }
+
+  button,
+  a,
+  [role="button"],
+  [data-slot="button"],
+  [data-slot="tabs-trigger"] {
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: none;
   }
 
   .text-primary {
@@ -216,21 +274,156 @@
   }
 }
 
+@layer components {
+  .voice-page {
+    width: 100%;
+    max-width: 64rem;
+    margin-inline: auto;
+    padding: 2rem 1.25rem 2.5rem;
+  }
+  @media (min-width: 768px) {
+    .voice-page {
+      padding: 2.5rem 2.5rem 3rem;
+    }
+  }
+  .voice-page-wide {
+    max-width: 72rem;
+  }
+  .voice-page-md {
+    max-width: 56rem;
+  }
+  .voice-page-narrow {
+    max-width: 48rem;
+  }
+
+  .text-display {
+    font-size: clamp(1.75rem, 2.6vw, 2.25rem);
+    font-weight: 650;
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-display);
+    font-optical-sizing: auto;
+  }
+  .text-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: var(--tracking-title);
+    line-height: var(--leading-title);
+    font-optical-sizing: auto;
+  }
+  .text-headline {
+    font-size: 1.0625rem;
+    font-weight: 590;
+    letter-spacing: var(--tracking-headline);
+    line-height: 1.25;
+  }
+  .text-caption {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: var(--tracking-caption);
+    line-height: var(--leading-caption);
+    color: var(--muted-foreground);
+  }
+
+  /* Translucent chrome. Content cards stay opaque so glass never stacks on glass. */
+  .material-bar {
+    background: var(--material-regular);
+    -webkit-backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+    backdrop-filter: blur(var(--material-blur)) saturate(var(--material-saturate));
+    box-shadow: inset 0 1px 0 var(--material-highlight);
+  }
+  .material-sidebar {
+    background: var(--material-thick);
+    -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturate));
+    backdrop-filter: blur(24px) saturate(var(--material-saturate));
+  }
+  .material-sheet {
+    background: var(--material-thick);
+    -webkit-backdrop-filter: blur(24px) saturate(var(--material-saturate));
+    backdrop-filter: blur(24px) saturate(var(--material-saturate));
+  }
+
+  .scroll-edge {
+    position: relative;
+  }
+  .scroll-edge::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset-inline: 0;
+    bottom: -12px;
+    height: 12px;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--background) 55%, transparent),
+      transparent
+    );
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    border-radius: 10px;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.875rem;
+    letter-spacing: -0.011em;
+    color: var(--muted-foreground);
+    transition:
+      transform var(--duration-press) ease-out,
+      background-color var(--duration-ui) var(--ease-spring),
+      color var(--duration-ui) var(--ease-spring);
+  }
+  .nav-item:hover {
+    background: color-mix(in srgb, var(--muted) 70%, transparent);
+    color: var(--foreground);
+  }
+  .nav-item:active {
+    transform: scale(var(--press-scale));
+  }
+  .nav-item.is-active {
+    background: color-mix(in srgb, var(--muted) 90%, transparent);
+    color: var(--foreground);
+    font-weight: 590;
+  }
+  .nav-item:focus-visible {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 40%, transparent);
+  }
+
+  .pressable {
+    transition: transform var(--duration-press) ease-out;
+  }
+  .pressable:active {
+    transform: scale(var(--press-scale));
+  }
+}
+
 @layer utilities {
   .animate-fade-in {
-    animation: kupe-fade-in 0.35s var(--ease-out-soft) both;
+    animation: kupe-fade-in var(--duration-ui) var(--ease-spring) both;
   }
   .animate-fade-in-up {
-    animation: kupe-fade-in-up 0.42s var(--ease-out-soft) both;
+    animation: kupe-fade-in-up var(--duration-ui) var(--ease-spring) both;
   }
   .animate-pop-in {
-    animation: kupe-pop-in 0.44s var(--ease-pop) both;
+    animation: kupe-pop-in var(--duration-ui) var(--ease-spring) both;
   }
   .kupe-voice-gradient {
     background-image: var(--kupe-voice);
   }
   .kupe-hero-cta {
     background-image: var(--kupe-hero-cta);
+  }
+  .duration-press {
+    transition-duration: var(--duration-press);
+  }
+  .duration-ui {
+    transition-duration: var(--duration-ui);
+  }
+  .duration-sheet {
+    transition-duration: var(--duration-sheet);
+  }
+  .ease-spring {
+    transition-timing-function: var(--ease-spring);
   }
 }
 
@@ -246,6 +439,17 @@
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
+@keyframes kupe-pulse {
+  50% { opacity: 0.55; }
+}
+@keyframes kupe-shimmer-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.animate-shimmer-sweep {
+  animation: kupe-shimmer-sweep 1.6s var(--ease-spring) infinite;
+}
 
 .lk-voice-assistant-control-bar,
 .lk-control-bar {
@@ -256,4 +460,77 @@
 
 .lk-button {
   border-radius: var(--radius) !important;
+}
+
+/* Reduced motion: keep opacity feedback, drop slides/springs/scale. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-press: 0ms;
+    --duration-ui: 160ms;
+    --duration-sheet: 160ms;
+    --ease-spring: ease;
+    --ease-spring-exit: ease;
+    --ease-out-soft: ease;
+    --ease-pop: ease;
+    --press-scale: 1;
+  }
+
+  .animate-fade-in-up,
+  .animate-pop-in {
+    animation: kupe-fade-in 160ms ease both;
+  }
+
+  .animate-shimmer-sweep {
+    animation: none;
+  }
+
+  .nav-item:active,
+  .pressable:active,
+  [data-slot="button"]:active {
+    transform: none;
+  }
+}
+
+/* Reduced transparency: frost becomes solid. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --material-thin: var(--card);
+    --material-regular: var(--card);
+    --material-thick: var(--pane);
+    --material-blur: 0px;
+    --material-saturate: 100%;
+  }
+
+  .material-bar,
+  .material-sidebar,
+  .material-sheet {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* More contrast: defined borders, solid chrome. */
+@media (prefers-contrast: more) {
+  :root {
+    --border: #050305;
+    --input: #050305;
+    --material-thin: var(--card);
+    --material-regular: var(--card);
+    --material-thick: var(--pane);
+  }
+
+  .dark {
+    --border: #f6f4f3;
+    --input: #f6f4f3;
+  }
+
+  .material-bar,
+  .material-sidebar,
+  .material-sheet {
+    background: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    border-color: var(--border);
+  }
 }

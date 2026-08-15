@@ -161,7 +161,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
               type="button"
               onClick={() => setTab(id)}
               className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm transition-colors",
+                "pressable rounded-full px-3.5 py-1.5 text-sm",
                 tab === id
                   ? "bg-background font-medium text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",

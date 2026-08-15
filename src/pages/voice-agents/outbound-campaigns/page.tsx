@@ -54,7 +54,7 @@ export default function VoiceAgentsOutboundPage() {
   }, [refresh]);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page flex flex-col">
       <VoicePageHeader
         title="Outbound campaigns"
         actions={
@@ -219,7 +219,7 @@ function ScheduleCampaignDialog({
               type="button"
               onClick={() => i <= step && setStep(i)}
               className={cn(
-                "border-b-2 pb-2 text-sm transition-colors",
+                "pressable border-b-2 pb-2 text-sm",
                 i === step ? "border-foreground font-medium text-foreground" : "border-transparent text-muted-foreground",
               )}
             >

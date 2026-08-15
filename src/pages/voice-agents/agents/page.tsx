@@ -81,9 +81,10 @@ export default function VoiceAgentsAgentsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+    <div className="voice-page">
       <VoicePageHeader
         title="Agents"
+        size="eyebrow"
         actions={
           <Button className="rounded-full" onClick={() => void createFromScratch()} disabled={creating}>
             {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
@@ -96,7 +97,7 @@ export default function VoiceAgentsAgentsPage() {
         <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
           <Bot className="size-7" />
         </span>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">
+        <h1 className="text-display mt-4">
           What should your voice agent do?
         </h1>
         <div className="relative mt-5 w-full max-w-2xl">

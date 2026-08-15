@@ -165,17 +165,17 @@ export function AsciiEmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-4 py-10 text-center shadow-sm",
+        "flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center shadow-elevated",
         className,
       )}
     >
       <AsciiIcon kind={kind} tone={tone} size="xl" title={title} />
-      <h2 className="mt-4 text-lg font-semibold tracking-tight">{title}</h2>
+      <h2 className="text-headline mt-5">{title}</h2>
       {description ? (
-        <p className="mt-1.5 max-w-md text-sm text-muted-foreground">{description}</p>
+        <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">{description}</p>
       ) : null}
       {actions ? (
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">{actions}</div>
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-2">{actions}</div>
       ) : null}
     </div>
   );
