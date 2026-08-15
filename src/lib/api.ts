@@ -14,6 +14,7 @@ import type {
   BatchCreateBody,
   BatchStats,
   CatalogTool,
+  CatalogVoice,
   CreateSessionBody,
   CreatedApiKey,
   Member,
@@ -77,6 +78,8 @@ async function authedJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  listVoices: (providerId: string) =>
+    authedJson<{ items: CatalogVoice[] }>(`/v1/voices?provider_id=${encodeURIComponent(providerId)}`),
   listOrgs: (params?: ListParams) => authedJson<Page<Organization>>(`/v1/orgs${qs(params)}`),
   createOrg: (name: string) =>
     authedJson<Organization>("/v1/orgs", { method: "POST", body: JSON.stringify({ name }) }),

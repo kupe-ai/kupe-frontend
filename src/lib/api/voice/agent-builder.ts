@@ -269,6 +269,14 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
       ? Math.round(config.session.max_duration_seconds / 60)
       : undefined,
     starting_language: config?.llm.language,
+    allowed_languages: config?.llm.allowed_languages?.length
+      ? config.llm.allowed_languages
+      : config?.llm.language
+        ? [config.llm.language]
+        : ["en"],
+    multilingual_enabled: config?.llm.multilingual_enabled,
+    auto_detect_language: config?.llm.auto_detect_language,
+    output_numbers_indic: config?.llm.output_numbers_indic,
   };
 }
 
@@ -286,6 +294,12 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
       ...agent.config.llm,
       temperature: data.temperature_override ?? agent.config.llm.temperature,
       language: data.starting_language ?? agent.config.llm.language,
+      allowed_languages: data.allowed_languages?.length
+        ? data.allowed_languages
+        : [data.starting_language ?? agent.config.llm.language ?? "en"],
+      multilingual_enabled: data.multilingual_enabled ?? agent.config.llm.multilingual_enabled ?? false,
+      auto_detect_language: data.auto_detect_language ?? agent.config.llm.auto_detect_language ?? false,
+      output_numbers_indic: data.output_numbers_indic ?? agent.config.llm.output_numbers_indic ?? false,
     },
     session: {
       ...agent.config.session,

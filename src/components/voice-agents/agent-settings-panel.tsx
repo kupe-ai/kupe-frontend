@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/searchable-select";
 import { cn } from "@/lib/utils";
 import {
   getAgentSettings,
@@ -21,10 +22,8 @@ import {
   type AgentSettings,
 } from "@/lib/api/voice/agent-builder";
 import {
-  listVoiceLlmProviders,
-  listVoiceSttProviders,
-  listVoiceTtsProviders,
   listVoiceTtsVoices,
+  loadVoiceProvidersCatalog,
   type VoiceLlmProvider,
   type VoiceSttProvider,
   type VoiceTtsProvider,
@@ -33,6 +32,7 @@ import {
 import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
 
 function SettingRow({
   title,
@@ -151,6 +151,7 @@ export function AgentSettingsPanel({
   const [ttsProviders, setTtsProviders] = useState<VoiceTtsProvider[]>([]);
   const [sttProviders, setSttProviders] = useState<VoiceSttProvider[]>([]);
   const [voices, setVoices] = useState<VoiceTtsVoice[]>([]);
+  const [languages, setLanguages] = useState<CallLanguage[]>(CALL_LANGUAGES);
   const [llmId, setLlmId] = useState(agent?.llm_provider_id ?? "");
   const [ttsId, setTtsId] = useState(agent?.tts_provider_id ?? "");
   const [voiceId, setVoiceId] = useState(agent?.tts_voice_id ?? "");
@@ -169,31 +170,29 @@ export function AgentSettingsPanel({
     let cancelled = false;
     setLoading(true);
     setProvidersError(null);
-    Promise.all([
-      getAgentSettings(agentId),
-      listVoiceLlmProviders(),
-      listVoiceTtsProviders(),
-      listVoiceSttProviders(),
-    ])
-      .then(([s, llms, ttss, stts]) => {
+    Promise.all([getAgentSettings(agentId), loadVoiceProvidersCatalog()])
+      .then(([s, catalog]) => {
         if (cancelled) return;
         setSettings({
           ...DEFAULTS,
           ...s,
           voicemail_message: s.voicemail_message ?? "",
+          allowed_languages: s.allowed_languages?.length ? s.allowed_languages : ["en"],
+          starting_language: s.starting_language || "en",
         });
-        setLlmProviders(llms);
-        setTtsProviders(ttss);
-        setSttProviders(stts);
+        setLlmProviders(catalog.llms);
+        setTtsProviders(catalog.tts);
+        setSttProviders(catalog.stt);
+        setLanguages(catalog.languages.length ? catalog.languages : CALL_LANGUAGES);
 
-        const nextLlm = pickDefaultId(llms, agent?.llm_provider_id);
-        const nextTts = pickDefaultId(ttss, agent?.tts_provider_id);
-        const nextStt = pickDefaultId(stts, agent?.stt_provider_id);
+        const nextLlm = pickDefaultId(catalog.llms, agent?.llm_provider_id);
+        const nextTts = pickDefaultId(catalog.tts, agent?.tts_provider_id);
+        const nextStt = pickDefaultId(catalog.stt, agent?.stt_provider_id);
         setLlmId(nextLlm);
         setTtsId(nextTts);
         setSttId(nextStt);
 
-        if (!llms.length && !ttss.length && !stts.length) {
+        if (!catalog.llms.length && !catalog.tts.length && !catalog.stt.length) {
           setProvidersError(
             "No voice providers are set up yet. Ask an admin to seed LLM / TTS / STT catalogs.",
           );
@@ -221,13 +220,14 @@ export function AgentSettingsPanel({
         if (cancelled) return;
         setVoices(rows);
         setVoiceId((prev) => {
-          if (prev && rows.some((r) => r.id === prev)) return prev;
+          const matchPrev = rows.find((r) => r.voice_id === prev || r.id === prev);
+          if (matchPrev) return matchPrev.voice_id;
           const matchDefault = rows.find(
             (r) =>
               r.voice_id ===
               ttsProviders.find((p) => p.id === ttsId)?.default_voice,
           );
-          return matchDefault?.id ?? rows[0]?.id ?? "";
+          return matchDefault?.voice_id ?? rows[0]?.voice_id ?? "";
         });
       })
       .catch(() => !cancelled && setVoices([]));
@@ -333,71 +333,67 @@ export function AgentSettingsPanel({
           {providersError}
         </p>
       ) : null}
-      <SettingRow title="LLM" description="Model used for replies on calls.">
-        <Select value={llmId || undefined} onValueChange={setLlmId} disabled={!llmProviders.length}>
-          <SelectTrigger className="h-9 w-56 rounded-full">
-            <SelectValue placeholder={llmProviders.length ? "Select LLM" : "No LLMs available"} />
-          </SelectTrigger>
-          <SelectContent>
-            {llmProviders.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.provider_name} · {p.model_name}
-                {p.is_default ? " (default)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <SettingRow title="LLM" description="Model used for replies on calls. Default is Krutrim gemma-4-31b-it.">
+        <SearchableSelect
+          value={llmId}
+          onChange={setLlmId}
+          disabled={!llmProviders.length}
+          placeholder={llmProviders.length ? "Select LLM" : "No LLMs available"}
+          searchPlaceholder="Search models…"
+          options={llmProviders.map((p) => ({
+            value: p.id,
+            label: `${p.provider_name} · ${p.model_name}`,
+            keywords: `${p.provider_name} ${p.model_name}`,
+            hint: p.is_default ? "default" : undefined,
+          }))}
+        />
       </SettingRow>
-      <SettingRow title="Voice (TTS)" description="How the agent speaks.">
-        <Select
-          value={ttsId || undefined}
-          onValueChange={(v) => {
+      <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Soniox tts-rt-v2.">
+        <SearchableSelect
+          value={ttsId}
+          onChange={(v) => {
             setTtsId(v);
             setVoiceId("");
           }}
           disabled={!ttsProviders.length}
-        >
-          <SelectTrigger className="h-9 w-56 rounded-full">
-            <SelectValue placeholder={ttsProviders.length ? "Select TTS" : "No TTS available"} />
-          </SelectTrigger>
-          <SelectContent>
-            {ttsProviders.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.provider_name} · {p.model_name}
-                {p.is_default ? " (default)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          placeholder={ttsProviders.length ? "Select TTS" : "No TTS available"}
+          searchPlaceholder="Search TTS models…"
+          options={ttsProviders.map((p) => ({
+            value: p.id,
+            label: `${p.provider_name} · ${p.model_name}`,
+            keywords: `${p.provider_name} ${p.model_name}`,
+            hint: p.is_default ? "default" : undefined,
+          }))}
+        />
       </SettingRow>
-      <SettingRow title="Voice identity" description="Specific TTS voice.">
-        <Select value={voiceId || undefined} onValueChange={setVoiceId} disabled={!ttsId || !voices.length}>
-          <SelectTrigger className="h-9 w-56 rounded-full">
-            <SelectValue placeholder={voices.length ? "Select voice" : "No voices for this TTS"} />
-          </SelectTrigger>
-          <SelectContent>
-            {voices.map((v) => (
-              <SelectItem key={v.id} value={v.id}>
-                {v.voice_name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <SettingRow title="Voice identity" description="Specific TTS voice for this model.">
+        <SearchableSelect
+          value={voiceId}
+          onChange={setVoiceId}
+          disabled={!ttsId || !voices.length}
+          placeholder={voices.length ? "Select voice" : "No voices for this TTS"}
+          searchPlaceholder="Search voices…"
+          options={voices.map((v) => ({
+            value: v.voice_id,
+            label: v.voice_name,
+            keywords: `${v.voice_name} ${v.voice_id}`,
+          }))}
+        />
       </SettingRow>
-      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed.">
-        <Select value={sttId || undefined} onValueChange={setSttId} disabled={!sttProviders.length}>
-          <SelectTrigger className="h-9 w-56 rounded-full">
-            <SelectValue placeholder={sttProviders.length ? "Select STT" : "No STT available"} />
-          </SelectTrigger>
-          <SelectContent>
-            {sttProviders.map((p) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.provider_name} · {p.model_name}
-                {p.is_default ? " (default)" : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Soniox stt-rt-v5.">
+        <SearchableSelect
+          value={sttId}
+          onChange={setSttId}
+          disabled={!sttProviders.length}
+          placeholder={sttProviders.length ? "Select STT" : "No STT available"}
+          searchPlaceholder="Search STT models…"
+          options={sttProviders.map((p) => ({
+            value: p.id,
+            label: `${p.provider_name} · ${p.model_name}`,
+            keywords: `${p.provider_name} ${p.model_name} ${p.name}`,
+            hint: p.is_default ? "default" : undefined,
+          }))}
+        />
       </SettingRow>
 
       <SectionTitle>Speaking</SectionTitle>
@@ -521,16 +517,45 @@ export function AgentSettingsPanel({
           onChange={(e) => set("switch_after_seconds", e.target.value ? Number(e.target.value) : null)}
         />
       </SettingRow>
-      <SettingRow title="Starting language" description="Language the agent opens with.">
-        <Select value={settings.starting_language} onValueChange={(v) => set("starting_language", v)}>
-          <SelectTrigger className="h-9 w-36 rounded-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="en">English</SelectItem>
-            <SelectItem value="hi">Hindi</SelectItem>
-          </SelectContent>
-        </Select>
+      <SettingRow title="Starting language" description="Language the agent opens with. English plus all India scheduled languages.">
+        <SearchableSelect
+          value={settings.starting_language}
+          onChange={(v) => {
+            set("starting_language", v);
+            if (!settings.allowed_languages.includes(v)) {
+              set("allowed_languages", [...settings.allowed_languages, v]);
+            }
+          }}
+          placeholder="Select language"
+          searchPlaceholder="Search languages…"
+          options={languages.map((l) => ({
+            value: l.code,
+            label: languageLabel(l.code, languages),
+            keywords: `${l.name} ${l.native_name} ${l.code}`,
+          }))}
+        />
+      </SettingRow>
+      <SettingRow
+        title="Allowed languages"
+        description="Callers can use any of these. Search English through all India languages."
+      >
+        <SearchableMultiSelect
+          values={settings.allowed_languages}
+          onChange={(next) => {
+            const langs = next.length ? next : [settings.starting_language || "en"];
+            set("allowed_languages", langs);
+            if (!langs.includes(settings.starting_language)) {
+              set("starting_language", langs[0]);
+            }
+          }}
+          placeholder="Select languages"
+          searchPlaceholder="Search languages…"
+          options={languages.map((l) => ({
+            value: l.code,
+            label: languageLabel(l.code, languages),
+            keywords: `${l.name} ${l.native_name} ${l.code}`,
+          }))}
+        />
       </SettingRow>
       <SettingRow title="Output numbers in Indic" description="E.g. '500' → 'paanch sau'.">
         <Switch checked={settings.output_numbers_indic} onCheckedChange={(v) => set("output_numbers_indic", v)} />

@@ -1,5 +1,7 @@
 import { BACKEND_URL } from "@/config";
-import type { ProvidersResponse } from "@/types";
+import { api } from "@/lib/api";
+import type { CallLanguage, CatalogVoice, ProvidersResponse } from "@/types";
+import { CALL_LANGUAGES } from "@/lib/voice/languages";
 
 export interface VoiceLlmProvider {
   id: string;
@@ -18,13 +20,7 @@ export interface VoiceTtsProvider {
   supported_languages: string[];
 }
 
-export interface VoiceTtsVoice {
-  id: string;
-  provider_id: string;
-  voice_name: string;
-  voice_id: string;
-  supported_languages: string[];
-}
+export type VoiceTtsVoice = CatalogVoice;
 
 export interface VoiceSttProvider {
   id: string;
@@ -35,59 +31,65 @@ export interface VoiceSttProvider {
   supported_languages: string[];
 }
 
+export interface VoiceProvidersCatalog {
+  llms: VoiceLlmProvider[];
+  tts: VoiceTtsProvider[];
+  stt: VoiceSttProvider[];
+  languages: CallLanguage[];
+  defaults: { llm_id: string; stt_id: string; tts_id: string };
+}
+
 async function loadProviders(): Promise<ProvidersResponse> {
   const res = await fetch(`${BACKEND_URL}/v1/providers`);
   if (!res.ok) throw new Error(`Backend returned ${res.status}`);
   return res.json();
 }
 
-export async function listVoiceLlmProviders(): Promise<VoiceLlmProvider[]> {
+export async function loadVoiceProvidersCatalog(): Promise<VoiceProvidersCatalog> {
   const data = await loadProviders();
-  return data.model_providers.map((p) => ({
-    id: p.id,
-    provider_name: p.provider_name,
-    model_name: p.model_name,
-    is_default: Boolean(p.is_default),
-    supported_languages: [],
-  }));
+  return {
+    llms: data.model_providers.map((p) => ({
+      id: p.id,
+      provider_name: p.provider_name,
+      model_name: p.model_name,
+      is_default: Boolean(p.is_default),
+      supported_languages: p.supported_languages ?? [],
+    })),
+    tts: data.tts_providers.map((p) => ({
+      id: p.id,
+      provider_name: p.provider_name,
+      model_name: p.model_name,
+      is_default: Boolean(p.is_default),
+      default_voice: p.default_voice ?? null,
+      supported_languages: p.supported_languages ?? [],
+    })),
+    stt: data.transcriber_providers.map((p) => ({
+      id: p.id,
+      name: `${p.provider_name} / ${p.model_name}`,
+      provider_name: p.provider_name,
+      model_name: p.model_name,
+      is_default: Boolean(p.is_default),
+      supported_languages: p.supported_languages ?? [],
+    })),
+    languages: data.languages?.length ? data.languages : CALL_LANGUAGES,
+    defaults: data.defaults ?? data.selected ?? { llm_id: "", stt_id: "", tts_id: "" },
+  };
+}
+
+export async function listVoiceLlmProviders(): Promise<VoiceLlmProvider[]> {
+  return (await loadVoiceProvidersCatalog()).llms;
 }
 
 export async function listVoiceTtsProviders(): Promise<VoiceTtsProvider[]> {
-  const data = await loadProviders();
-  return data.tts_providers.map((p) => ({
-    id: p.id,
-    provider_name: p.provider_name,
-    model_name: p.model_name,
-    is_default: Boolean(p.is_default),
-    default_voice: p.default_voice ?? null,
-    supported_languages: [],
-  }));
+  return (await loadVoiceProvidersCatalog()).tts;
 }
 
 export async function listVoiceTtsVoices(providerId?: string): Promise<VoiceTtsVoice[]> {
-  const data = await loadProviders();
-  const providers = providerId
-    ? data.tts_providers.filter((p) => p.id === providerId)
-    : data.tts_providers;
-  return providers.flatMap((p) =>
-    (p.voices ?? []).map((v) => ({
-      id: v.id,
-      provider_id: p.id,
-      voice_name: v.voice_name,
-      voice_id: v.voice_id,
-      supported_languages: v.supported_languages ?? [],
-    })),
-  );
+  if (!providerId) return [];
+  const { items } = await api.listVoices(providerId);
+  return items;
 }
 
 export async function listVoiceSttProviders(): Promise<VoiceSttProvider[]> {
-  const data = await loadProviders();
-  return data.transcriber_providers.map((p) => ({
-    id: p.id,
-    name: `${p.provider_name} / ${p.model_name}`,
-    provider_name: p.provider_name,
-    model_name: p.model_name,
-    is_default: Boolean(p.is_default),
-    supported_languages: [],
-  }));
+  return (await loadVoiceProvidersCatalog()).stt;
 }

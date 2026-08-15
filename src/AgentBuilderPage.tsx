@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CallTransferCard } from "@/CallTransferCard";
 import { api } from "@/lib/api";
+import { listVoiceTtsVoices } from "@/lib/api/voice/providers";
 import type {
   Agent,
   AgentAnalysis,
@@ -21,6 +22,7 @@ import type {
   AmbientPreset,
   AudioAsset,
   CatalogTool,
+  CatalogVoice,
   FlowDefinition,
   NoiseCancellation,
   PostCallAnalysis,
@@ -163,6 +165,7 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
 export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }: Props) {
   const [section, setSection] = useState<Section>("identity");
   const [providers, setProviders] = useState<ProvidersResponse | null>(null);
+  const [ttsVoices, setTtsVoices] = useState<CatalogVoice[]>([]);
   const [orgAnalyses, setOrgAnalyses] = useState<PostCallAnalysis[]>([]);
   const [orgTools, setOrgTools] = useState<CatalogTool[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -201,6 +204,24 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
       })
       .catch(() => {});
   }, [orgId, projectId]);
+
+  useEffect(() => {
+    if (!form.tts_id) {
+      setTtsVoices([]);
+      return;
+    }
+    let cancelled = false;
+    listVoiceTtsVoices(form.tts_id)
+      .then((rows) => {
+        if (!cancelled) setTtsVoices(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setTtsVoices([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.tts_id]);
 
   useEffect(() => {
     if (!agentId) {
@@ -246,7 +267,6 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
       .finally(() => setLoading(false));
   }, [agentId, orgId, projectId]);
 
-  const ttsVoices = providers?.tts_providers.find((p) => p.id === form.tts_id);
   const availableToAttach = orgAnalyses.filter((a) => !attachedAnalyses.some((x) => x.id === a.id));
   const availableTools = orgTools.filter((t) => !attachedTools.some((x) => x.id === t.id));
 
@@ -590,16 +610,17 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                     <Select
                       value={form.tts_voice_id || "__default__"}
                       onValueChange={(v) => setForm({ ...form, tts_voice_id: v === "__default__" ? "" : v })}
-                      disabled={!ttsVoices?.voices?.length}
+                      disabled={!ttsVoices.length}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Default voice" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__default__">Default voice</SelectItem>
-                        {ttsVoices?.voices?.map((v) => (
+                        {ttsVoices.map((v) => (
                           <SelectItem key={v.voice_id} value={v.voice_id}>
                             {v.voice_name}
+                            {v.user_id ? " (yours)" : ""}
                           </SelectItem>
                         ))}
                       </SelectContent>

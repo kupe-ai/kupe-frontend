@@ -1,3 +1,15 @@
+export type CatalogVoice = {
+  id: string;
+  provider_id: string;
+  voice_id: string;
+  voice_name: string;
+  supported_languages: string[];
+  user_id: string | null;
+  source: "catalog" | "cloned";
+  gender?: string | null;
+  preview_url?: string | null;
+};
+
 export type ProviderVoice = {
   id: string;
   voice_id: string;
@@ -11,7 +23,14 @@ export type ProviderOption = {
   model_name: string;
   is_default?: boolean;
   default_voice?: string;
+  supported_languages?: string[];
   voices?: ProviderVoice[];
+};
+
+export type CallLanguage = {
+  code: string;
+  name: string;
+  native_name: string;
 };
 
 export type ProviderSelection = {
@@ -27,6 +46,7 @@ export type ProvidersResponse = {
   vad_providers: ProviderOption[];
   defaults: ProviderSelection;
   selected?: ProviderSelection;
+  languages?: CallLanguage[];
 };
 
 export type Page<T> = {
@@ -209,6 +229,10 @@ export type AgentLlmConfig = {
   temperature: number;
   max_tokens: number;
   language: string;
+  allowed_languages?: string[];
+  multilingual_enabled?: boolean;
+  auto_detect_language?: boolean;
+  output_numbers_indic?: boolean;
 };
 
 export type AgentSessionConfig = {

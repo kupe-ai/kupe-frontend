@@ -3,7 +3,7 @@ import { BACKEND_URL } from "@/config";
 import type { ProviderSelection, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 type Props = {
   selection: ProviderSelection | null;
@@ -49,26 +49,26 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
     value: string,
     key: keyof ProviderSelection,
   ) => (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <Label>{label}</Label>
-      <Select value={value} onValueChange={(v) => onChange({ ...selection, [key]: v })}>
-        <SelectTrigger>
-          <SelectValue placeholder={`Select ${label}`} />
-        </SelectTrigger>
-        <SelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.id} value={item.id}>
-              {item.provider_name} / {item.model_name}
-              {item.is_default ? " (default)" : ""}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableSelect
+        value={value}
+        onChange={(v) => onChange({ ...selection, [key]: v })}
+        placeholder={`Select ${label}`}
+        searchPlaceholder={`Search ${label}…`}
+        className="w-full"
+        options={items.map((item) => ({
+          value: item.id,
+          label: `${item.provider_name} / ${item.model_name}`,
+          keywords: `${item.provider_name} ${item.model_name}`,
+          hint: item.is_default ? "default" : undefined,
+        }))}
+      />
     </div>
   );
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {renderSelect("LLM", data.model_providers, selection.llm_id, "llm_id")}
       {renderSelect("Speech-to-text", data.transcriber_providers, selection.stt_id, "stt_id")}
       {renderSelect("Text-to-speech", data.tts_providers, selection.tts_id, "tts_id")}
