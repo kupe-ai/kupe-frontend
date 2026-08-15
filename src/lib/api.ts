@@ -79,6 +79,8 @@ export const api = {
   listOrgs: (params?: ListParams) => authedJson<Page<Organization>>(`/v1/orgs${qs(params)}`),
   createOrg: (name: string) =>
     authedJson<Organization>("/v1/orgs", { method: "POST", body: JSON.stringify({ name }) }),
+  updateOrgCountry: (orgId: string, country: string) =>
+    authedJson<Organization>(`/v1/orgs/${orgId}`, { method: "PATCH", body: JSON.stringify({ country }) }),
   getMembership: (orgId: string) => authedJson<Membership>(`/v1/orgs/${orgId}/members/me`),
   listMembers: (orgId: string, params?: ListParams) =>
     authedJson<Page<Member>>(`/v1/orgs/${orgId}/members${qs(params)}`),

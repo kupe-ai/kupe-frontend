@@ -40,6 +40,7 @@ export type Organization = {
   id: string;
   name: string;
   slug: string;
+  country: string | null;
   created_at: string;
 };
 
@@ -114,6 +115,7 @@ export type Recording = {
   storage_path: string | null;
   duration_seconds: number | null;
   size_bytes: number | null;
+  error_message?: string | null;
   created_at: string | null;
   ended_at: string | null;
 };
@@ -144,6 +146,8 @@ export type TranscriptMessage = {
   kind: "transcript";
   role: "user" | "assistant";
   text: string;
+  /** false while STT is still streaming partials; true (or omitted) when committed */
+  final?: boolean;
 };
 
 export type AnalysisFieldType = "string" | "number" | "boolean" | "enum";
@@ -190,7 +194,6 @@ export type AgentSessionConfig = {
 
 export type AgentTurnConfig = {
   vad_stop_secs: number;
-  user_speech_timeout_secs: number;
 };
 
 export type BackgroundNoiseConfig = {
@@ -218,6 +221,42 @@ export type SilenceBreakerConfig = {
   idle_seconds: number;
 };
 
+export type VoicemailDetectionConfig = {
+  enabled: boolean;
+  message: string;
+  response_delay: number;
+};
+
+export type AutoCutConfig = {
+  enabled: boolean;
+};
+
+export type TransferRingStrategy = "simultaneous" | "sequential";
+
+export type TransferNumber = { number: string; label: string };
+
+export type TransferDestination = {
+  id: string;
+  name: string;
+  description: string;
+  ring_strategy: TransferRingStrategy;
+  ring_timeout_seconds: number;
+  numbers: TransferNumber[];
+  transfer_message: string;
+  no_answer_message: string;
+};
+
+export type CallTransferConfig = {
+  enabled: boolean;
+  destinations: TransferDestination[];
+};
+
+export type PromptVariable = {
+  key: string;
+  description: string;
+  example: string;
+};
+
 export type AgentConfig = {
   llm: AgentLlmConfig;
   session: AgentSessionConfig;
@@ -225,6 +264,10 @@ export type AgentConfig = {
   audio: AgentAudioConfig;
   end_of_call_warning: EndOfCallWarningConfig;
   silence_breaker: SilenceBreakerConfig;
+  voicemail_detection: VoicemailDetectionConfig;
+  auto_cut: AutoCutConfig;
+  call_transfer: CallTransferConfig;
+  variables: PromptVariable[];
 };
 
 export type AmbientPreset = {

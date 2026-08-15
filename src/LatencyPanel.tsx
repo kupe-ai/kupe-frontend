@@ -74,7 +74,7 @@ export default function LatencyPanel() {
             <Separator />
             {breakdown.userTurnMs !== null && (
               <div className="flex justify-between gap-4 text-sm">
-                <span className="text-muted-foreground">Turn detection (VAD + STT finalize)</span>
+                <span className="text-muted-foreground">Turn detection (Smart Turn)</span>
                 <span className="font-mono">{Math.round(breakdown.userTurnMs)} ms</span>
               </div>
             )}

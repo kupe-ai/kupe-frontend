@@ -114,6 +114,9 @@ export function RecordingsPanel({ orgId }: Props) {
                   {playingId === r.id ? "Hide player" : "Play"}
                 </Button>
               </div>
+              {r.status === "failed" && r.error_message && (
+                <p className="mt-2 text-xs text-destructive">{r.error_message}</p>
+              )}
               {playingId === r.id && (
                 <div className="mt-3 space-y-2 border-t border-border pt-3">
                   {playError && (

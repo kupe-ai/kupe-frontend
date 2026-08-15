@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Plus, Trash2 } from "lucide-react";
 import { BACKEND_URL } from "@/config";
 import { FlowCanvas, EMPTY_FLOW } from "@/FlowCanvas";
 import { PaginationControls } from "@/components/PaginationControls";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { CallTransferCard } from "@/CallTransferCard";
 import { api } from "@/lib/api";
 import type {
   Agent,
@@ -41,7 +42,7 @@ const SECTIONS: { id: Section; label: string; hint: string }[] = [
   { id: "identity", label: "Identity", hint: "Name, prompt, greeting" },
   { id: "voice", label: "Voice stack", hint: "LLM, STT, TTS" },
   { id: "flow", label: "Flow", hint: "Conversation graph" },
-  { id: "features", label: "Features", hint: "Runtime + tools" },
+  { id: "features", label: "Features", hint: "Turns, audio, tools" },
   { id: "attachments", label: "Attachments", hint: "Post-call analyses" },
   { id: "history", label: "History", hint: "Version snapshots" },
 ];
@@ -49,7 +50,7 @@ const SECTIONS: { id: Section; label: string; hint: string }[] = [
 const DEFAULT_CONFIG: AgentConfig = {
   llm: { temperature: 0.5, max_tokens: 1024, language: "en" },
   session: { max_duration_seconds: 180, allow_interruptions: true, record_calls: true },
-  turn: { vad_stop_secs: 0.2, user_speech_timeout_secs: 0.4 },
+  turn: { vad_stop_secs: 0.2 },
   audio: {
     noise_cancellation: "off",
     background_noise: { enabled: false, source: "preset", id: "office", volume: 0.25 },
@@ -63,6 +64,14 @@ const DEFAULT_CONFIG: AgentConfig = {
       "Just a heads up — we have about {remaining_seconds} seconds left in this {duration_seconds}-second call with {agent_name}.",
   },
   silence_breaker: { enabled: false, idle_seconds: 8 },
+  voicemail_detection: {
+    enabled: true,
+    message: "Sorry we missed you. Please call us back when you can.",
+    response_delay: 2,
+  },
+  auto_cut: { enabled: false },
+  call_transfer: { enabled: false, destinations: [] },
+  variables: [],
 };
 
 const EMPTY_FORM = {
@@ -102,7 +111,12 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
   return {
     llm: { ...DEFAULT_CONFIG.llm, ...llm },
     session: { ...DEFAULT_CONFIG.session, ...session },
-    turn: { ...DEFAULT_CONFIG.turn, ...((data.turn as AgentConfig["turn"]) ?? {}) },
+    turn: {
+      vad_stop_secs:
+        typeof (data.turn as AgentConfig["turn"] | undefined)?.vad_stop_secs === "number"
+          ? (data.turn as AgentConfig["turn"]).vad_stop_secs
+          : DEFAULT_CONFIG.turn.vad_stop_secs,
+    },
     audio: {
       ...DEFAULT_CONFIG.audio,
       ...((data.audio as Partial<AgentConfig["audio"]>) ?? {}),
@@ -119,6 +133,30 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
       ...DEFAULT_CONFIG.silence_breaker,
       ...((data.silence_breaker as AgentConfig["silence_breaker"]) ?? {}),
     },
+    voicemail_detection: {
+      ...DEFAULT_CONFIG.voicemail_detection,
+      ...((data.voicemail_detection as AgentConfig["voicemail_detection"]) ?? {}),
+    },
+    auto_cut: {
+      ...DEFAULT_CONFIG.auto_cut,
+      ...((data.auto_cut as AgentConfig["auto_cut"]) ?? {}),
+    },
+    call_transfer: {
+      ...DEFAULT_CONFIG.call_transfer,
+      ...((data.call_transfer as AgentConfig["call_transfer"]) ?? {}),
+      destinations: Array.isArray((data.call_transfer as AgentConfig["call_transfer"] | undefined)?.destinations)
+        ? (data.call_transfer as AgentConfig["call_transfer"]).destinations
+        : DEFAULT_CONFIG.call_transfer.destinations,
+    },
+    variables: Array.isArray(data.variables)
+      ? (data.variables as AgentConfig["variables"])
+          .filter((v) => v && typeof v.key === "string")
+          .map((v) => ({
+            key: v.key,
+            description: v.description ?? "",
+            example: v.example ?? "",
+          }))
+      : [],
   };
 }
 
@@ -237,6 +275,19 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
           ...prev.config.silence_breaker,
           ...(patch.silence_breaker ?? {}),
         },
+        voicemail_detection: {
+          ...prev.config.voicemail_detection,
+          ...(patch.voicemail_detection ?? {}),
+        },
+        auto_cut: {
+          ...prev.config.auto_cut,
+          ...(patch.auto_cut ?? {}),
+        },
+        call_transfer: {
+          ...prev.config.call_transfer,
+          ...(patch.call_transfer ?? {}),
+        },
+        variables: patch.variables ?? prev.config.variables,
       },
     }));
   }
@@ -274,7 +325,10 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
         tts_id: form.tts_id,
         tts_voice_id: form.tts_voice_id || null,
         flow_definition: form.flow_definition,
-        config: form.config,
+        config: {
+          ...form.config,
+          variables: form.config.variables.filter((v) => v.key.trim()),
+        },
       };
       const saved = agent
         ? await api.updateAgent(agent.id, body)
@@ -394,9 +448,92 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                   <Input
                     value={form.greeting}
                     onChange={(e) => setForm({ ...form, greeting: e.target.value })}
-                    placeholder="Hi, how can I help you today?"
+                    placeholder="Hi {first_name}, how can I help you today?"
                   />
                 </Field>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-medium">Batch variables</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Placeholders like <code className="text-xs">{"{first_name}"}</code> in the
+                        prompt, greeting, flow, or voicemail message. Contacts must supply every key.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="cursor-pointer"
+                      onClick={() =>
+                        patchConfig({
+                          variables: [
+                            ...form.config.variables,
+                            { key: "", description: "", example: "" },
+                          ],
+                        })
+                      }
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add variable
+                    </Button>
+                  </div>
+                  {form.config.variables.map((variable, index) => (
+                    <div key={index} className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                      <Field label="Key">
+                        <Input
+                          value={variable.key}
+                          placeholder="first_name"
+                          onChange={(e) => {
+                            const next = form.config.variables.map((item, i) =>
+                              i === index ? { ...item, key: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") } : item,
+                            );
+                            patchConfig({ variables: next });
+                          }}
+                        />
+                      </Field>
+                      <Field label="Description">
+                        <Input
+                          value={variable.description}
+                          placeholder="Contact first name"
+                          onChange={(e) => {
+                            const next = form.config.variables.map((item, i) =>
+                              i === index ? { ...item, description: e.target.value } : item,
+                            );
+                            patchConfig({ variables: next });
+                          }}
+                        />
+                      </Field>
+                      <Field label="Example">
+                        <Input
+                          value={variable.example}
+                          placeholder="Sam"
+                          onChange={(e) => {
+                            const next = form.config.variables.map((item, i) =>
+                              i === index ? { ...item, example: e.target.value } : item,
+                            );
+                            patchConfig({ variables: next });
+                          }}
+                        />
+                      </Field>
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="cursor-pointer"
+                          onClick={() =>
+                            patchConfig({
+                              variables: form.config.variables.filter((_, i) => i !== index),
+                            })
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </>
             )}
 
@@ -491,7 +628,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
               <>
                 <SectionTitle
                   title="Features"
-                  description="Runtime knobs applied on every call. Changes version with each save."
+                  description="Session limits, Smart Turn, barge-in, audio, and tools. Changes version with each save."
                 />
 
                 <div className="space-y-3">
@@ -511,20 +648,6 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                   </div>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
                     <Checkbox
-                      checked={form.config.session.allow_interruptions}
-                      onCheckedChange={(v) =>
-                        patchConfig({ session: { ...form.config.session, allow_interruptions: v === true } })
-                      }
-                    />
-                    <span>
-                      <span className="font-medium">Allow interruptions</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Caller can barge in while the agent is speaking.
-                      </span>
-                    </span>
-                  </label>
-                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
-                    <Checkbox
                       checked={form.config.session.record_calls}
                       onCheckedChange={(v) =>
                         patchConfig({ session: { ...form.config.session, record_calls: v === true } })
@@ -541,32 +664,41 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
 
                 <div className="space-y-3 border-t border-border pt-6">
                   <h3 className="text-sm font-medium">Turn detection</h3>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="End of speech (VAD stop, seconds)">
-                      <Input
-                        type="number"
-                        min={0.05}
-                        step={0.05}
-                        value={form.config.turn.vad_stop_secs}
-                        onChange={(e) =>
-                          patchConfig({ turn: { ...form.config.turn, vad_stop_secs: Number(e.target.value) } })
-                        }
-                      />
-                    </Field>
-                    <Field label="Speech timeout (seconds)">
-                      <Input
-                        type="number"
-                        min={0.05}
-                        step={0.05}
-                        value={form.config.turn.user_speech_timeout_secs}
-                        onChange={(e) =>
-                          patchConfig({
-                            turn: { ...form.config.turn, user_speech_timeout_secs: Number(e.target.value) },
-                          })
-                        }
-                      />
-                    </Field>
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    A user turn starts when speech-to-text produces real words, not when VAD hears
+                    energy — so breaths and noise do not cancel the agent. End of turn is local Smart
+                    Turn v3: VAD marks pauses, the model decides whether the user actually finished.
+                  </p>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.session.allow_interruptions}
+                      onCheckedChange={(v) =>
+                        patchConfig({ session: { ...form.config.session, allow_interruptions: v === true } })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">Allow barge-in</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Interrupt the agent after confirmed words (one word while it is thinking, two
+                        while it is speaking). Off keeps the agent talking until it finishes.
+                      </span>
+                    </span>
+                  </label>
+                  <Field label="VAD hangover (seconds)">
+                    <Input
+                      type="number"
+                      min={0.05}
+                      step={0.05}
+                      value={form.config.turn.vad_stop_secs}
+                      onChange={(e) =>
+                        patchConfig({ turn: { vad_stop_secs: Number(e.target.value) } })
+                      }
+                    />
+                    <span className="block text-xs text-muted-foreground">
+                      Silence required before VAD reports a pause. Smart Turn uses that pause plus the
+                      audio to end the turn. Lower is snappier; higher ignores brief gaps.
+                    </span>
+                  </Field>
                 </div>
 
                 <div className="space-y-3 border-t border-border pt-6">
@@ -837,6 +969,85 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                 </div>
 
                 <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">Voicemail detection</h3>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.voicemail_detection.enabled}
+                      onCheckedChange={(v) =>
+                        patchConfig({
+                          voicemail_detection: {
+                            ...form.config.voicemail_detection,
+                            enabled: v === true,
+                          },
+                        })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">Detect voicemail on outbound calls</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        If a machine answers, leave the message below and hang up. On by default for
+                        telephony; ignored on web sessions.
+                      </span>
+                    </span>
+                  </label>
+                  {form.config.voicemail_detection.enabled && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Message to leave" className="sm:col-span-2">
+                        <Textarea
+                          rows={2}
+                          value={form.config.voicemail_detection.message}
+                          onChange={(e) =>
+                            patchConfig({
+                              voicemail_detection: {
+                                ...form.config.voicemail_detection,
+                                message: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                      </Field>
+                      <Field label="Response delay (seconds)">
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.5}
+                          value={form.config.voicemail_detection.response_delay}
+                          onChange={(e) =>
+                            patchConfig({
+                              voicemail_detection: {
+                                ...form.config.voicemail_detection,
+                                response_delay: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
+                  <h3 className="text-sm font-medium">End call tool</h3>
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={form.config.auto_cut.enabled}
+                      onCheckedChange={(v) =>
+                        patchConfig({
+                          auto_cut: { enabled: v === true },
+                        })
+                      }
+                    />
+                    <span>
+                      <span className="font-medium">Allow agent to hang up</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Registers a server-side <code className="text-xs">end_call</code> tool. Off
+                        by default.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+
+                <div className="space-y-3 border-t border-border pt-6">
                   <h3 className="text-sm font-medium">Silence breaker</h3>
                   <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
                     <Checkbox
@@ -876,6 +1087,11 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                     </Field>
                   )}
                 </div>
+
+                <CallTransferCard
+                  config={form.config.call_transfer}
+                  onChange={(call_transfer) => patchConfig({ call_transfer })}
+                />
 
                 <div className="space-y-3 border-t border-border pt-6">
                   <h3 className="text-sm font-medium">Tools</h3>

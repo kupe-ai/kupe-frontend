@@ -23,6 +23,14 @@ type Props = {
 
 const ROLES = ["member", "admin", "owner"] as const;
 
+const COUNTRY_OPTIONS = [
+  ["US", "United States"], ["GB", "United Kingdom"], ["IN", "India"], ["CA", "Canada"],
+  ["AU", "Australia"], ["DE", "Germany"], ["FR", "France"], ["ES", "Spain"], ["IT", "Italy"],
+  ["NL", "Netherlands"], ["SG", "Singapore"], ["AE", "United Arab Emirates"], ["PH", "Philippines"],
+  ["MX", "Mexico"], ["BR", "Brazil"], ["ZA", "South Africa"], ["NZ", "New Zealand"],
+  ["IE", "Ireland"], ["JP", "Japan"], ["SE", "Sweden"],
+] as const;
+
 export function SettingsPanel({
   orgs,
   org,
@@ -44,6 +52,7 @@ export function SettingsPanel({
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [keyName, setKeyName] = useState("");
   const [newKey, setNewKey] = useState<CreatedApiKey | null>(null);
+  const [country, setCountry] = useState(org.country ?? "US");
 
   useEffect(() => {
     api
@@ -51,6 +60,10 @@ export function SettingsPanel({
       .then((page) => setMembers(page.items))
       .catch((e) => setError(e.message));
   }, [org.id]);
+
+  useEffect(() => {
+    setCountry(org.country ?? "US");
+  }, [org.id, org.country]);
 
   useEffect(() => {
     if (!project) {
@@ -69,6 +82,15 @@ export function SettingsPanel({
       const created = await api.createOrg(orgName.trim());
       setOrgName("");
       onSelectOrg(created.id);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function saveCountry(value: string) {
+    setCountry(value);
+    try {
+      await api.updateOrgCountry(org.id, value);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -188,6 +210,26 @@ export function SettingsPanel({
             <p className="text-xs text-muted-foreground">
               Your role here: {membership.role}
             </p>
+          )}
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Select value={country} onValueChange={(v) => void saveCountry(v)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRY_OPTIONS.map(([code, label]) => (
+                    <SelectItem key={code} value={code}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Used to interpret phone numbers you type in call-transfer settings that aren't already in international format.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>

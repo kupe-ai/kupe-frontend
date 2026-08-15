@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BarVisualizer,
   ConnectionStateToast,
@@ -8,10 +8,12 @@ import {
   useConnectionState,
   useDataChannel,
   useRoomContext,
+  useSpeakingParticipants,
   useVoiceAssistant,
   VoiceAssistantControlBar,
 } from "@livekit/components-react";
-import { ConnectionState } from "livekit-client";
+import { ConnectionState, ParticipantKind, RoomEvent, type Participant } from "livekit-client";
+import { Loader2 } from "lucide-react";
 import LatencyPanel from "@/LatencyPanel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -21,23 +23,49 @@ import type { SessionInfo, TranscriptMessage } from "@/types";
 
 type TranscriptEntry = TranscriptMessage & { id: string };
 
-function statusVariant(state: ConnectionState) {
-  if (state === ConnectionState.Connected) return "success" as const;
-  if (state === ConnectionState.Connecting || state === ConnectionState.Reconnecting) return "warning" as const;
-  return "secondary" as const;
+function isAgentParticipant(participant: Participant) {
+  return participant.kind === ParticipantKind.AGENT || participant.identity.startsWith("agent-");
 }
 
-function SessionStatus() {
-  const state = useConnectionState();
-  const label =
-    state === ConnectionState.Connected
-      ? "Connected"
-      : state === ConnectionState.Connecting
-        ? "Connecting"
-        : state === ConnectionState.Reconnecting
-          ? "Reconnecting"
-          : "Disconnected";
-  return <Badge variant={statusVariant(state)}>{label}</Badge>;
+function agentIsPending(state: string) {
+  return state === "connecting" || state === "initializing";
+}
+
+function useAgentHasStartedSpeaking() {
+  const { state } = useVoiceAssistant();
+  const speakers = useSpeakingParticipants();
+  const [started, setStarted] = useState(false);
+
+  const agentSpeaking = speakers.some(isAgentParticipant);
+
+  useEffect(() => {
+    if (started) return;
+    if (state === "speaking" || agentSpeaking) {
+      setStarted(true);
+    }
+  }, [started, state, agentSpeaking]);
+
+  return started;
+}
+
+function SessionStatus({ heardAgent }: { heardAgent: boolean }) {
+  const roomState = useConnectionState();
+  const { state } = useVoiceAssistant();
+
+  if (roomState === ConnectionState.Reconnecting) {
+    return <Badge variant="warning">Reconnecting</Badge>;
+  }
+  if (roomState === ConnectionState.Disconnected || state === "disconnected") {
+    return <Badge variant="secondary">Disconnected</Badge>;
+  }
+  if (!heardAgent && agentIsPending(state)) {
+    return <Badge variant="warning">Connecting</Badge>;
+  }
+  return (
+    <Badge variant="success" className="capitalize">
+      {heardAgent && agentIsPending(state) ? "speaking" : state}
+    </Badge>
+  );
 }
 
 function AgentVisualizer() {
@@ -77,6 +105,32 @@ function executeClientTool(name: string, rawArgs: string): string {
   return JSON.stringify({ status: "acknowledged", name, arguments: args });
 }
 
+function DisconnectWhenAgentLeaves() {
+  const room = useRoomContext();
+
+  useEffect(() => {
+    let seenAgent = [...room.remoteParticipants.values()].some(isAgentParticipant);
+
+    const onConnected = (participant: Participant) => {
+      if (isAgentParticipant(participant)) seenAgent = true;
+    };
+    const onDisconnected = (participant: Participant) => {
+      if (isAgentParticipant(participant) && seenAgent) {
+        void room.disconnect();
+      }
+    };
+
+    room.on(RoomEvent.ParticipantConnected, onConnected);
+    room.on(RoomEvent.ParticipantDisconnected, onDisconnected);
+    return () => {
+      room.off(RoomEvent.ParticipantConnected, onConnected);
+      room.off(RoomEvent.ParticipantDisconnected, onDisconnected);
+    };
+  }, [room]);
+
+  return null;
+}
+
 function ToolCallExecutor() {
   const room = useRoomContext();
   useDataChannel((msg) => {
@@ -103,6 +157,46 @@ function ToolCallExecutor() {
   return null;
 }
 
+function applyTranscriptMessage(prev: TranscriptEntry[], parsed: TranscriptMessage): TranscriptEntry[] {
+  const isFinal = parsed.final !== false;
+  const openIdx = prev.findLastIndex((e) => e.role === parsed.role && e.final === false);
+
+  if (!isFinal) {
+    if (openIdx >= 0) {
+      const next = [...prev];
+      next[openIdx] = { ...next[openIdx], text: parsed.text, final: false };
+      return next;
+    }
+    return [
+      ...prev,
+      {
+        ...parsed,
+        final: false,
+        id: `${parsed.role}-live-${prev.length}`,
+      },
+    ];
+  }
+
+  if (openIdx >= 0) {
+    const next = [...prev];
+    next[openIdx] = {
+      ...next[openIdx],
+      text: parsed.text,
+      final: true,
+    };
+    return next;
+  }
+
+  return [
+    ...prev,
+    {
+      ...parsed,
+      final: true,
+      id: `${parsed.role}-${prev.length}-${parsed.text.slice(0, 12)}`,
+    },
+  ];
+}
+
 function TranscriptPanel() {
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
   const { agentTranscriptions } = useVoiceAssistant();
@@ -112,10 +206,7 @@ function TranscriptPanel() {
       const text = new TextDecoder().decode(msg.payload);
       const parsed = JSON.parse(text) as TranscriptMessage;
       if (parsed.kind === "transcript" && parsed.role && parsed.text) {
-        setEntries((prev) => [
-          ...prev,
-          { ...parsed, id: `${parsed.role}-${prev.length}-${parsed.text.slice(0, 12)}` },
-        ]);
+        setEntries((prev) => applyTranscriptMessage(prev, parsed));
       }
     } catch {
       // ignore non-transcript data messages
@@ -129,6 +220,7 @@ function TranscriptPanel() {
       role: "assistant" as const,
       text: t.text,
       kind: "transcript" as const,
+      final: true,
     }));
 
   const lines = entries.length > 0 ? entries : livekitLines;
@@ -151,8 +243,11 @@ function TranscriptPanel() {
                 <div key={entry.id} className="text-left">
                   <div className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {entry.role === "user" ? "You" : "Agent"}
+                    {entry.final === false ? " · listening" : ""}
                   </div>
-                  <div className="text-sm text-foreground">{entry.text}</div>
+                  <div className={`text-sm text-foreground${entry.final === false ? " opacity-70" : ""}`}>
+                    {entry.text}
+                  </div>
                 </div>
               ))}
             </div>
@@ -160,6 +255,58 @@ function TranscriptPanel() {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ConnectingPanel() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Connecting</CardTitle>
+        <CardDescription>Stay here until the agent begins speaking.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col items-center gap-3 py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">Waiting for the agent…</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SessionView({ roomError }: { roomError: string | null }) {
+  const { state } = useVoiceAssistant();
+  const heardAgent = useAgentHasStartedSpeaking();
+  const pending = !heardAgent && agentIsPending(state);
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <SessionStatus heardAgent={heardAgent} />
+          <Separator orientation="vertical" className="hidden h-5 sm:block" />
+          <RoomName className="font-mono text-xs text-muted-foreground" />
+        </div>
+        <VoiceAssistantControlBar controls={{ microphone: true, leave: true }} />
+      </div>
+
+      {roomError && (
+        <Alert variant="destructive">
+          <AlertDescription>{roomError}</AlertDescription>
+        </Alert>
+      )}
+
+      {pending ? (
+        <ConnectingPanel />
+      ) : (
+        <>
+          <AgentVisualizer />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <TranscriptPanel />
+            <LatencyPanel />
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -189,29 +336,9 @@ export function VoiceSession({ info, onEnd }: { info: SessionInfo; onEnd: () => 
     >
       <RoomAudioRenderer />
       <ConnectionStateToast />
+      <DisconnectWhenAgentLeaves />
       <ToolCallExecutor />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <SessionStatus />
-          <Separator orientation="vertical" className="hidden h-5 sm:block" />
-          <RoomName className="font-mono text-xs text-muted-foreground" />
-        </div>
-        <VoiceAssistantControlBar controls={{ microphone: true, leave: true }} />
-      </div>
-
-      {roomError && (
-        <Alert variant="destructive">
-          <AlertDescription>{roomError}</AlertDescription>
-        </Alert>
-      )}
-
-      <AgentVisualizer />
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TranscriptPanel />
-        <LatencyPanel />
-      </div>
+      <SessionView roomError={roomError} />
     </LiveKitRoom>
   );
 }

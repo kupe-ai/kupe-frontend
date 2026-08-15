@@ -24,7 +24,6 @@ const EMPTY = {
 };
 
 const BUILTINS = [
-  { name: "end_call", description: "End the current call when the user asks to hang up.", parameters: {}, required: [] as string[] },
   { name: "get_current_time", description: "Get the current date and time as ISO-8601.", parameters: {}, required: [] as string[] },
   {
     name: "transfer_to_human",

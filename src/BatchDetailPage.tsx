@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Pause, Play, Square, Upload } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +22,48 @@ type Props = {
 
 const CONTACT_PAGE = 20;
 
+const PLACEHOLDER_RE = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+
+function collectPlaceholders(...texts: Array<string | null | undefined>): string[] {
+  const keys = new Set<string>();
+  for (const text of texts) {
+    if (!text) continue;
+    for (const match of text.matchAll(PLACEHOLDER_RE)) {
+      keys.add(match[1]);
+    }
+  }
+  return [...keys];
+}
+
+function flowTexts(agent: Agent | null): string[] {
+  if (!agent?.flow_definition?.nodes) return [];
+  const texts: string[] = [];
+  for (const node of Object.values(agent.flow_definition.nodes)) {
+    if (node.role_message) texts.push(node.role_message);
+    for (const message of node.task_messages ?? []) {
+      if (message.content) texts.push(message.content);
+    }
+  }
+  return texts;
+}
+
+function variableKeysForAgent(agent: Agent | null): string[] {
+  if (!agent) return [];
+  const declared = (agent.config?.variables ?? []).map((v) => v.key).filter(Boolean);
+  const fromTemplates = collectPlaceholders(
+    agent.system_prompt,
+    agent.greeting,
+    agent.config?.voicemail_detection?.message,
+    ...flowTexts(agent),
+  );
+  return [...new Set([...declared, ...fromTemplates])];
+}
+
+function exampleJson(keys: string[]): string {
+  const variables = Object.fromEntries(keys.map((k) => [k, ""]));
+  return JSON.stringify([{ phone_number: "+15551234567", variables }], null, 2);
+}
+
 export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }: Props) {
   const [batch, setBatch] = useState<Batch | null>(null);
   const [stats, setStats] = useState<BatchStats | null>(null);
@@ -44,6 +86,9 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
   const [jsonContacts, setJsonContacts] = useState(
     '[{"phone_number": "+15551234567", "variables": {"first_name": "Sam"}}]',
   );
+  const [batchAgent, setBatchAgent] = useState<Agent | null>(null);
+  const [manualPhone, setManualPhone] = useState("");
+  const [manualVars, setManualVars] = useState<Record<string, string>>({});
 
   const refresh = useCallback(async (id: string) => {
     const [b, s, c] = await Promise.all([
@@ -61,6 +106,31 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
     api.listAgents(orgId, projectId, { limit: 100 }).then((p) => setAgents(p.items)).catch(() => undefined);
     api.listTelephonyAccounts(orgId).then(setAccounts).catch(() => undefined);
   }, [orgId, projectId]);
+
+  useEffect(() => {
+    const id = batch?.agent_id || agentId;
+    if (!id) {
+      setBatchAgent(null);
+      return;
+    }
+    const listed = agents.find((a) => a.id === id);
+    if (listed) {
+      setBatchAgent(listed);
+      return;
+    }
+    api.getAgent(id).then(setBatchAgent).catch(() => setBatchAgent(null));
+  }, [agents, agentId, batch?.agent_id]);
+
+  const variableKeys = useMemo(() => variableKeysForAgent(batchAgent), [batchAgent]);
+
+  useEffect(() => {
+    setManualVars((prev) => {
+      const next: Record<string, string> = {};
+      for (const key of variableKeys) next[key] = prev[key] ?? "";
+      return next;
+    });
+    if (variableKeys.length) setJsonContacts(exampleJson(variableKeys));
+  }, [variableKeys]);
 
   useEffect(() => {
     if (!batchId) {
@@ -124,6 +194,28 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
       const parsed = JSON.parse(jsonContacts) as { phone_number: string; variables?: Record<string, unknown> }[];
       if (!Array.isArray(parsed)) throw new Error("JSON must be an array of contacts");
       await api.addBatchContactsBulk(batch.id, parsed);
+      await refresh(batch.id);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addManualContact() {
+    if (!batch) return;
+    if (!manualPhone.trim()) {
+      setError("Phone number is required");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.addBatchContactsBulk(batch.id, [
+        { phone_number: manualPhone.trim(), variables: { ...manualVars } },
+      ]);
+      setManualPhone("");
+      setManualVars(Object.fromEntries(variableKeys.map((k) => [k, ""])));
       await refresh(batch.id);
     } catch (e) {
       setError((e as Error).message);
@@ -328,11 +420,53 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
 
           {batch.status === "draft" && (
             <div className="grid gap-6 lg:grid-cols-2">
+              <Card className="lg:col-span-2">
+                <CardHeader>
+                  <CardTitle>Add a contact</CardTitle>
+                  <CardDescription>
+                    {variableKeys.length
+                      ? `This agent expects: ${variableKeys.join(", ")}`
+                      : "No template variables on this agent. Extra CSV columns still attach as variables."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="manual-phone">Phone number</Label>
+                    <Input
+                      id="manual-phone"
+                      value={manualPhone}
+                      onChange={(e) => setManualPhone(e.target.value)}
+                      placeholder="+15551234567"
+                    />
+                  </div>
+                  {variableKeys.map((key) => (
+                    <div key={key} className="space-y-2">
+                      <Label htmlFor={`var-${key}`}>{key}</Label>
+                      <Input
+                        id={`var-${key}`}
+                        value={manualVars[key] ?? ""}
+                        onChange={(e) => setManualVars((prev) => ({ ...prev, [key]: e.target.value }))}
+                        placeholder={
+                          batchAgent?.config?.variables?.find((v) => v.key === key)?.example || key
+                        }
+                      />
+                    </div>
+                  ))}
+                  <div className="sm:col-span-2">
+                    <Button className="cursor-pointer" disabled={busy} onClick={() => void addManualContact()}>
+                      Add contact
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader>
                   <CardTitle>Upload CSV</CardTitle>
                   <CardDescription>
-                    Requires a <code className="text-xs">phone_number</code> column. Other columns become template variables.
+                    Requires a <code className="text-xs">phone_number</code> column
+                    {variableKeys.length
+                      ? `. Include columns for ${variableKeys.join(", ")}.`
+                      : ". Other columns become template variables."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -381,10 +515,17 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
             <CardContent className="space-y-4">
               <ul className="divide-y divide-border rounded-md border border-border">
                 {contacts.map((c) => (
-                  <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <li key={c.id} className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-center sm:gap-3">
                     <span className="font-mono">{c.phone_number}</span>
                     <Badge variant="outline">{c.status}</Badge>
-                    <span className="ml-auto text-xs text-muted-foreground">attempts {c.attempt_count}</span>
+                    {Object.keys(c.variables || {}).length > 0 && (
+                      <span className="min-w-0 truncate text-xs text-muted-foreground">
+                        {Object.entries(c.variables)
+                          .map(([k, v]) => `${k}=${String(v)}`)
+                          .join(" · ")}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground sm:ml-auto">attempts {c.attempt_count}</span>
                   </li>
                 ))}
                 {contacts.length === 0 && (
