@@ -61,11 +61,11 @@ export function AgentVoiceVisualizer({
       const barW = Math.max(2, (w - gap * (barCount - 1)) / barCount);
       const styles = getComputedStyle(canvas);
       const colors = [
-        styles.getPropertyValue("--kupe-purple-deep").trim() || "#6D5CB2",
-        styles.getPropertyValue("--kupe-purple-hover").trim() || "#968BF3",
-        styles.getPropertyValue("--kupe-purple-bright").trim() || "#A379F9",
-        "#CD93D9",
-        styles.getPropertyValue("--kupe-pink").trim() || "#FAACDB",
+        styles.getPropertyValue("--kupe-teal-deep").trim() || "#007E6D",
+        styles.getPropertyValue("--primary").trim() || "#009D88",
+        styles.getPropertyValue("--kupe-teal-hover").trim() || "#00CAB5",
+        styles.getPropertyValue("--kupe-teal-glow").trim() || "#6BA3FF",
+        styles.getPropertyValue("--kupe-teal-soft").trim() || "#4CAE7D",
       ];
 
       for (let i = 0; i < barCount; i++) {

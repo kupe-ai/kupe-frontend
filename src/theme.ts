@@ -1,37 +1,37 @@
 /** Kupe brand tokens — single source of truth. CSS variables in index.css mirror these. */
 
 export const kupe = {
-  black: "#050305",
-  white: "#FEFDFD",
-  offWhite: "#F6F4F3",
-  secondaryBg: "#F1EEF4",
-  darkBg: "#050305",
-  darkPurple: "#221735",
-  darkAlt: "#110E20",
+  black: "#0E0E0E",
+  white: "#FFFFFF",
+  offWhite: "#F3F3F3",
+  secondaryBg: "#FAFAFA",
+  darkBg: "#0E0E0E",
+  darkAlt: "#161616",
+  darkWell: "#1C1C1C",
 
-  card: "#FEFDFD",
-  cardSecondary: "#F6F4F3",
-  border: "#E1DEED",
+  card: "#FFFFFF",
+  cardSecondary: "#F3F3F3",
+  border: "#F6F6F6",
   radius: 14,
   radiusLarge: 20,
-  shadow: "0 1px 2px rgb(5 3 5 / 0.06)",
+  shadow: "0 1px 2px rgb(14 14 14 / 0.06)",
 
   text: {
-    primary: "#050305",
-    secondary: "#38313E",
-    muted: "#7B737E",
-    onDark: "#F6F4F3",
+    primary: "#0E0E0E",
+    secondary: "#3D3D3D",
+    muted: "#737373",
+    onDark: "#FAFAFA",
   },
 
-  purple: {
-    deep: "#6D5CB2",
-    primary: "#746FD1",
-    hover: "#968BF3",
-    primaryHover: "#6657B8",
-    bright: "#A379F9",
-    soft: "#8073D2",
-    glow: "#C8B3FA",
-    pale: "#E9CBF3",
+  teal: {
+    deep: "#007E6D",
+    primary: "#009D88",
+    hover: "#00CAB5",
+    primaryHover: "#007E6D",
+    bright: "#00CAB5",
+    soft: "#4CAE7D",
+    glow: "#6BA3FF",
+    pale: "#C8F5EE",
   },
 
   warm: {
@@ -45,10 +45,10 @@ export const kupe = {
   },
 
   gradients: {
-    heroCta: "linear-gradient(100deg, #746FD1, #968BF3)",
+    heroCta: "linear-gradient(100deg, #009D88, #00CAB5)",
     marketingCta: "linear-gradient(100deg, #F86C1E, #F96B44, #FAACDB)",
-    dashboard: "linear-gradient(100deg, #6D5CB2, #746FD1, #968BF3)",
-    voice: "linear-gradient(100deg, #6D5CB2, #968BF3, #A379F9, #CD93D9, #FAACDB)",
+    dashboard: "linear-gradient(100deg, #007E6D, #009D88, #00CAB5)",
+    voice: "linear-gradient(100deg, #007E6D, #009D88, #00CAB5, #5B8DEF, #4CAE7D)",
   },
 } as const;
 

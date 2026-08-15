@@ -214,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="press-pop size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
                   onClick={toggleCollapsed}
                   aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
                 >
@@ -278,7 +278,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-9"
+                className="press-pop size-9"
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
               >
@@ -311,7 +311,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                  "press-pop flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
@@ -324,7 +324,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
-              className="flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground"
+              className="press-pop flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground"
             >
               <Menu className="size-5" />
               More
