@@ -37,7 +37,7 @@ export default function AuthPanel() {
   };
 
   return (
-    <Card className="w-full max-w-md shadow-sm">
+    <Card className="w-full max-w-md rounded-2xl shadow-elevated">
       <CardHeader>
         <CardTitle>{mode === "sign-in" ? "Sign in" : "Create an account"}</CardTitle>
         <CardDescription>Access your organization&apos;s voice agent console.</CardDescription>

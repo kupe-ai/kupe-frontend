@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "@livekit/components-styles";
@@ -6,12 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -20,6 +18,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-from: var(--primary-from);
+  --color-primary-to: var(--primary-to);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -30,6 +30,14 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-well: var(--well);
+  --color-pane: var(--pane);
+  --color-pane-foreground: var(--pane-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -38,36 +46,154 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-elevated: var(--elevation);
+  --shadow-elevated-right: var(--elevation-right);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 14px);
 }
 
+/* ------------------------------------------------------------------ *
+ * Kupe product tokens — white / off-white / near-black + purple accents.
+ * Light is the default dashboard. Dark uses #050305 / #110E20 / #221735.
+ * ------------------------------------------------------------------ */
 :root {
-  --radius: 0.5rem;
-  --background: oklch(0.985 0.004 95);
-  --foreground: oklch(0.22 0.02 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.02 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.02 250);
-  --primary: oklch(0.42 0.08 230);
-  --primary-foreground: oklch(0.98 0.01 95);
-  --secondary: oklch(0.95 0.01 95);
-  --secondary-foreground: oklch(0.28 0.02 250);
-  --muted: oklch(0.955 0.008 95);
-  --muted-foreground: oklch(0.5 0.02 250);
-  --accent: oklch(0.94 0.02 200);
-  --accent-foreground: oklch(0.28 0.04 230);
-  --destructive: oklch(0.55 0.2 25);
-  --border: oklch(0.9 0.01 95);
-  --input: oklch(0.9 0.01 95);
-  --ring: oklch(0.55 0.06 230);
-  --sidebar: oklch(0.975 0.006 95);
-  --sidebar-foreground: oklch(0.3 0.02 250);
-  --sidebar-primary: oklch(0.42 0.08 230);
-  --sidebar-primary-foreground: oklch(0.98 0.01 95);
-  --sidebar-accent: oklch(0.94 0.015 200);
-  --sidebar-accent-foreground: oklch(0.28 0.04 230);
-  --sidebar-border: oklch(0.9 0.01 95);
-  --sidebar-ring: oklch(0.55 0.06 230);
+  --radius: 16px;
+
+  --kupe-black: #050305;
+  --kupe-white: #fefdfd;
+  --kupe-off-white: #f6f4f3;
+  --kupe-secondary-bg: #f1eef4;
+  --kupe-dark-purple: #221735;
+  --kupe-dark-alt: #110e20;
+  --kupe-border: #e1deed;
+  --kupe-text: #050305;
+  --kupe-text-secondary: #38313e;
+  --kupe-text-muted: #7b737e;
+  --kupe-purple: #746fd1;
+  --kupe-purple-deep: #6d5cb2;
+  --kupe-purple-hover: #968bf3;
+  --kupe-primary-hover: #6657b8;
+  --kupe-purple-bright: #a379f9;
+  --kupe-purple-soft: #8073d2;
+  --kupe-purple-glow: #c8b3fa;
+  --kupe-purple-pale: #e9cbf3;
+  --kupe-orange: #f86c1e;
+  --kupe-coral: #f96b44;
+  --kupe-pink: #faacdb;
+  --kupe-hero-cta: linear-gradient(100deg, #746fd1, #968bf3);
+  --kupe-marketing-cta: linear-gradient(100deg, #f86c1e, #f96b44, #faacdb);
+  --kupe-dashboard: linear-gradient(100deg, #6d5cb2, #746fd1, #968bf3);
+  --kupe-voice: linear-gradient(100deg, #6d5cb2, #968bf3, #a379f9, #cd93d9, #faacdb);
+  --kupe-card-shadow: 0 20px 60px rgba(34, 23, 53, 0.12);
+
+  --elevation: 0 20px 60px rgba(34, 23, 53, 0.12);
+  --elevation-right: -1px 0 12px rgba(34, 23, 53, 0.06);
+
+  --ease-pop: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --background: #f6f4f3;
+  --foreground: #050305;
+
+  --pane: #fefdfd;
+  --pane-foreground: #050305;
+
+  --card: #fefdfd;
+  --card-foreground: #050305;
+  --popover: #fefdfd;
+  --popover-foreground: #050305;
+
+  --primary: #746fd1;
+  --primary-foreground: #fefdfd;
+  --primary-from: #746fd1;
+  --primary-to: #968bf3;
+
+  --secondary: #f1eef4;
+  --secondary-foreground: #050305;
+
+  --muted: #f1eef4;
+  --muted-foreground: #7b737e;
+  --well: #f1eef4;
+
+  --accent: #e9cbf3;
+  --accent-foreground: #221735;
+
+  --destructive: #e5484d;
+
+  --border: #e1deed;
+  --input: #e1deed;
+  --ring: #746fd1;
+
+  --chart-1: #746fd1;
+  --chart-2: #968bf3;
+  --chart-3: #7b737e;
+  --chart-4: #a379f9;
+  --chart-5: #faacdb;
+
+  --sidebar: #fefdfd;
+  --sidebar-foreground: #050305;
+  --sidebar-primary: #746fd1;
+  --sidebar-primary-foreground: #fefdfd;
+  --sidebar-accent: #f1eef4;
+  --sidebar-accent-foreground: #050305;
+  --sidebar-border: #e1deed;
+  --sidebar-ring: #746fd1;
+}
+
+.dark {
+  --background: #050305;
+  --foreground: #f6f4f3;
+
+  --pane: #110e20;
+  --pane-foreground: #f6f4f3;
+
+  --card: #110e20;
+  --card-foreground: #f6f4f3;
+  --popover: #110e20;
+  --popover-foreground: #f6f4f3;
+
+  --elevation: 0 20px 60px rgba(5, 3, 5, 0.45);
+  --elevation-right: -1px 0 12px rgba(5, 3, 5, 0.35);
+
+  --primary: #746fd1;
+  --primary-foreground: #fefdfd;
+  --primary-from: #746fd1;
+  --primary-to: #968bf3;
+
+  --secondary: #221735;
+  --secondary-foreground: #f6f4f3;
+
+  --muted: #221735;
+  --muted-foreground: #7b737e;
+  --well: #221735;
+
+  --accent: #221735;
+  --accent-foreground: #f6f4f3;
+
+  --destructive: #f2555a;
+
+  --border: #221735;
+  --input: #221735;
+  --ring: #968bf3;
+
+  --chart-1: #968bf3;
+  --chart-2: #a379f9;
+  --chart-3: #7b737e;
+  --chart-4: #c8b3fa;
+  --chart-5: #faacdb;
+
+  --sidebar: #110e20;
+  --sidebar-foreground: #f6f4f3;
+  --sidebar-primary: #746fd1;
+  --sidebar-primary-foreground: #fefdfd;
+  --sidebar-accent: #221735;
+  --sidebar-accent-foreground: #f6f4f3;
+  --sidebar-border: #221735;
+  --sidebar-ring: #968bf3;
 }
 
 @layer base {
@@ -84,9 +210,43 @@
   body {
     @apply m-0 bg-background font-sans text-foreground antialiased;
   }
+
+  .text-primary {
+    color: var(--primary) !important;
+  }
 }
 
-/* LiveKit control bar sits cleanly in our light console */
+@layer utilities {
+  .animate-fade-in {
+    animation: kupe-fade-in 0.35s var(--ease-out-soft) both;
+  }
+  .animate-fade-in-up {
+    animation: kupe-fade-in-up 0.42s var(--ease-out-soft) both;
+  }
+  .animate-pop-in {
+    animation: kupe-pop-in 0.44s var(--ease-pop) both;
+  }
+  .kupe-voice-gradient {
+    background-image: var(--kupe-voice);
+  }
+  .kupe-hero-cta {
+    background-image: var(--kupe-hero-cta);
+  }
+}
+
+@keyframes kupe-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes kupe-fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes kupe-pop-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .lk-voice-assistant-control-bar,
 .lk-control-bar {
   background: transparent !important;

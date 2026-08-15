@@ -9,11 +9,15 @@ read directly from Supabase (RLS-protected by the signed-in user's own JWT).
 
 ```bash
 cp .env.example .env
-# VITE_BACKEND_URL=http://localhost:8000
-# VITE_SUPABASE_URL=... / VITE_SUPABASE_ANON_KEY=...  (Supabase dashboard: Settings > API)
+# VITE_MODE=dev  (or prod)
+# VITE_BACKEND_URL_DEV=http://127.0.0.1:8000
+# VITE_BACKEND_URL_PROD=https://x.kupe.in
+# VITE_SUPABASE_URL=... / VITE_SUPABASE_ANON_KEY=...
 npm install
 npm run dev
 ```
+
+Prod frontend host is `https://hub.kupe.in`. Prod API host is `https://x.kupe.in`.
 
 Open http://localhost:5173. Start `kupe-livekit`, `kupe-backend` (with a
 Supabase project's schema already migrated), and `kupe-agents` first — see
