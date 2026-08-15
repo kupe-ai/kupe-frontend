@@ -6,6 +6,8 @@ import { VoiceAgentsPageShimmer, VoiceEditorShimmer } from "@/components/ui/shim
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
 const LoginPage = lazyWithRetry(() => import("@/pages/login/page"));
+const AuthCallbackPage = lazyWithRetry(() => import("@/pages/auth-callback/page"));
+const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding/page"));
 const VoiceAgentsHomePage = lazyWithRetry(() => import("@/pages/voice-agents/page"));
 const VoiceAgentsAgentsPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/page"));
 const VoiceAgentEditorPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/[id]/page"));
@@ -47,6 +49,8 @@ export default function AppRoutes() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
         <Route element={<ProtectedLayout />}>
           <Route element={<VoiceAgentsLayout />}>
             <Route path="/" element={<Navigate to="/voice-agents" replace />} />

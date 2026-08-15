@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
-import AuthPanel from "@/AuthPanel";
 import { useAuth } from "@/lib/useAuth";
-import { BrandLockup } from "@/components/brand/wordmark";
+import { LoginLanding } from "@/components/auth/login-landing";
+import { LoginForm } from "@/pages/login/login-form";
 
 export default function LoginPage() {
   const { session, loading } = useAuth();
@@ -19,12 +19,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-svh flex-col items-center justify-center gap-10 overflow-y-auto bg-background p-6">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <BrandLockup />
-        <p className="text-caption max-w-xs">Sign in to your voice agent console.</p>
-      </div>
-      <AuthPanel />
-    </div>
+    <LoginLanding>
+      <LoginForm />
+    </LoginLanding>
   );
 }

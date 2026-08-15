@@ -19,6 +19,10 @@ export default function ProtectedLayout() {
     return <Navigate to="/login" replace />;
   }
 
+  if (!workspace.org && workspace.orgs.length === 0) {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return (
     <AppShell>
       {workspace.error && (
