@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { api } from "@/lib/api";
-import type { SessionUsage, UsageSummaryRow } from "@/types";
+import type { SessionUsage, UsageDailyRow, UsageSummaryRow } from "@/types";
 
 const PAGE_SIZE = 10;
 
@@ -14,10 +14,13 @@ type Props = { orgId: string };
 export function UsagePanel({ orgId }: Props) {
   const [sessions, setSessions] = useState<SessionUsage[]>([]);
   const [summary, setSummary] = useState<UsageSummaryRow[]>([]);
+  const [daily, setDaily] = useState<UsageDailyRow[]>([]);
   const [sessionTotal, setSessionTotal] = useState(0);
   const [summaryTotal, setSummaryTotal] = useState(0);
+  const [dailyTotal, setDailyTotal] = useState(0);
   const [sessionOffset, setSessionOffset] = useState(0);
   const [summaryOffset, setSummaryOffset] = useState(0);
+  const [dailyOffset, setDailyOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,6 +59,32 @@ export function UsagePanel({ orgId }: Props) {
     };
   }, [orgId, summaryOffset]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const end = new Date();
+    const start = new Date(end);
+    start.setDate(start.getDate() - 30);
+    (async () => {
+      try {
+        const page = await api.dailyUsage(orgId, {
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          limit: PAGE_SIZE,
+          offset: dailyOffset,
+        });
+        if (!cancelled) {
+          setDaily(page.items);
+          setDailyTotal(page.total);
+        }
+      } catch {
+        // daily usage is secondary, same as summary
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, dailyOffset]);
+
   return (
     <div className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-2">
       <Card className="lg:col-span-2">
@@ -77,6 +106,12 @@ export function UsagePanel({ orgId }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-muted-foreground">{s.session_id.slice(0, 8)}…</span>
                 {s.status && <Badge variant="secondary">{s.status}</Badge>}
+                {s.transport && <Badge variant="outline">{s.transport}</Badge>}
+                {s.duration_seconds != null && (
+                  <span className="text-xs text-muted-foreground">
+                    {Math.round(s.duration_seconds)}s
+                  </span>
+                )}
                 {s.created_at && (
                   <span className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleString()}</span>
                 )}
@@ -114,6 +149,14 @@ export function UsagePanel({ orgId }: Props) {
                         {m.provider_name} / {m.model_name} ({m.metric_type})
                       </span>
                       <span className="font-mono">{m.total_quantity.toLocaleString()}</span>
+                      {(m.cache_read_input_tokens || m.reasoning_tokens || m.input_audio_tokens) && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {m.cache_read_input_tokens ? `${m.cache_read_input_tokens} cached` : ""}
+                          {m.reasoning_tokens ? ` · ${m.reasoning_tokens} reasoning` : ""}
+                          {m.input_audio_tokens ? ` · ${m.input_audio_tokens} audio-in` : ""}
+                          {m.output_audio_tokens ? ` · ${m.output_audio_tokens} audio-out` : ""}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -152,6 +195,33 @@ export function UsagePanel({ orgId }: Props) {
             limit={PAGE_SIZE}
             offset={summaryOffset}
             onPageChange={setSummaryOffset}
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle>Daily usage</CardTitle>
+          <CardDescription>Usage rolled up by day, for billing-period views.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {daily.length === 0 && <p className="text-sm text-muted-foreground">No daily usage yet.</p>}
+          {daily.map((d) => (
+            <div key={`${d.day}-${d.metric_type}-${d.provider_name}-${d.model_name}-${d.transport}`}>
+              <div className="flex justify-between gap-4 text-sm">
+                <span className="text-muted-foreground">
+                  {d.day} — {d.provider_name} / {d.model_name} ({d.metric_type}, {d.transport})
+                </span>
+                <span className="font-mono">{d.total_quantity.toLocaleString()}</span>
+              </div>
+              <Separator className="mt-2" />
+            </div>
+          ))}
+          <PaginationControls
+            total={dailyTotal}
+            limit={PAGE_SIZE}
+            offset={dailyOffset}
+            onPageChange={setDailyOffset}
           />
         </CardContent>
       </Card>

@@ -30,6 +30,7 @@ import type {
   TelephonyAccount,
   TelephonyAccountBody,
   TranscriptInfo,
+  UsageDailyRow,
   UsageSummaryRow,
 } from "../types";
 
@@ -116,6 +117,12 @@ export const api = {
   listSessionUsage: (orgId: string, params?: ListParams) =>
     authedJson<Page<SessionUsage>>(`/v1/orgs/${orgId}/usage/sessions${qs(params)}`),
   getSessionUsage: (sessionId: string) => authedJson<SessionUsage>(`/v1/sessions/${sessionId}/usage`),
+  dailyUsage: (orgId: string, params: { startDate: string; endDate: string; limit?: number; offset?: number }) => {
+    const sp = new URLSearchParams({ start_date: params.startDate, end_date: params.endDate });
+    if (params.limit != null) sp.set("limit", String(params.limit));
+    if (params.offset != null) sp.set("offset", String(params.offset));
+    return authedJson<Page<UsageDailyRow>>(`/v1/orgs/${orgId}/usage/daily?${sp.toString()}`);
+  },
 
   getRecording: (sessionId: string) => authedJson<Recording>(`/v1/sessions/${sessionId}/recording`),
   listRecordings: (orgId: string, params?: ListParams) =>

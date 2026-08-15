@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   BarVisualizer,
   ConnectionStateToast,
@@ -197,10 +197,17 @@ function applyTranscriptMessage(prev: TranscriptEntry[], parsed: TranscriptMessa
   ];
 }
 
-function TranscriptPanel() {
-  const [entries, setEntries] = useState<TranscriptEntry[]>([]);
-  const { agentTranscriptions } = useVoiceAssistant();
-
+/** Owns the transcript data-channel subscription. Mounted unconditionally
+ * (alongside ToolCallExecutor) so it's listening from the moment the room
+ * connects -- the agent's greeting can arrive on the data channel within
+ * milliseconds of the participant joining, well before TranscriptPanel
+ * itself would otherwise mount (it used to only render once the UI decided
+ * the agent had started speaking). useDataChannel's underlying subscription
+ * is a cold observable with no replay buffer, so any message published
+ * before something is subscribed is silently dropped -- that previously
+ * lost the greeting's text every time, even though the audio played fine.
+ */
+function TranscriptCollector({ setEntries }: { setEntries: Dispatch<SetStateAction<TranscriptEntry[]>> }) {
   useDataChannel((msg) => {
     try {
       const text = new TextDecoder().decode(msg.payload);
@@ -212,6 +219,11 @@ function TranscriptPanel() {
       // ignore non-transcript data messages
     }
   });
+  return null;
+}
+
+function TranscriptPanel({ entries }: { entries: TranscriptEntry[] }) {
+  const { agentTranscriptions } = useVoiceAssistant();
 
   const livekitLines = agentTranscriptions
     .filter((t) => t.text.trim())
@@ -273,7 +285,7 @@ function ConnectingPanel() {
   );
 }
 
-function SessionView({ roomError }: { roomError: string | null }) {
+function SessionView({ roomError, entries }: { roomError: string | null; entries: TranscriptEntry[] }) {
   const { state } = useVoiceAssistant();
   const heardAgent = useAgentHasStartedSpeaking();
   const pending = !heardAgent && agentIsPending(state);
@@ -301,7 +313,7 @@ function SessionView({ roomError }: { roomError: string | null }) {
         <>
           <AgentVisualizer />
           <div className="grid gap-4 lg:grid-cols-2">
-            <TranscriptPanel />
+            <TranscriptPanel entries={entries} />
             <LatencyPanel />
           </div>
         </>
@@ -312,6 +324,7 @@ function SessionView({ roomError }: { roomError: string | null }) {
 
 export function VoiceSession({ info, onEnd }: { info: SessionInfo; onEnd: () => void }) {
   const [roomError, setRoomError] = useState<string | null>(null);
+  const [entries, setEntries] = useState<TranscriptEntry[]>([]);
 
   if (!info.ws_url || !info.token) {
     return (
@@ -338,7 +351,8 @@ export function VoiceSession({ info, onEnd }: { info: SessionInfo; onEnd: () => 
       <ConnectionStateToast />
       <DisconnectWhenAgentLeaves />
       <ToolCallExecutor />
-      <SessionView roomError={roomError} />
+      <TranscriptCollector setEntries={setEntries} />
+      <SessionView roomError={roomError} entries={entries} />
     </LiveKitRoom>
   );
 }

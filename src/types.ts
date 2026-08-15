@@ -94,15 +94,40 @@ export type SessionUsageMetric = {
   provider_name: string;
   model_name: string;
   total_quantity: number;
+  cache_read_input_tokens: number | null;
+  cache_creation_input_tokens: number | null;
+  reasoning_tokens: number | null;
+  input_audio_tokens: number | null;
+  output_audio_tokens: number | null;
+  cache_read_input_audio_tokens: number | null;
+  total_tokens: number | null;
 };
 
 export type SessionUsage = {
   session_id: string;
   created_at: string | null;
   status: string | null;
+  transport: string | null;
+  duration_seconds: number | null;
   metrics: SessionUsageMetric[];
   prompt_tokens: number;
   completion_tokens: number;
+  total_tokens: number;
+};
+
+export type UsageDailyRow = {
+  day: string;
+  metric_type: string;
+  provider_name: string;
+  model_name: string;
+  transport: string;
+  total_quantity: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+  reasoning_tokens: number;
+  input_audio_tokens: number;
+  output_audio_tokens: number;
+  cache_read_input_audio_tokens: number;
   total_tokens: number;
 };
 
