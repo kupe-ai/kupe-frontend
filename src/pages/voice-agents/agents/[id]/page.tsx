@@ -142,7 +142,7 @@ export default function VoiceAgentEditorPage() {
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
-      <header className="material-bar scroll-edge relative z-20 flex h-12 shrink-0 items-center justify-between gap-3 px-3">
+      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
         <div className="flex min-w-0 items-center gap-2">
           <Button type="button" variant="ghost" size="icon-sm" asChild aria-label="Back to agents">
             <Link to="/voice-agents/agents">
@@ -159,7 +159,7 @@ export default function VoiceAgentEditorPage() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="pressable inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   v{agent.current_version} · {agent.status}
                   <ChevronDown className="size-3.5" />
@@ -200,7 +200,7 @@ export default function VoiceAgentEditorPage() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <nav className="material-sidebar flex w-[152px] shrink-0 flex-col gap-0.5 px-2 py-3 md:w-[168px]">
+        <nav className="flex w-[152px] shrink-0 flex-col gap-0.5 border-r border-border bg-pane px-2 py-3 md:w-[168px]">
           {AGENT_EDITOR_NAV.map((item) => {
             const Icon = item.icon;
             return (
@@ -208,7 +208,12 @@ export default function VoiceAgentEditorPage() {
                 key={item.id}
                 type="button"
                 onClick={() => setSection(item.id)}
-                className={cn("nav-item w-full text-left", section === item.id && "is-active")}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                  section === item.id
+                    ? "bg-muted font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
               >
                 <Icon className="size-4 shrink-0 opacity-80" />
                 {item.label}

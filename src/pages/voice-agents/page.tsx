@@ -173,17 +173,17 @@ export default function VoiceAgentsHomePage() {
   if (loading) return <VoiceAgentsPageShimmer />;
 
   return (
-    <div className="voice-page">
-      <p className="text-caption">Home</p>
-      <h1 className="text-display mt-2">
+    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
+      <p className="text-sm text-muted-foreground">Home</p>
+      <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight md:text-3xl">
         {greetingForNow()}, {displayName}.
       </h1>
 
-      <section className="mt-8 rounded-2xl border border-border bg-card p-5 shadow-elevated md:p-6">
+      <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">Total calls</p>
-            <p className="mt-1 text-3xl font-semibold tracking-[-0.022em] tabular-nums">
+            <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
               {analyticsQuery.isLoading ? "—" : totalLiveCalls}
             </p>
           </div>
@@ -209,7 +209,7 @@ export default function VoiceAgentsHomePage() {
 
       <section className="mt-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-headline">Recents</h2>
+          <h2 className="text-base font-semibold tracking-tight">Recents</h2>
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -245,7 +245,7 @@ export default function VoiceAgentsHomePage() {
                 <li key={agent.id}>
                   <Link
                     to={`/voice-agents/agents/${agent.id}`}
-                    className="pressable grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40"
+                    className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <div className="flex size-8 items-center justify-center rounded-full bg-muted">
@@ -311,7 +311,7 @@ export default function VoiceAgentsHomePage() {
 
       <section className="mt-8 pb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-headline">Agent templates</h2>
+          <h2 className="text-base font-semibold tracking-tight">Agent templates</h2>
           <div className="flex flex-wrap gap-1.5">
             {TEMPLATE_FILTERS.map((f) => (
               <button
@@ -322,10 +322,10 @@ export default function VoiceAgentsHomePage() {
                   setShowAllTemplates(false);
                 }}
                 className={cn(
-                  "pressable rounded-full px-3 py-1.5 text-xs font-medium",
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                   filter === f.id
-                    ? "bg-muted text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
                 )}
               >
                 {f.label}
@@ -343,7 +343,7 @@ export default function VoiceAgentsHomePage() {
                 setSelected(tpl);
                 setDialogOpen(true);
               }}
-              className="pressable rounded-2xl border border-border bg-card p-5 text-left shadow-elevated hover:bg-muted/20"
+              className="rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/30"
             >
               <div className="flex size-9 items-center justify-center rounded-full bg-muted">
                 <PetSprite seed={tpl.seed} size={22} frame="stand" />

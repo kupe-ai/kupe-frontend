@@ -35,7 +35,7 @@ function PopoverContent({
         collisionPadding={collisionPadding}
         className={cn(
           // Above Dialog (z-250) / AlertDialog (z-300) — SearchableSelect & user pickers in modals.
-          "z-[9999] flex max-h-[min(var(--radix-popover-content-available-height),70dvh)] w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 overflow-y-auto rounded-xl bg-popover p-2.5 text-sm text-popover-foreground shadow-modal ring-1 ring-border outline-hidden duration-[var(--duration-ui)] ease-[var(--ease-spring)] data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "z-[9999] flex max-h-[min(var(--radix-popover-content-available-height),70dvh)] w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 overflow-y-auto rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-elevated ring-1 ring-foreground/10 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}

@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function VoiceAgentsPageShimmer() {
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-8 px-5 py-8 md:px-10 md:py-10">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-5 md:px-8 md:py-6">
       <div className="space-y-2">
         <Skeleton className="h-3.5 w-16" />
         <Skeleton className="h-8 w-64 max-w-full" />
@@ -38,7 +38,7 @@ export function VoiceAgentsPageShimmer() {
 export function VoiceEditorShimmer() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
-      <div className="material-bar scroll-edge relative z-20 flex h-12 shrink-0 items-center justify-between gap-3 px-3">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
         <div className="flex items-center gap-2">
           <Skeleton className="size-7 rounded-md" />
           <Skeleton className="size-7 rounded-md" />
@@ -50,7 +50,7 @@ export function VoiceEditorShimmer() {
         </div>
       </div>
       <div className="flex min-h-0 flex-1">
-        <div className="material-sidebar hidden w-[168px] shrink-0 flex-col gap-1 px-2 py-3 sm:flex">
+        <div className="hidden w-[168px] shrink-0 flex-col gap-1 border-r border-border bg-pane px-2 py-3 sm:flex">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-9 w-full rounded-lg" />
           ))}

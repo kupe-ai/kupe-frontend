@@ -1,0 +1,8 @@
+/**
+ * Satoshi — same brand typeface as Kori. Loaded from Fontshare in index.html
+ * and exposed as `--font-satoshi`, wired to `--font-sans` in index.css.
+ */
+
+:root {
+  --font-satoshi: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+}

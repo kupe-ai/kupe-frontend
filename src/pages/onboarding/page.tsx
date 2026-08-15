@@ -61,17 +61,17 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex h-svh flex-col items-center justify-center gap-10 overflow-y-auto bg-background p-6">
-      <div className="animate-fade-in-up flex w-full max-w-sm flex-col items-center gap-8">
+    <div className="login-landing flex h-full min-h-0 flex-col items-center justify-center overflow-y-auto bg-[#f9f7f2] p-6 text-[#1d1d1c] dark:bg-[#0e0e0e] dark:text-[#f5f2eb]">
+      <div className="animate-fade-in flex w-full max-w-sm flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <BrandLockup />
           <div>
-            <h1 className="text-title text-foreground">Welcome to Kupe</h1>
-            <p className="text-caption mt-1">Let's set up your workspace.</p>
+            <h1 className="text-[1.75rem] font-semibold tracking-tight">Welcome to Kupe</h1>
+            <p className="mt-1 text-[13px] text-[#1d1d1c]/55 dark:text-white/55">Let&apos;s set up your workspace.</p>
           </div>
         </div>
 
-        <form onSubmit={onSubmit} className="w-full rounded-[1.35rem] border border-border bg-card p-6 shadow-elevated">
+        <form onSubmit={onSubmit} className="w-full rounded-[1.35rem] border border-black/[0.06] bg-white p-6 shadow-[0_8px_30px_-18px_rgba(29,29,28,0.35)] dark:border-white/10 dark:bg-[#161616] dark:shadow-none">
           <div className="flex flex-col gap-2">
             <Label htmlFor="workspace-name" className="text-[13px]">
               Workspace name
@@ -87,13 +87,13 @@ export default function OnboardingPage() {
             />
           </div>
 
-          <Button type="submit" className="pressable mt-4 h-11 w-full rounded-xl text-[14px] font-medium" disabled={submitting}>
+          <Button type="submit" className="login-email-cta mt-4 h-11 w-full rounded-xl text-[14px] font-medium" disabled={submitting}>
             {submitting ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
             {submitting ? "Creating…" : "Continue"}
           </Button>
         </form>
 
-        <p className="text-caption max-w-xs text-center">
+        <p className="max-w-xs text-center text-[13px] text-[#1d1d1c]/45 dark:text-white/45">
           You can invite teammates and create more projects later from Settings.
         </p>
       </div>

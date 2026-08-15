@@ -37,14 +37,13 @@ export function GoogleButton({
       onBusyChange?.(false);
       toast.error(error.message || "Could not continue with Google.");
     }
-    // On success the browser navigates to Google, so nothing more to do here.
   }
 
   return (
     <Button
       type="button"
       variant="outline"
-      className={cn("pressable h-11 w-full rounded-xl border-border/80 text-[14px] font-medium shadow-none", className)}
+      className={cn("w-full", className)}
       onClick={onClick}
       disabled={disabled || loading}
     >
@@ -83,7 +82,9 @@ export function OrDivider({ className }: { className?: string }) {
         <span className="w-full border-t border-border" />
       </div>
       <div className="relative flex justify-center text-xs">
-        <span className="bg-card px-2 text-muted-foreground uppercase tracking-wide">or</span>
+        <span className="login-or-label bg-card px-2 text-muted-foreground uppercase tracking-wide">
+          or
+        </span>
       </div>
     </div>
   );

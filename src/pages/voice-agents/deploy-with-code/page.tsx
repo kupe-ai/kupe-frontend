@@ -52,7 +52,6 @@ export default function VoiceAgentsDeployCodePage() {
     <div className="voice-page">
       <VoicePageHeader
         title="Deploy with code"
-        size="eyebrow"
         actions={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="rounded-full" onClick={() => navigate("/voice-agents/settings")}>

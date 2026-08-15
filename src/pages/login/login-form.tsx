@@ -51,15 +51,19 @@ export function LoginForm() {
 
   return (
     <div className="flex flex-col gap-4">
-      <GoogleButton next={next} disabled={loading} onBusyChange={setGoogleBusy} />
+      <GoogleButton
+        next={next}
+        disabled={loading}
+        onBusyChange={setGoogleBusy}
+        className="login-google-btn h-11 rounded-xl border-border/80 bg-background text-[14px] font-medium shadow-none"
+      />
 
-      <OrDivider />
+      <OrDivider className="login-or" />
 
       {!emailMode ? (
         <Button
           type="button"
-          variant="secondary"
-          className="pressable h-11 w-full rounded-xl text-[14px] font-medium"
+          className="login-email-cta h-11 w-full rounded-xl text-[14px] font-medium"
           onClick={() => setEmailMode(true)}
           disabled={busy}
         >
@@ -114,7 +118,11 @@ export function LoginForm() {
             </div>
           </div>
 
-          <Button type="submit" className="pressable h-11 w-full rounded-xl text-[14px] font-medium" disabled={busy}>
+          <Button
+            type="submit"
+            className="login-email-cta h-11 w-full rounded-xl text-[14px] font-medium"
+            disabled={busy}
+          >
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? "Please wait…" : mode === "sign-in" ? "Sign in" : "Create account"}
           </Button>
@@ -131,7 +139,9 @@ export function LoginForm() {
       )}
 
       <p className="pt-1 text-center text-[11px] leading-relaxed text-muted-foreground">
-        By continuing, you agree to Kupe&apos;s Terms and Privacy Policy.
+        By continuing, you agree to Kupe&apos;s{" "}
+        <span className="underline underline-offset-2">Terms</span> and{" "}
+        <span className="underline underline-offset-2">Privacy Policy</span>.
       </p>
     </div>
   );
