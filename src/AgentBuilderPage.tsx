@@ -125,8 +125,14 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
   return {
     llm: { ...DEFAULT_CONFIG.llm, ...llm },
     tts: {
-      ...DEFAULT_CONFIG.tts,
-      ...((data.tts as AgentConfig["tts"]) ?? {}),
+      speaking_speed:
+        typeof (data.tts as { speaking_speed?: number } | undefined)?.speaking_speed === "number"
+          ? (data.tts as { speaking_speed: number }).speaking_speed
+          : 1.0,
+      pitch:
+        typeof (data.tts as { pitch?: number } | undefined)?.pitch === "number"
+          ? (data.tts as { pitch: number }).pitch
+          : 0,
     },
     session: { ...DEFAULT_CONFIG.session, ...session },
     turn: {

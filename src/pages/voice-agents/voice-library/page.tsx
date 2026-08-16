@@ -114,10 +114,7 @@ function VoiceLibraryPageInner() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-title">Voice Library</h1>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Voices for the TTS provider you pick — try text-to-speech, and clone your own.
-            Keep clones private to you or share them with your whole workspace.
-          </p>
+
         </div>
         <div className="flex items-center gap-2">
           <Select
