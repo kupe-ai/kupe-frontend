@@ -271,7 +271,7 @@ export default function VoiceAgentsHomePage() {
                   setSelected(tpl);
                   setDialogOpen(true);
                 }}
-                className="pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-transform duration-200 [transition-timing-function:var(--ease-pop)] hover:-translate-y-0.5 hover:bg-muted/30"
+                className="group/nav pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-transform duration-200 [transition-timing-function:var(--ease-pop)] hover:-translate-y-0.5 hover:bg-muted/30"
               >
                 <AgentAvatar seed={tpl.seed} size={36} />
                 <h3 className="mt-2.5 text-sm font-semibold tracking-tight">{tpl.name}</h3>

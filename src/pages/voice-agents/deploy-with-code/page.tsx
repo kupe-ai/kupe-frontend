@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpenText, CaretDown, Check, Copy, Key } from "@phosphor-icons/react";
+import { Check, ChevronDown, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
@@ -67,7 +67,7 @@ export default function VoiceAgentsDeployCodePage() {
                 }
               }}
             >
-              <ModernIcon icon={Key} className="size-3.5" />
+              <ModernIcon name="key" className="size-3.5" />
               API keys
             </Button>
             <Button
@@ -77,7 +77,7 @@ export default function VoiceAgentsDeployCodePage() {
                 navigate("/deploy-with-code/recipes/moengage")
               }
             >
-              <ModernIcon icon={BookOpenText} className="size-3.5" />
+              <ModernIcon name="book" className="size-3.5" />
               Read docs
             </Button>
           </div>
@@ -93,7 +93,7 @@ export default function VoiceAgentsDeployCodePage() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="group/nav rounded-full">
                 Set up for AI coding tool
-                <CaretDown className="size-3.5" weight="bold" />
+                <ChevronDown className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center">
@@ -172,7 +172,7 @@ export default function VoiceAgentsDeployCodePage() {
                     {r.summary}
                   </p>
                 </div>
-                <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground opacity-0" weight="bold" />
+                <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground opacity-0" />
               </Link>
             </li>
           ))}
@@ -198,7 +198,7 @@ export default function VoiceAgentsDeployCodePage() {
                 toast.message("Copied");
               }}
             >
-              <Copy className="size-3.5" weight="duotone" />
+              <Copy className="size-3.5" />
               Copy
             </Button>
           </div>

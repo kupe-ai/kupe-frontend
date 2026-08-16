@@ -52,7 +52,7 @@ function DropdownMenuContent({
         align={align}
         style={{ zIndex: 9999, ...style }}
         className={cn(
-          "z-[9999] max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/10 data-[state=closed]:overflow-hidden",
+          "z-[9999] max-h-(--radix-dropdown-menu-content-available-height) min-w-32 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/15 data-[state=closed]:overflow-hidden",
           koriPop,
           koriFromSide,
           className,
@@ -258,7 +258,7 @@ function DropdownMenuSubContent({
     <DropdownMenuPrimitive.SubContent
       data-slot="dropdown-menu-sub-content"
         className={cn(
-          "z-[9999] min-w-[96px] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/10",
+          "z-[9999] min-w-[96px] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/15",
           koriPop,
           koriFromSide,
           className,

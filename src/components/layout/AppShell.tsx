@@ -6,10 +6,10 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModernIcon } from "@/components/icons/modern-icon";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -87,7 +87,7 @@ function NavLinks({
                 : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             );
 
-            const icon = <ModernIcon icon={item.icon} className="size-4" />;
+            const icon = <ModernIcon name={item.icon} className="size-4" />;
 
             const link = isSettings ? (
               <button
@@ -356,11 +356,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="press-pop size-9"
+                className="group/nav press-pop size-9"
                 onClick={() => setSearchOpen(true)}
                 aria-label="Search"
               >
-                <Search className="size-4" />
+                <KupeIcon name="search" className="size-4" />
               </Button>
               <SidebarWorkspaceMenu />
             </div>
@@ -393,7 +393,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <ModernIcon icon={item.icon} className="size-5" />
+                <ModernIcon name={item.icon} className="size-5" />
                 {item.label}
               </Link>
             );

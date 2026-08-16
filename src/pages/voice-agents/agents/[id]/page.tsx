@@ -8,11 +8,11 @@ import {
   ChevronLeft,
   Loader2,
   MoreHorizontal,
-  Phone,
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -146,7 +146,7 @@ export default function VoiceAgentEditorPage() {
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="group/nav flex min-w-0 items-center gap-2">
           <Button type="button" variant="ghost" size="icon-sm" asChild aria-label="Back to agents">
             <Link to="/agents">
               <ChevronLeft className="size-4" />
@@ -182,8 +182,8 @@ export default function VoiceAgentEditorPage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button type="button" size="sm" className="rounded-full" onClick={() => setTestOpen(true)}>
-            <Phone className="size-3.5" />
+          <Button type="button" size="sm" className="group/nav rounded-full" onClick={() => setTestOpen(true)}>
+            <KupeIcon name="phone" className="size-3.5" />
             Test agent
           </Button>
           <DropdownMenu>
@@ -203,20 +203,19 @@ export default function VoiceAgentEditorPage() {
       <div className="flex min-h-0 flex-1">
         <nav className="flex w-[152px] shrink-0 flex-col gap-0.5 border-r border-border bg-pane px-2 py-3 md:w-[168px]">
           {AGENT_EDITOR_NAV.map((item) => {
-            const Icon = item.icon;
             return (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setSection(item.id)}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                  "group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                   section === item.id
                     ? "bg-sidebar-accent font-medium text-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0 opacity-80" />
+                <KupeIcon name={item.icon} className="size-4 opacity-80" />
                 {item.label}
               </button>
             );

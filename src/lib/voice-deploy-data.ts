@@ -182,7 +182,7 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
     slug: "call-transfer",
     title: "Call transfer",
     description: "Let a live agent hand off to a human, with an ordered fallback list.",
-    kind: "phone",
+    kind: "transfer",
     tone: "coral",
     headline: "Hand off to a human — with a fallback dial order if the first line doesn't pick up.",
     about:

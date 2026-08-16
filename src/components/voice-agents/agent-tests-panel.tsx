@@ -254,7 +254,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
               >
                 <button
                   type="button"
-                  className="flex min-w-0 items-center gap-3 text-left"
+                  className="group/nav flex min-w-0 items-center gap-3 text-left"
                   onClick={() => setEditId(t.id)}
                 >
                   <AgentAvatar seed={`${seed}-${t.id}`} size={32} />

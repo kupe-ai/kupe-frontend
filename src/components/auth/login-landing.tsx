@@ -3,9 +3,9 @@
 import { Link, useSearchParams } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import { Moon, Sun } from "lucide-react";
 import { BrandLockup } from "@/components/brand/wordmark";
 import { ProductTrailer } from "@/components/auth/product-trailer";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 
 /**
  * Claude-style split login landing — dark/light aware.
@@ -52,13 +52,13 @@ export function LoginLanding({ children }: { children: React.ReactNode }) {
             type="button"
             aria-label="Toggle theme"
             onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="flex size-9 items-center justify-center rounded-full text-[#1d1d1c]/60 transition-colors hover:bg-black/5 hover:text-[#1d1d1c] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
+            className="group/nav flex size-9 items-center justify-center rounded-full text-[#1d1d1c]/60 transition-colors hover:bg-black/5 hover:text-[#1d1d1c] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
           >
             {mounted ? (
               isDark ? (
-                <Sun className="size-4" />
+                <KupeIcon name="sun" className="size-4" />
               ) : (
-                <Moon className="size-4" />
+                <KupeIcon name="moon" className="size-4" />
               )
             ) : (
               <span className="size-4" />

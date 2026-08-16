@@ -253,7 +253,7 @@ export function RecentAgentsTable({
                 <li className="cursor-context-menu">
                   <Link
                     to={`/agents/${agent.id}`}
-                    className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors duration-200 [transition-timing-function:var(--ease-pop)] hover:bg-muted/40"
+                    className="group/nav grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors duration-200 [transition-timing-function:var(--ease-pop)] hover:bg-muted/40"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <AgentAvatar seed={agent.seed} size={36} />
@@ -440,7 +440,7 @@ export function AgentTemplatesSection({
             <button
               type="button"
               onClick={() => openTemplate(tpl)}
-              className="pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-transform duration-200 [transition-timing-function:var(--ease-pop)] hover:-translate-y-0.5 hover:bg-muted/30"
+              className="group/nav pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-transform duration-200 [transition-timing-function:var(--ease-pop)] hover:-translate-y-0.5 hover:bg-muted/30"
             >
               <AgentAvatar seed={tpl.seed} size={40} />
               <h3 className="mt-3 text-sm font-semibold tracking-tight">

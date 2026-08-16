@@ -36,7 +36,7 @@ function PopoverContent({
         collisionPadding={collisionPadding}
         className={cn(
           // Above Dialog (z-250) / AlertDialog (z-300) — SearchableSelect & user pickers in modals.
-          "z-[9999] flex max-h-[min(var(--radix-popover-content-available-height),70dvh)] w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 overflow-y-auto rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-elevated ring-1 ring-foreground/10 outline-hidden",
+          "z-[9999] flex max-h-[min(var(--radix-popover-content-available-height),70dvh)] w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-2.5 overflow-y-auto rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-elevated ring-1 ring-foreground/15 outline-hidden",
           koriPop,
           koriFromSide,
           className

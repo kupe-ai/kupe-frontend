@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUp, Phone, Plus } from "@phosphor-icons/react";
+import { ArrowUp } from "lucide-react";
 import { toast } from "sonner";
 import {
   AgentTemplatesSection,
@@ -11,6 +11,7 @@ import {
 } from "@/components/voice-agents/shared";
 import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
 import { AiStar } from "@/components/brand/ai-star";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
@@ -89,12 +90,12 @@ export default function VoiceAgentsAgentsPage() {
         title="Agents"
         actions={
           <Button
-            className="rounded-full"
+            className="group/nav rounded-full"
             onClick={() => void createFromScratch()}
             loading={creating === "scratch"}
             disabled={busy}
           >
-            <Plus className="size-4" weight="bold" />
+            <KupeIcon name="plus" className="size-4" />
             Create from scratch
           </Button>
         }
@@ -107,13 +108,12 @@ export default function VoiceAgentsAgentsPage() {
         <h1 className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">
           What should your voice agent do?
         </h1>
-        <div className="mt-5 flex w-full max-w-2xl items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-          <Phone
-            weight="duotone"
-            className="ml-4 size-4 shrink-0 text-muted-foreground"
-            aria-hidden
+        <div className="group/nav mt-5 flex w-full max-w-2xl items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+          <KupeIcon
+            name="phone"
+            className="ml-4 size-4 text-muted-foreground"
           />
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1 text-left">
             <input
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -138,7 +138,7 @@ export default function VoiceAgentsAgentsPage() {
             loading={creating === "prompt"}
             disabled={!canSubmit && creating !== "prompt"}
           >
-            <ArrowUp className="size-4" weight="bold" />
+            <ArrowUp className="size-4" />
           </Button>
         </div>
       </section>

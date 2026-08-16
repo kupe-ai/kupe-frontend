@@ -1,23 +1,10 @@
-import type { Icon } from "@phosphor-icons/react";
-import {
-  BookOpenText,
-  ChartBar,
-  ChartLine,
-  Code,
-  GearSix,
-  House,
-  Megaphone,
-  Phone,
-  PhoneIncoming,
-  Robot,
-  Waveform,
-} from "@phosphor-icons/react";
+import type { KupeIconName } from "@/components/icons/kupe-icon";
 
 export interface VoiceAgentsNavItem {
   id: string;
   label: string;
   href: string;
-  icon: Icon;
+  icon: KupeIconName;
 }
 
 export interface VoiceAgentsNavSection {
@@ -34,7 +21,7 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "home",
         label: "Home",
         href: "/",
-        icon: House,
+        icon: "home",
       },
     ],
   },
@@ -46,19 +33,19 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "agents",
         label: "Agents",
         href: "/agents",
-        icon: Robot,
+        icon: "robot",
       },
       {
         id: "knowledge",
         label: "Knowledge base",
         href: "/knowledge-base",
-        icon: BookOpenText,
+        icon: "book",
       },
       {
         id: "voice-library",
         label: "Voice Library",
         href: "/voice-library",
-        icon: Waveform,
+        icon: "wave",
       },
     ],
   },
@@ -70,25 +57,25 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "phone-numbers",
         label: "Phone numbers",
         href: "/phone-numbers",
-        icon: Phone,
+        icon: "phone",
       },
       {
         id: "inbound",
         label: "Inbound calls",
         href: "/inbound-calls",
-        icon: PhoneIncoming,
+        icon: "inbound",
       },
       {
         id: "outbound",
         label: "Outbound campaigns",
         href: "/outbound-campaigns",
-        icon: Megaphone,
+        icon: "megaphone",
       },
       {
         id: "deploy-code",
         label: "Deploy with code",
         href: "/deploy-with-code",
-        icon: Code,
+        icon: "code",
       },
     ],
   },
@@ -100,13 +87,13 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "analytics",
         label: "Agent analytics",
         href: "/analytics",
-        icon: ChartBar,
+        icon: "bars",
       },
       {
         id: "usage",
         label: "Usage",
         href: "/usage",
-        icon: ChartLine,
+        icon: "line-chart",
       },
     ],
   },
@@ -117,13 +104,13 @@ export const VOICE_AGENTS_FOOTER_NAV: VoiceAgentsNavItem[] = [
     id: "settings",
     label: "Settings",
     href: "/settings",
-    icon: GearSix,
+    icon: "gear",
   },
   {
     id: "docs",
     label: "Documentation",
     href: "/documentation",
-    icon: BookOpenText,
+    icon: "book",
   },
 ];
 

@@ -111,23 +111,23 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
       {infoOpen && (
-        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-[var(--kupe-hero-pale)] px-4 py-3 dark:border-primary/25 dark:bg-primary/10">
-          <Info className="mt-0.5 size-4 shrink-0 text-primary" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Input and output variables</p>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2.5 rounded-xl bg-primary px-3.5 py-2 text-primary-foreground">
+          <Info className="size-3.5 shrink-0" />
+          <p className="min-w-0 flex-1 truncate text-sm leading-none">
+            <span className="font-semibold">Input and output variables.</span>{" "}
+            <span className="opacity-90">
               Input variables personalise the conversation, like greeting the
               caller by name. Output variables capture the summary and outcome
               for you to review later.
-            </p>
-          </div>
+            </span>
+          </p>
           <button
             type="button"
-            className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="shrink-0 rounded-md p-1 text-primary-foreground/70 hover:bg-white/15 hover:text-primary-foreground"
             onClick={() => setInfoOpen(false)}
             aria-label="Dismiss"
           >
-            <X className="size-4" />
+            <X className="size-3.5" />
           </button>
         </div>
       )}

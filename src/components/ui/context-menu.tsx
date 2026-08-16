@@ -45,7 +45,7 @@ function ContextMenuRadioGroup({
 }
 
 const menuMotion = cn(
-  "origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-xl bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/10",
+  "origin-(--radix-context-menu-content-transform-origin) overflow-hidden rounded-xl bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/15",
   koriPop,
   koriFromSide,
 );

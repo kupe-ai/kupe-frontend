@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { KeyRound, Palette, Settings2, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { KupeIcon, type KupeIconName } from "@/components/icons/kupe-icon";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import { useAuth } from "@/lib/useAuth";
 type NavItem = {
   id: SettingsSectionId;
   label: string;
-  icon: LucideIcon;
+  icon: KupeIconName;
 };
 
 type NavGroup = {
@@ -31,15 +31,15 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Preferences",
     items: [
-      { id: "appearance", label: "Appearance", icon: Palette },
-      { id: "account", label: "Account", icon: Settings2 },
+      { id: "appearance", label: "Appearance", icon: "palette" },
+      { id: "account", label: "Account", icon: "gear" },
     ],
   },
   {
     label: "Workspace",
     items: [
-      { id: "workspace", label: "Workspace", icon: Users },
-      { id: "keys", label: "API Key", icon: KeyRound },
+      { id: "workspace", label: "Workspace", icon: "users" },
+      { id: "keys", label: "API Key", icon: "key" },
     ],
   },
 ];
@@ -161,7 +161,6 @@ export function SettingsDialog() {
                   </div>
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((item) => {
-                      const Icon = item.icon;
                       const active = section === item.id;
                       return (
                         <button
@@ -169,15 +168,16 @@ export function SettingsDialog() {
                           type="button"
                           onClick={() => setSection(item.id)}
                           className={cn(
-                            "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                            "group/nav flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                             active
                               ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                               : "text-muted-foreground hover:bg-muted hover:text-foreground",
                           )}
                         >
-                          <Icon
+                          <KupeIcon
+                            name={item.icon}
                             className={cn(
-                              "size-4 shrink-0",
+                              "size-4",
                               active ? "text-foreground" : "text-muted-foreground",
                             )}
                           />

@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { PlivoLogo } from "@/components/voice-agents/plivo-logo";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import type {
@@ -125,6 +124,14 @@ export function AddNumberDialog({
 
 // ---------------------------------------------------------------------
 
+function ProviderMark({ src, alt }: { src: string; alt: string }) {
+  return (
+    <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-border">
+      <img src={src} alt={alt} className="size-5 object-contain" />
+    </span>
+  );
+}
+
 function ProviderStep({ onPick }: { onPick: (provider: Provider) => void }) {
   return (
     <div className="space-y-3">
@@ -135,9 +142,7 @@ function ProviderStep({ onPick }: { onPick: (provider: Provider) => void }) {
         onClick={() => onPick("twilio")}
         className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
       >
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-[#F22F46] text-white font-bold text-sm">
-          T
-        </div>
+        <ProviderMark src="/providers/twilio.png" alt="Twilio" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">Twilio</p>
           <p className="text-sm text-muted-foreground">Already have a Twilio number? Add your credentials directly.</p>
@@ -149,9 +154,7 @@ function ProviderStep({ onPick }: { onPick: (provider: Provider) => void }) {
         onClick={() => onPick("plivo")}
         className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
       >
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted">
-          <PlivoLogo className="h-4 w-auto text-foreground" />
-        </div>
+        <ProviderMark src="/providers/plivo.png" alt="Plivo" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">Plivo</p>
           <p className="text-sm text-muted-foreground">Buy a new number, billed from your Kupe wallet.</p>
@@ -159,9 +162,7 @@ function ProviderStep({ onPick }: { onPick: (provider: Provider) => void }) {
       </button>
 
       <div className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border p-4 opacity-60">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-muted text-sm font-bold">
-          E
-        </div>
+        <ProviderMark src="/providers/exotel.png" alt="Exotel" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">Exotel</p>
           <p className="text-sm text-muted-foreground">Coming soon.</p>

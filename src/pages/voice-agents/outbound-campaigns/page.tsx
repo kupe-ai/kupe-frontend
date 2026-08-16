@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Play, Plus, Upload } from "lucide-react";
+import { Copy, Pause, Play, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
 import { QuickContextMenu } from "@/components/quick-context-menu";
 import { Button } from "@/components/ui/button";
@@ -71,8 +72,8 @@ export default function VoiceAgentsOutboundPage() {
         title="Outbound campaigns"
         actions={
           campaigns.length > 0 ? (
-            <Button className="rounded-full" onClick={() => setOpen(true)}>
-              <Plus className="size-4" />
+            <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
+              <KupeIcon name="plus" className="size-4" />
               Create campaign
             </Button>
           ) : undefined
@@ -97,8 +98,8 @@ export default function VoiceAgentsOutboundPage() {
               >
                 Build with API →
               </Button>
-              <Button className="rounded-full" onClick={() => setOpen(true)}>
-                <Plus className="size-4" />
+              <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
+                <KupeIcon name="plus" className="size-4" />
                 Create campaign
               </Button>
             </>

@@ -112,7 +112,9 @@
 /* ------------------------------------------------------------------ *
  * Kupe brand tokens — hero blue over neutral grays. Satoshi everywhere.
  * Light: canvas #FFFFFF · muted/sidebar #FBFBFB · well #F3F3F3 · ink #0E0E0E
- * Dark:  inverted (#0E0E0E / #161616 / #1C1C1C)
+ *        muted text #5E5E5E (secondary, still AA on white)
+ * Dark:  inverted (#0E0E0E / #161616 / #1C1C1C popover)
+ *        muted text #A8A8A8 so captions stay readable on near-black
  * Buttons / hero fills: the brand gradient image (not a CSS color stop).
  * ------------------------------------------------------------------ */
 :root {
@@ -127,7 +129,7 @@
   --kupe-border: #efefef;
   --kupe-text: #0e0e0e;
   --kupe-text-secondary: #3d3d3d;
-  --kupe-text-muted: #707070;
+  --kupe-text-muted: #5e5e5e;
   --kupe-hero: #4048ff;
   --kupe-hero-deep: #010799;
   --kupe-hero-hover: #a8abff;
@@ -189,7 +191,7 @@
   --secondary-foreground: #0e0e0e;
 
   --muted: #fbfbfb;
-  --muted-foreground: #707070;
+  --muted-foreground: #5e5e5e;
   --well: #f3f3f3;
 
   --accent: #fbfbfb;
@@ -226,8 +228,9 @@
 
   --card: #161616;
   --card-foreground: #fafafa;
-  --popover: #161616;
+  --popover: #1c1c1c;
   --popover-foreground: #fafafa;
+  --kupe-text-muted: #a8a8a8;
 
   --elevation: 0 1px 2px rgb(0 0 0 / 0.35);
   --elevation-right: -1px 0 3px rgb(0 0 0 / 0.3);
@@ -242,7 +245,7 @@
   --secondary-foreground: #fafafa;
 
   --muted: #161616;
-  --muted-foreground: #909090;
+  --muted-foreground: #a8a8a8;
   --well: #1c1c1c;
 
   --accent: #161616;
@@ -250,8 +253,8 @@
 
   --destructive: #f2555a;
 
-  --border: #1a1a1a;
-  --input: #1a1a1a;
+  --border: #2a2a2a;
+  --input: #2a2a2a;
   --ring: #a8abff;
 
   --chart-1: #a8abff;
@@ -266,7 +269,7 @@
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #1c1c1c;
   --sidebar-accent-foreground: #fafafa;
-  --sidebar-border: #1a1a1a;
+  --sidebar-border: #2a2a2a;
   --sidebar-ring: var(--ring);
 }
 
@@ -309,6 +312,12 @@
     touch-action: manipulation;
   }
 
+  /* Firefox defaults ::placeholder to 0.54 opacity, which crushes muted text. */
+  ::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+
   button,
   a,
   [role="button"],
@@ -348,6 +357,303 @@
   .animate-icon-distort {
     animation: kupe-icon-distort 0.55s var(--ease-pop);
     filter: url(#kupe-icon-warp);
+  }
+  .icon-distort {
+    display: inline-flex;
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+  .icon-distort:hover,
+  .group\/nav:hover .icon-distort {
+    animation: kupe-icon-distort 0.55s var(--ease-pop);
+    filter: url(#kupe-icon-warp);
+  }
+
+  /* Custom icon pack — unique hover motion per mark */
+  .ki {
+    overflow: visible;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .ki .ki-roof,
+  .ki .ki-door,
+  .ki .ki-eye,
+  .ki .ki-ant-l,
+  .ki .ki-ant-r,
+  .ki .ki-page-l,
+  .ki .ki-page-r,
+  .ki .ki-bar,
+  .ki .ki-handset,
+  .ki .ki-in-arrow,
+  .ki .ki-out-arrow,
+  .ki .ki-horn,
+  .ki .ki-wave-1,
+  .ki .ki-wave-2,
+  .ki .ki-brack-l,
+  .ki .ki-brack-r,
+  .ki .ki-slash,
+  .ki .ki-cbar,
+  .ki .ki-spark,
+  .ki .ki-dot,
+  .ki .ki-cog,
+  .ki .ki-flap,
+  .ki .ki-up,
+  .ki .ki-brace-l,
+  .ki .ki-brace-r,
+  .ki .ki-ring,
+  .ki .ki-key,
+  .ki .ki-layer,
+  .ki .ki-head,
+  .ki .ki-body,
+  .ki .ki-user-a,
+  .ki .ki-user-b,
+  .ki .ki-win,
+  .ki .ki-glass,
+  .ki .ki-x,
+  .ki .ki-swatch,
+  .ki .ki-rays,
+  .ki .ki-crescent,
+  .ki .ki-screen,
+  .ki .ki-fold,
+  .ki .ki-wrench,
+  .ki .ki-xfer,
+  .ki .ki-check,
+  .ki .ki-plus,
+  .ki .ki-hour,
+  .ki .ki-minute,
+  .ki .ki-back {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .ki .ki-bar,
+  .ki .ki-cbar {
+    transform-origin: center bottom;
+  }
+  .ki .ki-ant-l,
+  .ki .ki-ant-r {
+    transform-origin: bottom center;
+  }
+  .ki .ki-page-l {
+    transform-origin: right center;
+  }
+  .ki .ki-page-r {
+    transform-origin: left center;
+  }
+  .ki .ki-flap {
+    transform-origin: left bottom;
+  }
+  .ki .ki-hour,
+  .ki .ki-minute {
+    transform-origin: 12px 12px;
+  }
+
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-home .ki-roof,
+  .ki-home:hover .ki-roof {
+    animation: ki-roof 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-home .ki-door,
+  .ki-home:hover .ki-door {
+    animation: ki-door 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-robot .ki-eye,
+  .ki-robot:hover .ki-eye {
+    animation: ki-blink 0.7s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-robot .ki-ant-l,
+  .ki-robot:hover .ki-ant-l {
+    animation: ki-ant-l 0.55s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-robot .ki-ant-r,
+  .ki-robot:hover .ki-ant-r {
+    animation: ki-ant-r 0.55s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-book .ki-page-l,
+  .ki-book:hover .ki-page-l {
+    animation: ki-page-l 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-book .ki-page-r,
+  .ki-book:hover .ki-page-r {
+    animation: ki-page-r 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-wave .ki-bar-1,
+  .ki-wave:hover .ki-bar-1 {
+    animation: ki-eq 0.7s ease-in-out infinite;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-wave .ki-bar-2,
+  .ki-wave:hover .ki-bar-2 {
+    animation: ki-eq 0.62s ease-in-out 0.08s infinite;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-wave .ki-bar-3,
+  .ki-wave:hover .ki-bar-3 {
+    animation: ki-eq 0.78s ease-in-out 0.16s infinite;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-wave .ki-bar-4,
+  .ki-wave:hover .ki-bar-4 {
+    animation: ki-eq 0.66s ease-in-out 0.22s infinite;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-phone .ki-handset,
+  .ki-phone:hover .ki-handset {
+    animation: ki-ring 0.55s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-inbound .ki-in-arrow,
+  .ki-inbound:hover .ki-in-arrow {
+    animation: ki-in 0.55s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-outbound-phone .ki-out-arrow,
+  .ki-outbound-phone:hover .ki-out-arrow {
+    animation: ki-out 0.55s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-megaphone .ki-horn,
+  .ki-megaphone:hover .ki-horn {
+    animation: ki-horn 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-megaphone .ki-wave-1,
+  .ki-megaphone:hover .ki-wave-1 {
+    animation: ki-sound 0.7s ease-out infinite;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-megaphone .ki-wave-2,
+  .ki-megaphone:hover .ki-wave-2 {
+    animation: ki-sound 0.7s ease-out 0.12s infinite;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-code .ki-brack-l,
+  .ki-code:hover .ki-brack-l {
+    animation: ki-brack-l 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-code .ki-brack-r,
+  .ki-code:hover .ki-brack-r {
+    animation: ki-brack-r 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-code .ki-slash,
+  .ki-code:hover .ki-slash {
+    animation: ki-slash-spin 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-bars .ki-cbar-1,
+  .ki-bars:hover .ki-cbar-1 {
+    animation: ki-grow 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-bars .ki-cbar-2,
+  .ki-bars:hover .ki-cbar-2 {
+    animation: ki-grow 0.5s 0.06s var(--ease-pop) both;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-bars .ki-cbar-3,
+  .ki-bars:hover .ki-cbar-3 {
+    animation: ki-grow 0.5s 0.12s var(--ease-pop) both;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-line-chart .ki-spark,
+  .ki-line-chart:hover .ki-spark {
+    animation: ki-draw 0.7s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-line-chart .ki-dot,
+  .ki-line-chart:hover .ki-dot {
+    animation: ki-dot 0.7s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-gear .ki-cog,
+  .ki-gear:hover .ki-cog {
+    animation: ki-spin 0.65s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-folder .ki-flap,
+  .ki-folder:hover .ki-flap {
+    animation: ki-flap 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-upload .ki-up,
+  .ki-upload:hover .ki-up {
+    animation: ki-up 0.55s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-braces .ki-brace-l,
+  .ki-braces:hover .ki-brace-l {
+    animation: ki-brack-l 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-braces .ki-brace-r,
+  .ki-braces:hover .ki-brace-r {
+    animation: ki-brack-r 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-ban .ki-slash,
+  .ki-ban:hover .ki-slash {
+    animation: ki-ban-slash 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-ban .ki-ring,
+  .ki-ban:hover .ki-ring {
+    animation: ki-pulse 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-key .ki-key,
+  .ki-key:hover .ki-key {
+    animation: ki-wiggle 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-layers .ki-layer-1,
+  .ki-layers:hover .ki-layer-1 {
+    animation: ki-stack 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-layers .ki-layer-2,
+  .ki-layers:hover .ki-layer-2 {
+    animation: ki-stack 0.5s 0.06s var(--ease-pop) both;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-layers .ki-layer-3,
+  .ki-layers:hover .ki-layer-3 {
+    animation: ki-stack 0.5s 0.12s var(--ease-pop) both;
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-user .ki-head,
+  .ki-user:hover .ki-head {
+    animation: ki-bob 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-users .ki-user-b,
+  .ki-users:hover .ki-user-b {
+    animation: ki-slide-in 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-building .ki-win,
+  .ki-building:hover .ki-win {
+    animation: ki-win 0.7s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-search .ki-glass,
+  .ki-search:hover .ki-glass {
+    animation: ki-search 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-search-x .ki-x,
+  .ki-search-x:hover .ki-x {
+    animation: ki-x 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-palette .ki-swatch,
+  .ki-palette:hover .ki-swatch {
+    animation: ki-swatch 0.6s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-sun .ki-rays,
+  .ki-sun:hover .ki-rays {
+    animation: ki-spin 0.7s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-moon .ki-crescent,
+  .ki-moon:hover .ki-crescent {
+    animation: ki-tilt 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-monitor .ki-screen,
+  .ki-monitor:hover .ki-screen {
+    animation: ki-screen 0.6s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-file .ki-fold,
+  .ki-file:hover .ki-fold {
+    animation: ki-fold 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-wrench .ki-wrench,
+  .ki-wrench:hover .ki-wrench {
+    animation: ki-wrench 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-phone-transfer .ki-xfer,
+  .ki-phone-transfer:hover .ki-xfer {
+    animation: ki-out 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-check-square .ki-check,
+  .ki-check-square:hover .ki-check {
+    animation: ki-check 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-plus .ki-plus,
+  .ki-plus:hover .ki-plus {
+    animation: ki-plus 0.45s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-clock .ki-minute,
+  .ki-clock:hover .ki-minute {
+    animation: ki-minute 0.6s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-copy .ki-back,
+  .ki-copy:hover .ki-back {
+    animation: ki-copy 0.45s var(--ease-pop);
   }
   .animate-prompt-cycle {
     animation: kupe-prompt-cycle 2.8s var(--ease-out-soft) both;
@@ -573,6 +879,9 @@
     max-width: 64rem;
     margin-inline: auto;
     padding: 1.25rem 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
   @media (min-width: 768px) {
     .voice-page {
@@ -735,6 +1044,174 @@
   76% { transform: scale(1.1, 0.92) rotate(-3deg) skewX(3deg); }
   100% { transform: scale(1) rotate(0deg) skewX(0deg); }
 }
+@keyframes ki-roof {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-2px); }
+}
+@keyframes ki-door {
+  0%, 100% { transform: scaleY(1); }
+  45% { transform: scaleY(0.86); }
+}
+@keyframes ki-blink {
+  0%, 42%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.12); }
+}
+@keyframes ki-ant-l {
+  0%, 100% { transform: rotate(0deg); }
+  35% { transform: rotate(-16deg); }
+  65% { transform: rotate(8deg); }
+}
+@keyframes ki-ant-r {
+  0%, 100% { transform: rotate(0deg); }
+  35% { transform: rotate(16deg); }
+  65% { transform: rotate(-8deg); }
+}
+@keyframes ki-page-l {
+  0%, 100% { transform: rotateY(0deg); }
+  45% { transform: rotateY(-18deg); }
+}
+@keyframes ki-page-r {
+  0%, 100% { transform: rotateY(0deg); }
+  45% { transform: rotateY(18deg); }
+}
+@keyframes ki-eq {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.42); }
+}
+@keyframes ki-ring {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-14deg); }
+  40% { transform: rotate(12deg); }
+  60% { transform: rotate(-8deg); }
+  80% { transform: rotate(5deg); }
+}
+@keyframes ki-in {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2px, 2px); }
+}
+@keyframes ki-out {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(2px, -2px); }
+}
+@keyframes ki-horn {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(-8deg); }
+}
+@keyframes ki-sound {
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+@keyframes ki-brack-l {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-2px); }
+}
+@keyframes ki-brack-r {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+}
+@keyframes ki-slash-spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(12deg); }
+}
+@keyframes ki-grow {
+  0% { transform: scaleY(0.35); }
+  100% { transform: scaleY(1); }
+}
+@keyframes ki-draw {
+  0% { stroke-dasharray: 36; stroke-dashoffset: 36; }
+  100% { stroke-dasharray: 36; stroke-dashoffset: 0; }
+}
+@keyframes ki-dot {
+  0% { transform: scale(0.4); opacity: 0; }
+  55% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ki-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(90deg); }
+}
+@keyframes ki-flap {
+  0%, 100% { transform: rotate(0deg); }
+  45% { transform: rotate(-18deg); }
+}
+@keyframes ki-up {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-3px); }
+}
+@keyframes ki-ban-slash {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+}
+@keyframes ki-pulse {
+  0%, 100% { transform: scale(1); }
+  45% { transform: scale(1.08); }
+}
+@keyframes ki-wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  30% { transform: rotate(-12deg); }
+  60% { transform: rotate(8deg); }
+}
+@keyframes ki-stack {
+  0%, 100% { transform: translateY(0); }
+  45% { transform: translateY(-2px); }
+}
+@keyframes ki-bob {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-1.5px); }
+}
+@keyframes ki-slide-in {
+  0%, 100% { transform: translateX(0); }
+  40% { transform: translateX(2px); }
+}
+@keyframes ki-win {
+  0%, 100% { opacity: 1; }
+  40% { opacity: 0.25; }
+}
+@keyframes ki-search {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  40% { transform: rotate(-12deg) scale(1.08); }
+}
+@keyframes ki-x {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(90deg); }
+}
+@keyframes ki-swatch {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.35); }
+}
+@keyframes ki-tilt {
+  0%, 100% { transform: rotate(0deg); }
+  45% { transform: rotate(-14deg); }
+}
+@keyframes ki-screen {
+  0%, 100% { opacity: 1; }
+  40% { opacity: 0.35; }
+}
+@keyframes ki-fold {
+  0%, 100% { transform: translate(0, 0); }
+  45% { transform: translate(-1px, 1px); }
+}
+@keyframes ki-wrench {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(-18deg); }
+  70% { transform: rotate(8deg); }
+}
+@keyframes ki-check {
+  0% { stroke-dasharray: 18; stroke-dashoffset: 18; }
+  100% { stroke-dasharray: 18; stroke-dashoffset: 0; }
+}
+@keyframes ki-plus {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(90deg); }
+}
+@keyframes ki-minute {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(50deg); }
+}
+@keyframes ki-copy {
+  0%, 100% { transform: translate(0, 0); }
+  45% { transform: translate(-1.5px, -1.5px); }
+}
 @keyframes kupe-prompt-cycle {
   0% { transform: translateY(110%); opacity: 0; }
   14% { transform: translateY(0); opacity: 1; }
@@ -780,6 +1257,15 @@
   .nav-item:active,
   [data-slot="button"]:active {
     transform: none;
+  }
+  .icon-distort:hover,
+  .group\/nav:hover .icon-distort {
+    animation: none !important;
+    filter: none !important;
+  }
+  .ki,
+  .ki * {
+    animation: none !important;
   }
 }
 

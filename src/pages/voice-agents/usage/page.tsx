@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { ArrowClockwise, Calendar } from "@phosphor-icons/react";
+import { Calendar, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/context/workspace-context";
 import { api } from "@/lib/api";
@@ -141,7 +141,7 @@ export default function UsagePage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button variant="secondary" size="sm" onClick={refresh} disabled={loading}>
-            <ArrowClockwise className={loading ? "size-4 animate-spin" : "size-4"} />
+            <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
             Refresh
           </Button>
         </div>

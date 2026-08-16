@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { AddNumberDialog } from "@/components/voice-agents/add-number-dialog";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -65,8 +66,8 @@ export default function VoiceAgentsPhoneNumbersPage() {
     <div className="voice-page voice-page-md">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-display">Phone numbers</h1>
-        <Button className="rounded-full" onClick={() => setAddOpen(true)}>
-          <Plus className="size-4" />
+        <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
+          <KupeIcon name="plus" className="size-4" />
           Add number
         </Button>
       </div>
@@ -81,8 +82,8 @@ export default function VoiceAgentsPhoneNumbersPage() {
           description="Bring your own Twilio number, or buy one through Plivo — billed from your Kupe wallet."
           className="min-h-[280px]"
           actions={
-            <Button className="rounded-full" onClick={() => setAddOpen(true)}>
-              <Plus className="size-4" />
+            <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
+              <KupeIcon name="plus" className="size-4" />
               Add number
             </Button>
           }

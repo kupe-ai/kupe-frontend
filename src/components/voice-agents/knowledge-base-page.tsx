@@ -8,11 +8,11 @@ import {
   FileText,
   MoreVertical,
   Pencil,
-  Plus,
   Search,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import {
   AsciiEmptyState,
   AsciiIcon,
@@ -118,8 +118,8 @@ export default function VoiceAgentsKnowledgePage() {
         title="Knowledge base"
         actions={
           !showEmptyState ? (
-            <Button className="rounded-full" onClick={() => setCreateOpen(true)}>
-              <Plus className="size-4" />
+            <Button className="group/nav rounded-full" onClick={() => setCreateOpen(true)}>
+              <KupeIcon name="plus" className="size-4" />
               Create knowledge base
             </Button>
           ) : undefined
@@ -147,8 +147,8 @@ export default function VoiceAgentsKnowledgePage() {
                 Read docs
                 <ExternalLink className="size-3.5" />
               </Button>
-              <Button className="rounded-full" onClick={() => setCreateOpen(true)}>
-                <Plus className="size-4" />
+              <Button className="group/nav rounded-full" onClick={() => setCreateOpen(true)}>
+                <KupeIcon name="plus" className="size-4" />
                 Create knowledge base
               </Button>
             </>

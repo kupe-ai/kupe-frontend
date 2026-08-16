@@ -72,7 +72,7 @@ function SelectContent({
         data-align-trigger={position === "item-aligned"}
         // Above Dialog (z-250) / AlertDialog (z-300) so selects inside modals stay clickable.
         className={cn(
-          "relative z-[9999] max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/10",
+          "relative z-[9999] max-h-(--radix-select-content-available-height) min-w-36 origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg bg-popover p-1 text-popover-foreground shadow-elevated ring-1 ring-foreground/15",
           koriPop,
           koriFromSide,
           position === "popper" &&

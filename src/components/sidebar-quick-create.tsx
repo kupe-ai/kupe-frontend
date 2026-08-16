@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bot, Loader2, Megaphone, Phone, Plus, Search, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +54,7 @@ export function SidebarQuickCreate({
           type="button"
           aria-label={menuOpen ? "Close quick create" : "Quick create"}
           className={cn(
-            "flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+            "group/nav flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
             menuOpen && "bg-muted text-foreground",
           )}
         >
@@ -62,21 +63,21 @@ export function SidebarQuickCreate({
           ) : menuOpen ? (
             <X className="size-3.5" />
           ) : (
-            <Plus className="size-3.5" strokeWidth={2.25} />
+            <KupeIcon name="plus" className="size-3.5" />
           )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="end" sideOffset={8} className="w-52">
-        <DropdownMenuItem onSelect={createAgent}>
-          <Bot className="size-4" />
+        <DropdownMenuItem className="group/nav" onSelect={createAgent}>
+          <KupeIcon name="robot" className="size-4" />
           New agent
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go("/outbound-campaigns", "Outbound campaigns")}>
-          <Megaphone className="size-4" />
+        <DropdownMenuItem className="group/nav" onSelect={() => go("/outbound-campaigns", "Outbound campaigns")}>
+          <KupeIcon name="megaphone" className="size-4" />
           New campaign
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go("/phone-numbers", "Phone numbers")}>
-          <Phone className="size-4" />
+        <DropdownMenuItem className="group/nav" onSelect={() => go("/phone-numbers", "Phone numbers")}>
+          <KupeIcon name="phone" className="size-4" />
           Phone numbers
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -90,10 +91,10 @@ export function SidebarQuickCreate({
           <button
             type="button"
             onClick={onOpenSearch}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="group/nav flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             aria-label="Search"
           >
-            <Search className="size-3.5" strokeWidth={2.25} />
+            <KupeIcon name="search" className="size-3.5" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="right" sideOffset={8}>

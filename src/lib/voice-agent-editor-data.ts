@@ -1,14 +1,6 @@
-/** Agent editor section nav — Lucide icons, no glyph art. */
+/** Agent editor section nav — animated pack icons. */
 
-import type { LucideIcon } from "lucide-react";
-import {
-  Braces,
-  CheckSquare,
-  FileText,
-  PhoneForwarded,
-  Settings2,
-  Wrench,
-} from "lucide-react";
+import type { KupeIconName } from "@/components/icons/kupe-icon";
 
 export type AgentEditorSection =
   | "instructions"
@@ -21,12 +13,12 @@ export type AgentEditorSection =
 export const AGENT_EDITOR_NAV: {
   id: AgentEditorSection;
   label: string;
-  icon: LucideIcon;
+  icon: KupeIconName;
 }[] = [
-  { id: "instructions", label: "Instructions", icon: FileText },
-  { id: "variables", label: "Variables", icon: Braces },
-  { id: "tools", label: "Tools", icon: Wrench },
-  { id: "transfer", label: "Transfer", icon: PhoneForwarded },
-  { id: "settings", label: "Settings", icon: Settings2 },
-  { id: "tests", label: "Tests", icon: CheckSquare },
+  { id: "instructions", label: "Instructions", icon: "file" },
+  { id: "variables", label: "Variables", icon: "braces" },
+  { id: "tools", label: "Tools", icon: "wrench" },
+  { id: "transfer", label: "Transfer", icon: "phone-transfer" },
+  { id: "settings", label: "Settings", icon: "gear" },
+  { id: "tests", label: "Tests", icon: "check-square" },
 ];

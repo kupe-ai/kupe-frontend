@@ -1,26 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { Icon } from "@phosphor-icons/react";
-import {
-  BookOpenText,
-  BracketsCurly,
-  Buildings,
-  ChartBar,
-  FolderOpen,
-  Key,
-  MagnifyingGlassMinus,
-  Phone,
-  PhoneIncoming,
-  PhoneOutgoing,
-  Prohibit,
-  Robot,
-  Stack,
-  UploadSimple,
-  User,
-} from "@phosphor-icons/react";
+import type { KupeIconName } from "@/components/icons/kupe-icon";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { cn } from "@/lib/utils";
-import { ModernIcon } from "@/components/icons/modern-icon";
 
 /**
  * Icon map for Voice Agents empty states and feature cards.
@@ -44,6 +27,7 @@ export type AsciiIconKind =
   | "chart"
   | "forbidden"
   | "key"
+  | "transfer"
   | "planStarter"
   | "planBusiness"
   | "planScale"
@@ -69,37 +53,38 @@ const TONE_CLASS: Record<AsciiIconTone, string> = {
 };
 
 const TONE_BG: Record<AsciiIconTone, string> = {
-  amber: "bg-amber-500/10",
-  coral: "bg-primary/10",
-  emerald: "bg-emerald-500/10",
-  sky: "bg-primary/10",
-  violet: "bg-violet-500/10",
-  slate: "bg-muted",
-  rose: "bg-rose-500/10",
+  amber: "bg-amber-500/10 ring-amber-500/25 group-hover/nav:ring-amber-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(245,158,11,0.55)]",
+  coral: "bg-primary/10 ring-primary/25 group-hover/nav:ring-primary/50 group-hover/nav:shadow-[0_0_18px_-6px_color-mix(in_oklch,var(--primary)_55%,transparent)]",
+  emerald: "bg-emerald-500/10 ring-emerald-500/25 group-hover/nav:ring-emerald-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(52,211,153,0.5)]",
+  sky: "bg-primary/10 ring-primary/25 group-hover/nav:ring-primary/50 group-hover/nav:shadow-[0_0_18px_-6px_color-mix(in_oklch,var(--primary)_55%,transparent)]",
+  violet: "bg-violet-500/10 ring-violet-500/25 group-hover/nav:ring-violet-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(167,139,250,0.5)]",
+  slate: "bg-muted ring-border group-hover/nav:ring-foreground/20",
+  rose: "bg-rose-500/10 ring-rose-500/25 group-hover/nav:ring-rose-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(251,113,133,0.5)]",
 };
 
-const ICONS: Record<AsciiIconKind, Icon> = {
-  folder: FolderOpen,
-  phone: Phone,
-  incoming: PhoneIncoming,
-  campaign: ChartBar,
-  robot: Robot,
-  pricing: Stack,
-  docs: BookOpenText,
-  person: User,
-  building: Buildings,
-  notfound: MagnifyingGlassMinus,
-  code: BracketsCurly,
-  upload: UploadSimple,
-  outbound: PhoneOutgoing,
-  batch: Stack,
-  chart: ChartBar,
-  forbidden: Prohibit,
-  key: Key,
-  planStarter: Stack,
-  planBusiness: Stack,
-  planScale: Stack,
-  planEnterprise: Stack,
+const ICONS: Record<AsciiIconKind, KupeIconName> = {
+  folder: "folder",
+  phone: "phone",
+  incoming: "inbound",
+  campaign: "megaphone",
+  robot: "robot",
+  pricing: "layers",
+  docs: "book",
+  person: "user",
+  building: "building",
+  notfound: "search-x",
+  code: "braces",
+  upload: "upload",
+  outbound: "outbound-phone",
+  batch: "layers",
+  chart: "bars",
+  forbidden: "ban",
+  key: "key",
+  transfer: "phone-transfer",
+  planStarter: "layers",
+  planBusiness: "layers",
+  planScale: "layers",
+  planEnterprise: "layers",
 };
 
 const SIZE_CLASS = {
@@ -134,14 +119,14 @@ export function AsciiIcon({
       role={title ? "img" : "presentation"}
       aria-label={title}
       className={cn(
-        "group/nav inline-flex items-center justify-center rounded-xl",
+        "group/nav inline-flex items-center justify-center rounded-xl ring-1 transition-[box-shadow,background-color] duration-200",
         BOX_SIZE[size],
         TONE_BG[tone],
         TONE_CLASS[tone],
         className,
       )}
     >
-      <ModernIcon icon={ICONS[kind]} className={SIZE_CLASS[size]} />
+      <KupeIcon name={ICONS[kind]} className={SIZE_CLASS[size]} />
     </span>
   );
 }
@@ -165,7 +150,7 @@ export function AsciiEmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center shadow-elevated",
+        "group/nav flex flex-col items-center justify-center rounded-2xl border border-border bg-card px-6 py-16 text-center shadow-elevated",
         className,
       )}
     >

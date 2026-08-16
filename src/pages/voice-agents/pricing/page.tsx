@@ -151,7 +151,7 @@ export default function VoiceAgentsPricingPage() {
         {PLANS.map((plan) => (
           <div
             key={plan.id}
-            className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-elevated"
+            className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-elevated group/nav"
           >
             <div className="flex h-20 items-center justify-center rounded-xl bg-muted/50">
               <AsciiIcon

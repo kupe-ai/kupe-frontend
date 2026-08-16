@@ -26,12 +26,12 @@ export function CyclingPromptPlaceholder({ paused }: { paused: boolean }) {
   }, [paused]);
 
   return (
-    <span className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3 text-sm text-muted-foreground md:text-base">
-      <span className="shrink-0">{PREFIX}&nbsp;</span>
-      <span className="relative h-[1.25em] min-w-0 flex-1 overflow-hidden">
+    <span className="pointer-events-none absolute inset-0 flex items-center overflow-hidden px-3 text-left text-sm text-muted-foreground md:text-base">
+      <span className="whitespace-nowrap">{PREFIX}&nbsp;</span>
+      <span className="relative h-[1.25em] overflow-hidden">
         <span
           key={index}
-          className={cn("absolute inset-x-0 truncate", !paused && "animate-prompt-cycle")}
+          className={cn("block whitespace-nowrap", !paused && "animate-prompt-cycle")}
         >
           {SUFFIXES[index]}
         </span>

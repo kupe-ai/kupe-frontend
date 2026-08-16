@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
+import { Copy, Pause, Pencil, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
 import { QuickContextMenu } from "@/components/quick-context-menu";
 import { RenameDialog } from "@/components/rename-dialog";
@@ -61,8 +62,8 @@ export default function VoiceAgentsInboundPage() {
         title="Inbound calls"
         actions={
           deployments.length > 0 ? (
-            <Button className="rounded-full" onClick={() => setOpen(true)}>
-              <Plus className="size-4" />
+            <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
+              <KupeIcon name="plus" className="size-4" />
               Create inbound
             </Button>
           ) : undefined
@@ -87,8 +88,8 @@ export default function VoiceAgentsInboundPage() {
               >
                 Build with API →
               </Button>
-              <Button className="rounded-full" onClick={() => setOpen(true)}>
-                <Plus className="size-4" />
+              <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
+                <KupeIcon name="plus" className="size-4" />
                 Create inbound
               </Button>
             </>

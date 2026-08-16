@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Loader2, MoreHorizontal, Pause, Play, Plus, Search } from "lucide-react";
+import { Download, Loader2, MoreHorizontal, Pause, Play, Search } from "lucide-react";
 import { toast } from "sonner";
 import { AiStar } from "@/components/brand/ai-star";
+import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -144,8 +145,8 @@ function VoiceLibraryPageInner() {
               className="h-9 w-48 rounded-full pl-8"
             />
           </div>
-          <Button type="button" className="rounded-full" disabled={!canClone} onClick={() => setCloneOpen(true)}>
-            <Plus className="size-4" />
+          <Button type="button" className="group/nav rounded-full" disabled={!canClone} onClick={() => setCloneOpen(true)}>
+            <KupeIcon name="plus" className="size-4" />
             Clone voice
           </Button>
         </div>

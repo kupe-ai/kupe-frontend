@@ -1,19 +1,12 @@
-import type { Icon, IconWeight } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+import { KupeIcon, type KupeIconName } from "@/components/icons/kupe-icon";
 
-/** Phosphor duotone mark with a hover warp. Parent should use `group/nav`. */
+/** Animated pack mark. Parent should use `group/nav`. */
 export function ModernIcon({
-  icon: Icon,
+  name,
   className,
-  weight = "duotone",
 }: {
-  icon: Icon;
+  name: KupeIconName;
   className?: string;
-  weight?: IconWeight;
 }) {
-  return (
-    <span className="inline-flex origin-center [transform-box:fill-box] hover:animate-icon-distort group-hover/nav:animate-icon-distort">
-      <Icon weight={weight} className={cn("size-4 shrink-0", className)} />
-    </span>
-  );
+  return <KupeIcon name={name} className={className} />;
 }
