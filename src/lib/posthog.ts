@@ -20,13 +20,15 @@ export function initPosthog(opts?: {
     autocapture: false,
     capture_pageview: true,
     capture_pageleave: true,
+    capture_exceptions: true,
     persistence: "localStorage+cookie",
     disable_session_recording: !replay,
     bootstrap: {
       distinctID: opts?.distinctId,
       featureFlags: opts?.featureFlags,
     },
-    loaded: () => {
+    loaded: (ph) => {
+      ph.register({ service: "kupe-frontend" });
       started = true;
     },
   });
