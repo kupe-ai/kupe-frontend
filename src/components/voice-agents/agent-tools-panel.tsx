@@ -32,7 +32,9 @@ import {
   deleteAgentTool,
   listAgentTools,
   listSystemTools,
+  setSystemToolEnabled,
   type AgentTool,
+  type SystemTool,
 } from "@/lib/api/voice/agent-builder";
 
 type ToolsTab = "custom" | "system";
@@ -41,8 +43,9 @@ export function AgentToolsPanel({ agentId }: { agentId: string }) {
   const [tab, setTab] = useState<ToolsTab>("custom");
   const [search, setSearch] = useState("");
   const [tools, setTools] = useState<AgentTool[]>([]);
-  const [systemTools, setSystemTools] = useState<Array<{ name: string; description: string }>>([]);
+  const [systemTools, setSystemTools] = useState<SystemTool[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [custom, system] = await Promise.all([listAgentTools(agentId), listSystemTools(agentId)]);
@@ -125,16 +128,24 @@ export function AgentToolsPanel({ agentId }: { agentId: string }) {
                   </div>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={t.enabled ? "secondary" : "outline"}
                     size="sm"
                     className="rounded-full"
+                    disabled={toggling === t.name}
                     onClick={async () => {
-                      await createAgentTool(agentId, { kind: "system_mcp", name: t.name, description: t.description, mcp_tool_name: t.name, runs_on: "during_call" });
-                      toast.success(`Enabled ${t.name}`);
-                      void refresh();
+                      setToggling(t.name);
+                      try {
+                        await setSystemToolEnabled(agentId, t.name, !t.enabled);
+                        toast.success(t.enabled ? `Disabled ${t.name}` : `Enabled ${t.name}`);
+                        void refresh();
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Couldn't update this tool");
+                      } finally {
+                        setToggling(null);
+                      }
                     }}
                   >
-                    Enable
+                    {toggling === t.name ? "Working…" : t.enabled ? "Disable" : "Enable"}
                   </Button>
                 </li>
               ))}

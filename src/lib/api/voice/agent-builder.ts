@@ -249,12 +249,58 @@ export async function deleteAgentTool(agentId: string, id: string) {
   await api.detachAgentTool(agentId, id);
 }
 
-export async function listSystemTools(_agentId: string) {
+// System tools (end_call, transfer_call, voicemail) are NOT rows in the
+// custom-tools table -- they're toggles on the agent's own config
+// (auto_cut / call_transfer / voicemail_detection, see
+// app/schemas/agent_config.py). Read/write real per-agent state here
+// instead of the old hardcoded stub that made "Enable" silently create a
+// fake custom_webhook tool (the bug: system tools showing up under
+// "Custom tools").
+const SYSTEM_TOOL_DESCRIPTIONS: Record<SystemToolName, string> = {
+  end_call: "Hang up when the conversation is complete.",
+  transfer_call: "Warm-transfer to a destination configured below.",
+  voicemail: "Leave a voicemail if the callee doesn't pick up (telephony only).",
+};
+
+export type SystemToolName = "end_call" | "transfer_call" | "voicemail";
+
+export interface SystemTool {
+  name: SystemToolName;
+  description: string;
+  enabled: boolean;
+}
+
+export async function listSystemTools(agentId: string): Promise<SystemTool[]> {
+  const agent = await api.getAgent(agentId);
   return [
-    { name: "end_call", description: "Hang up when the conversation is complete." },
-    { name: "transfer_call", description: "Warm-transfer to a destination from agent settings." },
-    { name: "voicemail", description: "Leave a voicemail if the callee doesn't pick up." },
+    { name: "end_call", description: SYSTEM_TOOL_DESCRIPTIONS.end_call, enabled: agent.config.auto_cut.enabled },
+    {
+      name: "transfer_call",
+      description: SYSTEM_TOOL_DESCRIPTIONS.transfer_call,
+      enabled: agent.config.call_transfer.enabled,
+    },
+    {
+      name: "voicemail",
+      description: SYSTEM_TOOL_DESCRIPTIONS.voicemail,
+      enabled: agent.config.voicemail_detection.enabled,
+    },
   ];
+}
+
+export async function setSystemToolEnabled(agentId: string, name: SystemToolName, enabled: boolean): Promise<void> {
+  const agent = await api.getAgent(agentId);
+  const config: AgentConfig = { ...agent.config };
+  if (name === "end_call") {
+    config.auto_cut = { ...agent.config.auto_cut, enabled };
+  } else if (name === "voicemail") {
+    config.voicemail_detection = { ...agent.config.voicemail_detection, enabled };
+  } else {
+    if (enabled && agent.config.call_transfer.destinations.length === 0) {
+      throw new Error("Add a transfer destination in Call Transfer settings before enabling this.");
+    }
+    config.call_transfer = { ...agent.config.call_transfer, enabled };
+  }
+  await api.updateAgent(agentId, { config });
 }
 
 function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
