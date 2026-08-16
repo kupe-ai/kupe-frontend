@@ -20,6 +20,7 @@ import {
   updateCallTransferConfig,
 } from "@/lib/api/voice/agent-builder";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { captureEvent } from "@/lib/posthog";
 import type { CallTransferConfig, TransferDestination, TransferRingStrategy } from "@/types";
 
 function newDestination(): TransferDestination {
@@ -66,6 +67,7 @@ export function AgentTransferPanel({ agentId }: { agentId: string }) {
     try {
       const saved = await updateCallTransferConfig(agentId, next);
       setConfig(saved);
+      captureEvent("transfer_configured", { agent_id: agentId, enabled: saved.enabled });
       toast.success("Transfer settings saved");
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't save transfer settings"));

@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { AGENT_EDITOR_NAV, type AgentEditorSection } from "@/lib/voice-agent-editor-data";
+import { useFeatureFlags } from "@/context/feature-flags-context";
 import {
   commitVoiceAgentVersion,
   duplicateVoiceAgent,
@@ -42,15 +43,18 @@ import {
   getVoiceAgent,
   updateVoiceAgent,
 } from "@/lib/api/voice/agents";
+import { orgSupportsCallTransfer } from "@/lib/api/voice/agent-builder";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
 export default function VoiceAgentEditorPage() {
   const { id = "" } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const { isEnabled } = useFeatureFlags();
   const [section, setSection] = useState<AgentEditorSection>("instructions");
   const [testOpen, setTestOpen] = useState(false);
   const [instructionsSeed, setInstructionsSeed] = useState(0);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [transferVisible, setTransferVisible] = useState(true);
 
   const agentQuery = useKoriQuery({
     queryKey: ["voice-agent", id],
@@ -68,6 +72,10 @@ export default function VoiceAgentEditorPage() {
   useEffect(() => {
     if (agent?.name) document.title = `${agent.name} · Voice Agents · Kupe`;
   }, [agent?.name]);
+
+  useEffect(() => {
+    void orgSupportsCallTransfer().then(setTransferVisible);
+  }, []);
 
   async function savePromptField(patch: Partial<VoiceAgent>) {
     if (!agent) return;
@@ -202,7 +210,7 @@ export default function VoiceAgentEditorPage() {
 
       <div className="flex min-h-0 flex-1">
         <nav className="flex w-[152px] shrink-0 flex-col gap-0.5 border-r border-border bg-pane px-2 py-3 md:w-[168px]">
-          {AGENT_EDITOR_NAV.map((item) => {
+          {AGENT_EDITOR_NAV.filter((item) => item.id !== "transfer" || (isEnabled("feature_transfer") && transferVisible)).map((item) => {
             return (
               <button
                 key={item.id}
@@ -234,7 +242,7 @@ export default function VoiceAgentEditorPage() {
           )}
           {section === "variables" && <AgentVariablesPanel agentId={id} />}
           {section === "tools" && <AgentToolsPanel agentId={id} />}
-          {section === "transfer" && <AgentTransferPanel agentId={id} />}
+          {section === "transfer" && isEnabled("feature_transfer") && transferVisible && <AgentTransferPanel agentId={id} />}
           {section === "settings" && (
             <AgentSettingsPanel agentId={id} agent={agent} onAgentUpdated={refresh} />
           )}

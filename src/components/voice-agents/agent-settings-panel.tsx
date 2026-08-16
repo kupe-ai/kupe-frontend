@@ -148,6 +148,29 @@ const DEFAULTS: Required<
   max_call_length_minutes: 10,
 };
 
+const INDIC_LANGS = new Set([
+  "hi", "bn", "te", "mr", "ta", "gu", "ur", "kn", "or", "od", "ml", "pa",
+  "as", "mai", "sat", "ks", "ne", "kok", "sd", "doi", "mni", "brx", "sa",
+]);
+
+function langBase(code: string): string {
+  return code.trim().toLowerCase().replace("_", "-").split("-")[0] ?? "";
+}
+
+function languageOverlap(a: string[] = [], b: string[] = []): string[] {
+  const right = new Set(b.map(langBase).filter(Boolean));
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const code of a) {
+    const base = langBase(code);
+    if (base && right.has(base) && !seen.has(base)) {
+      seen.add(base);
+      out.push(base);
+    }
+  }
+  return out;
+}
+
 function pickDefaultId<T extends { id: string; is_default?: boolean }>(rows: T[], current?: string | null): string {
   if (current && rows.some((r) => r.id === current)) return current;
   const marked = rows.find((r) => r.is_default);
@@ -314,6 +337,22 @@ export function AgentSettingsPanel({
   }
 
   const nudges = settings.nudges ?? [];
+  const selectedTts = ttsProviders.find((p) => p.id === ttsId);
+  const selectedStt = sttProviders.find((p) => p.id === sttId);
+  const selectedLlm = llmProviders.find((p) => p.id === llmId);
+  const ttsCaps = selectedTts?.capabilities;
+  const ttsName = (selectedTts?.provider_name || "").toLowerCase();
+  const showSpeed =
+    ttsCaps?.speaking_speed ??
+    ["openai", "deepgram", "eleven_labs", "sarvam", "smallest_ai", "soniox", "kupe"].includes(ttsName);
+  const showPitch =
+    ttsCaps?.pitch ??
+    (ttsName === "deepgram" || (ttsName === "sarvam" && !(selectedTts?.model_name || "").toLowerCase().startsWith("bulbul:v3")));
+  const overlap = languageOverlap(selectedStt?.supported_languages, selectedTts?.supported_languages);
+  const showLanguageSwitch = overlap.length > 1;
+  const showIndic =
+    (selectedTts?.supported_languages ?? []).some((c) => INDIC_LANGS.has(langBase(c))) ||
+    (selectedLlm?.supported_languages ?? []).some((c) => INDIC_LANGS.has(langBase(c)));
 
   if (loading) {
     return (
@@ -390,26 +429,30 @@ export function AgentSettingsPanel({
       </SettingRow>
 
       <SectionTitle>Speaking</SectionTitle>
-      <SettingRow title="Speaking speed" description="How fast the agent talks.">
-        <RangeControl
-          value={settings.speaking_speed}
-          min={0.7}
-          max={1.4}
-          step={0.05}
-          onChange={(v) => set("speaking_speed", v)}
-          format={(v) => `${v.toFixed(2)} x`}
-        />
-      </SettingRow>
-      <SettingRow title="Pitch" description="Voice pitch offset.">
-        <RangeControl
-          value={settings.pitch}
-          min={-5}
-          max={5}
-          step={0.25}
-          onChange={(v) => set("pitch", v)}
-          format={(v) => v.toFixed(2)}
-        />
-      </SettingRow>
+      {showSpeed && (
+        <SettingRow title="Speaking speed" description="How fast the agent talks.">
+          <RangeControl
+            value={settings.speaking_speed}
+            min={0.7}
+            max={1.4}
+            step={0.05}
+            onChange={(v) => set("speaking_speed", v)}
+            format={(v) => `${v.toFixed(2)} x`}
+          />
+        </SettingRow>
+      )}
+      {showPitch && (
+        <SettingRow title="Pitch" description="Voice pitch offset.">
+          <RangeControl
+            value={settings.pitch}
+            min={-5}
+            max={5}
+            step={0.25}
+            onChange={(v) => set("pitch", v)}
+            format={(v) => v.toFixed(2)}
+          />
+        </SettingRow>
+      )}
 
       <SectionTitle>Thinking & knowledge</SectionTitle>
       <SettingRow
@@ -485,20 +528,46 @@ export function AgentSettingsPanel({
       </SettingRow>
 
       <SectionTitle>Language personalisation</SectionTitle>
-      <SettingRow title="Switch language during call" description="Follow when the caller switches languages.">
-        <Switch checked={settings.multilingual_enabled} onCheckedChange={(v) => set("multilingual_enabled", v)} />
-      </SettingRow>
-      <SettingRow title="Auto-detected language switch" description="Match the caller's language automatically.">
-        <Switch checked={settings.auto_detect_language} onCheckedChange={(v) => set("auto_detect_language", v)} />
-      </SettingRow>
-      <SettingRow title="Switch after" description="Seconds before switching. Empty uses default.">
-        <Input
-          type="number"
-          className="h-9 w-28 rounded-full text-center"
-          value={settings.switch_after_seconds ?? ""}
-          onChange={(e) => set("switch_after_seconds", e.target.value ? Number(e.target.value) : null)}
-        />
-      </SettingRow>
+      {showLanguageSwitch && (
+        <>
+          <SettingRow title="Switch language during call" description="Follow when the caller switches languages.">
+            <Switch checked={settings.multilingual_enabled} onCheckedChange={(v) => set("multilingual_enabled", v)} />
+          </SettingRow>
+          <SettingRow title="Auto-detected language switch" description="Match the caller's language automatically.">
+            <Switch checked={settings.auto_detect_language} onCheckedChange={(v) => set("auto_detect_language", v)} />
+          </SettingRow>
+          <SettingRow title="Switch after" description="Seconds before switching. Empty uses default.">
+            <Input
+              type="number"
+              className="h-9 w-28 rounded-full text-center"
+              value={settings.switch_after_seconds ?? ""}
+              onChange={(e) => set("switch_after_seconds", e.target.value ? Number(e.target.value) : null)}
+            />
+          </SettingRow>
+          <SettingRow
+            title="Allowed languages"
+            description="Callers can use any of these. Search English through all India languages."
+          >
+            <SearchableMultiSelect
+              values={settings.allowed_languages}
+              onChange={(next) => {
+                const langs = next.length ? next : [settings.starting_language || "en"];
+                set("allowed_languages", langs);
+                if (!langs.includes(settings.starting_language)) {
+                  set("starting_language", langs[0]);
+                }
+              }}
+              placeholder="Select languages"
+              searchPlaceholder="Search languages…"
+              options={languages.map((l) => ({
+                value: l.code,
+                label: languageLabel(l.code, languages),
+                keywords: `${l.name} ${l.native_name} ${l.code}`,
+              }))}
+            />
+          </SettingRow>
+        </>
+      )}
       <SettingRow title="Starting language" description="Language the agent opens with. English plus all India scheduled languages.">
         <SearchableSelect
           value={settings.starting_language}
@@ -517,31 +586,11 @@ export function AgentSettingsPanel({
           }))}
         />
       </SettingRow>
-      <SettingRow
-        title="Allowed languages"
-        description="Callers can use any of these. Search English through all India languages."
-      >
-        <SearchableMultiSelect
-          values={settings.allowed_languages}
-          onChange={(next) => {
-            const langs = next.length ? next : [settings.starting_language || "en"];
-            set("allowed_languages", langs);
-            if (!langs.includes(settings.starting_language)) {
-              set("starting_language", langs[0]);
-            }
-          }}
-          placeholder="Select languages"
-          searchPlaceholder="Search languages…"
-          options={languages.map((l) => ({
-            value: l.code,
-            label: languageLabel(l.code, languages),
-            keywords: `${l.name} ${l.native_name} ${l.code}`,
-          }))}
-        />
-      </SettingRow>
-      <SettingRow title="Output numbers in Indic" description="E.g. '500' → 'paanch sau'.">
-        <Switch checked={settings.output_numbers_indic} onCheckedChange={(v) => set("output_numbers_indic", v)} />
-      </SettingRow>
+      {showIndic && (
+        <SettingRow title="Output numbers in Indic" description="E.g. '500' → 'paanch sau'.">
+          <Switch checked={settings.output_numbers_indic} onCheckedChange={(v) => set("output_numbers_indic", v)} />
+        </SettingRow>
+      )}
 
       <SectionTitle>In call actions</SectionTitle>
       <SettingRow title="Nudge quiet callers" description="Speak up if the caller goes silent" className="items-center">

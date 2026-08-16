@@ -18,6 +18,9 @@ export function friendlyVoiceError(err: unknown, fallback: string): string {
       return "We couldn't find that. It may have been deleted.";
     }
     if (err.status === 429) {
+      if (/concurrency/i.test(msg)) {
+        return "A previous call didn't hang up cleanly. Try again.";
+      }
       return "Too many requests — wait a moment and try again.";
     }
     if (err.status >= 500) {
@@ -37,6 +40,9 @@ export function friendlyVoiceError(err: unknown, fallback: string): string {
 
   if (err instanceof Error) {
     const msg = err.message.trim();
+    if (/concurrency limit/i.test(msg)) {
+      return "A previous call didn't hang up cleanly. Try again.";
+    }
     if (msg && msg.length <= 120 && !looksTechnical(msg)) return msg;
   }
 

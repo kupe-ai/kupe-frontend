@@ -21,6 +21,9 @@ import type {
   Member,
   Membership,
   Organization,
+  OrgAccess,
+  MemberAccess,
+  FeatureFlags,
   Page,
   PlaybackUrl,
   PlivoComplianceApplication,
@@ -137,6 +140,22 @@ export const api = {
     authedJson<Member>(`/v1/orgs/${orgId}/members/${userId}`, { method: "PATCH", body: JSON.stringify(body) }),
   removeMember: (orgId: string, userId: string) =>
     authedJson<{ status: string }>(`/v1/orgs/${orgId}/members/${userId}`, { method: "DELETE" }),
+  getFeatureFlags: (orgId?: string | null) => {
+    const q = orgId ? `?org_id=${encodeURIComponent(orgId)}` : "";
+    return authedJson<FeatureFlags>(`/v1/feature-flags${q}`);
+  },
+  getOrgAccess: (orgId: string) => authedJson<OrgAccess>(`/v1/orgs/${orgId}/access`),
+  patchOrgAccess: (orgId: string, body: { restricted?: boolean; flags?: Record<string, boolean> }) =>
+    authedJson<OrgAccess>(`/v1/orgs/${orgId}/access`, { method: "PATCH", body: JSON.stringify(body) }),
+  patchMemberAccess: (
+    orgId: string,
+    userId: string,
+    body: { restricted?: boolean; flags?: Record<string, boolean> },
+  ) =>
+    authedJson<MemberAccess>(`/v1/orgs/${orgId}/members/${userId}/access`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   listProjects: (orgId: string, params?: ListParams) =>
     authedJson<Page<Project>>(`/v1/orgs/${orgId}/projects${qs(params)}`),
   createProject: (orgId: string, name: string) =>

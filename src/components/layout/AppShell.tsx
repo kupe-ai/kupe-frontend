@@ -28,8 +28,10 @@ import { SettingsDialog } from "@/components/settings/settings-dialog";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
+  filterNavByFlags,
   isVoiceAgentsNavActive,
 } from "@/lib/voice-agents-nav";
+import { useFeatureFlags } from "@/context/feature-flags-context";
 import { pushRecentActivity } from "@/lib/recent-activity";
 
 const SETTINGS_HREF = "/settings";
@@ -49,18 +51,22 @@ function NavLinks({
 }) {
   const navigate = useNavigate();
   const settings = useSettingsDialogOptional();
+  const { isEnabled } = useFeatureFlags();
   let idx = 0;
 
   return (
     <nav className={cn("flex flex-col", collapsed ? "gap-1" : "gap-3")}>
-      {groups.map((group) => (
+      {groups.map((group) => {
+        const items = filterNavByFlags(group.items, isEnabled);
+        if (!items.length) return null;
+        return (
         <div key={group.id} className={cn("flex flex-col", collapsed ? "gap-1" : "gap-0.5")}>
           {!collapsed && "label" in group && group.label && (
             <div className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               {group.label}
             </div>
           )}
-          {group.items.map((item) => {
+          {items.map((item) => {
             const isSettings = item.href === SETTINGS_HREF;
             const active = isSettings
               ? Boolean(settings?.open)
@@ -128,7 +134,8 @@ function NavLinks({
             );
           })}
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

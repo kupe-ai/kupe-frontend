@@ -30,6 +30,7 @@ export type ProviderOption = {
   default_voice?: string;
   supported_languages?: string[];
   voices?: ProviderVoice[];
+  capabilities?: { speaking_speed?: boolean; pitch?: boolean };
 };
 
 export type CallLanguage = {
@@ -253,6 +254,12 @@ export type AgentLlmConfig = {
   multilingual_enabled?: boolean;
   auto_detect_language?: boolean;
   output_numbers_indic?: boolean;
+  switch_after_seconds?: number | null;
+};
+
+export type AgentTtsConfig = {
+  speaking_speed: number;
+  pitch: number;
 };
 
 export type AgentSessionConfig = {
@@ -263,6 +270,8 @@ export type AgentSessionConfig = {
 
 export type AgentTurnConfig = {
   vad_stop_secs: number;
+  eagerness?: number;
+  volume_threshold_db?: number;
 };
 
 export type BackgroundNoiseConfig = {
@@ -285,9 +294,16 @@ export type EndOfCallWarningConfig = {
   session_aware_template: string;
 };
 
+export type SilenceBreakerMessage = {
+  text: string;
+  after_seconds: number;
+};
+
 export type SilenceBreakerConfig = {
   enabled: boolean;
   idle_seconds: number;
+  messages?: SilenceBreakerMessage[];
+  hangup_after_unanswered?: boolean;
 };
 
 export type VoicemailDetectionConfig = {
@@ -328,6 +344,7 @@ export type PromptVariable = {
 
 export type AgentConfig = {
   llm: AgentLlmConfig;
+  tts?: AgentTtsConfig;
   session: AgentSessionConfig;
   turn: AgentTurnConfig;
   audio: AgentAudioConfig;
@@ -421,6 +438,27 @@ export type Membership = {
   user_id: string;
   role: "owner" | "admin" | "member" | "api_key";
   project_ids: string[];
+};
+
+export type FeatureFlags = {
+  distinct_id: string;
+  org_id: string | null;
+  flags: Record<string, boolean>;
+};
+
+export type MemberAccess = {
+  user_id: string;
+  email: string;
+  role: string;
+  restricted: boolean;
+  flags: Record<string, boolean>;
+};
+
+export type OrgAccess = {
+  org_id: string;
+  restricted: boolean;
+  flags: Record<string, boolean>;
+  members: MemberAccess[];
 };
 
 export type ApiKey = {

@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, PhoneOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff, RotateCw } from "lucide-react";
 import { RoomEvent, type TranscriptionSegment } from "livekit-client";
-import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +17,37 @@ interface LiveTurn {
   id: string;
   role: "agent" | "user";
   text: string;
+}
+
+function callErrorCopy(raw: string): { title: string; body: string } {
+  if (/concurrency|didn't hang up|did not hang up/i.test(raw)) {
+    return {
+      title: "Line was stuck",
+      body: "A previous test call didn’t hang up cleanly, so the line looked busy even with no one on it. Try again — we’ll clear it.",
+    };
+  }
+  if (/balance|credits/i.test(raw)) {
+    return {
+      title: "Out of credits",
+      body: "This workspace needs credits before a new call can start.",
+    };
+  }
+  if (/microphone|permission|notallowed/i.test(raw)) {
+    return {
+      title: "Microphone blocked",
+      body: "Allow microphone access in the browser, then try the call again.",
+    };
+  }
+  if (/livekit|websocket|room/i.test(raw)) {
+    return {
+      title: "Couldn't reach the call server",
+      body: "Voice calling isn’t reachable right now. Check the connection and try again.",
+    };
+  }
+  return {
+    title: "Couldn't connect",
+    body: raw || "Something went wrong starting this call. Try again in a moment.",
+  };
 }
 
 /**
@@ -50,6 +80,7 @@ export function TestAgentCallDialog({
   const [muted, setMuted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [turns, setTurns] = useState<LiveTurn[]>([]);
+  const [attempt, setAttempt] = useState(0);
   const handleRef = useRef<WebCallHandle | null>(null);
 
   useEffect(() => {
@@ -74,9 +105,7 @@ export function TestAgentCallDialog({
       onAgentTrack: (track) => !cancelled && setMediaStream(new MediaStream([track])),
       onError: (err) => {
         if (cancelled) return;
-        const msg = friendlyVoiceError(err, webCallErrorMessage(err));
-        setErrorMsg(msg);
-        toast.error(msg);
+        setErrorMsg(friendlyVoiceError(err, webCallErrorMessage(err)));
       },
     }).then((handle) => {
       if (cancelled) {
@@ -102,6 +131,8 @@ export function TestAgentCallDialog({
           });
         },
       );
+    }).catch(() => {
+      // onError already recorded the message
     });
 
     return () => {
@@ -109,7 +140,7 @@ export function TestAgentCallDialog({
       void handleRef.current?.disconnect();
       handleRef.current = null;
     };
-  }, [open, agentId]);
+  }, [open, agentId, attempt]);
 
   function toggleMute() {
     const room = handleRef.current?.room;
@@ -137,6 +168,8 @@ export function TestAgentCallDialog({
           : "listening"
         : undefined;
 
+  const errorCopy = errorMsg ? callErrorCopy(errorMsg) : null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
@@ -156,18 +189,43 @@ export function TestAgentCallDialog({
           <div>
             <p className="text-sm font-semibold">{agentName}</p>
             <p className="mt-0.5 text-xs text-muted-foreground capitalize">{statusLabel}</p>
-            {errorMsg ? (
-              <p className="mt-2 max-w-[240px] text-xs leading-relaxed text-destructive">{errorMsg}</p>
-            ) : null}
           </div>
 
-          <BarVisualizer
-            state={visualizerState}
-            mediaStream={mediaStream}
-            demo={!mediaStream && status === "connecting"}
-            barCount={15}
-            className="w-full"
-          />
+          {errorCopy ? (
+            <div className="w-full rounded-2xl border border-border bg-muted/40 px-4 py-4 text-left">
+              <div className="flex items-start gap-3">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <PhoneOff className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-foreground">{errorCopy.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{errorCopy.body}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3 rounded-full"
+                    onClick={() => {
+                      setErrorMsg(null);
+                      setStatus("connecting");
+                      setAttempt((n) => n + 1);
+                    }}
+                  >
+                    <RotateCw className="size-3.5" />
+                    Try again
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <BarVisualizer
+              state={visualizerState}
+              mediaStream={mediaStream}
+              demo={!mediaStream && status === "connecting"}
+              barCount={15}
+              className="w-full"
+            />
+          )}
 
           <div className="flex items-center gap-3">
             <Button

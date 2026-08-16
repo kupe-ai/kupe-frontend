@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import AppRoutes from "@/app/routes";
 import { WorkspaceProvider } from "@/context/workspace-context";
+import { FeatureFlagsProvider } from "@/context/feature-flags-context";
 import { SessionBridgeProvider } from "@/context/session-context";
 import { AskAiPanelProvider } from "@/lib/ask-ai/panel-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +21,7 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WorkspaceProvider>
+            <FeatureFlagsProvider>
             <SessionBridgeProvider>
               <AskAiPanelProvider>
                 <BrowserRouter>
@@ -28,6 +30,7 @@ export default function App() {
                 <Toaster />
               </AskAiPanelProvider>
             </SessionBridgeProvider>
+            </FeatureFlagsProvider>
           </WorkspaceProvider>
         </TooltipProvider>
       </QueryClientProvider>

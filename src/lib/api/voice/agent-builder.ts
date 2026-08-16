@@ -272,19 +272,23 @@ export interface SystemTool {
 
 export async function listSystemTools(agentId: string): Promise<SystemTool[]> {
   const agent = await api.getAgent(agentId);
-  return [
+  const transferOk = await orgSupportsCallTransfer();
+  const tools: SystemTool[] = [
     { name: "end_call", description: SYSTEM_TOOL_DESCRIPTIONS.end_call, enabled: agent.config.auto_cut.enabled },
-    {
-      name: "transfer_call",
-      description: SYSTEM_TOOL_DESCRIPTIONS.transfer_call,
-      enabled: agent.config.call_transfer.enabled,
-    },
     {
       name: "voicemail",
       description: SYSTEM_TOOL_DESCRIPTIONS.voicemail,
       enabled: agent.config.voicemail_detection.enabled,
     },
   ];
+  if (transferOk) {
+    tools.splice(1, 0, {
+      name: "transfer_call",
+      description: SYSTEM_TOOL_DESCRIPTIONS.transfer_call,
+      enabled: agent.config.call_transfer.enabled,
+    });
+  }
+  return tools;
 }
 
 export async function setSystemToolEnabled(agentId: string, name: SystemToolName, enabled: boolean): Promise<void> {
@@ -304,11 +308,21 @@ export async function setSystemToolEnabled(agentId: string, name: SystemToolName
 }
 
 function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
+  const bg = config?.audio.background_noise;
+  const nudges = (config?.silence_breaker.messages ?? []).map((m) => ({
+    text: m.text,
+    after_seconds: m.after_seconds,
+  }));
+  const bgId = bg?.enabled ? bg.id : "none";
   return {
+    speaking_speed: config?.tts?.speaking_speed ?? 1.0,
+    pitch: config?.tts?.pitch ?? 0,
     temperature_override: config?.llm.temperature,
     allow_interruptions: config?.session.allow_interruptions,
-    background_sound: config?.audio.background_noise.enabled ? config.audio.background_noise.id : undefined,
-    background_volume: config?.audio.background_noise.volume,
+    eagerness: config?.turn.eagerness ?? 5,
+    volume_threshold_db: config?.turn.volume_threshold_db ?? -30,
+    background_sound: bgId === "office" ? "quiet-office" : bgId,
+    background_volume: Math.round((bg?.volume ?? 0) * 100),
     voicemail_enabled: config?.voicemail_detection.enabled,
     voicemail_message: config?.voicemail_detection.message,
     max_call_length_minutes: config?.session.max_duration_seconds
@@ -322,18 +336,36 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
         : ["en"],
     multilingual_enabled: config?.llm.multilingual_enabled,
     auto_detect_language: config?.llm.auto_detect_language,
+    switch_after_seconds: config?.llm.switch_after_seconds ?? null,
     output_numbers_indic: config?.llm.output_numbers_indic,
+    nudges,
+    hangup_after_unanswered_nudges: config?.silence_breaker.hangup_after_unanswered ?? false,
   };
 }
 
 export async function getAgentSettings(agentId: string): Promise<AgentSettings> {
   const agent = await api.getAgent(agentId);
-  const extra = readStore<AgentSettings>(extraKey(agentId, "settings"), {});
-  return { ...settingsFromConfig(agent.config), ...extra };
+  return settingsFromConfig(agent.config);
+}
+
+function backgroundFromSettings(data: AgentSettings, fallback: AgentConfig["audio"]["background_noise"]) {
+  const raw = data.background_sound ?? (fallback.enabled ? fallback.id : "none");
+  const id = raw === "quiet-office" ? "office" : raw;
+  const enabled = Boolean(id && id !== "none");
+  const volumePct = data.background_volume;
+  const volume =
+    volumePct == null ? fallback.volume : Math.max(0, Math.min(1, volumePct > 1 ? volumePct / 100 : volumePct));
+  return {
+    enabled,
+    source: "preset" as const,
+    id: enabled ? id : fallback.id || "office",
+    volume,
+  };
 }
 
 export async function updateAgentSettings(agentId: string, data: AgentSettings) {
   const agent = await api.getAgent(agentId);
+  const nudges = data.nudges ?? [];
   const config: AgentConfig = {
     ...agent.config,
     llm: {
@@ -346,6 +378,14 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
       multilingual_enabled: data.multilingual_enabled ?? agent.config.llm.multilingual_enabled ?? false,
       auto_detect_language: data.auto_detect_language ?? agent.config.llm.auto_detect_language ?? false,
       output_numbers_indic: data.output_numbers_indic ?? agent.config.llm.output_numbers_indic ?? false,
+      switch_after_seconds:
+        data.switch_after_seconds === undefined
+          ? (agent.config.llm.switch_after_seconds ?? null)
+          : data.switch_after_seconds,
+    },
+    tts: {
+      speaking_speed: data.speaking_speed ?? agent.config.tts?.speaking_speed ?? 1.0,
+      pitch: data.pitch ?? agent.config.tts?.pitch ?? 0,
     },
     session: {
       ...agent.config.session,
@@ -354,6 +394,22 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
         ? data.max_call_length_minutes * 60
         : agent.config.session.max_duration_seconds,
     },
+    turn: {
+      ...agent.config.turn,
+      eagerness: data.eagerness ?? agent.config.turn.eagerness ?? 5,
+      volume_threshold_db: data.volume_threshold_db ?? agent.config.turn.volume_threshold_db ?? -30,
+    },
+    audio: {
+      ...agent.config.audio,
+      background_noise: backgroundFromSettings(data, agent.config.audio.background_noise),
+    },
+    silence_breaker: {
+      ...agent.config.silence_breaker,
+      enabled: nudges.length > 0,
+      idle_seconds: nudges[0]?.after_seconds || agent.config.silence_breaker.idle_seconds || 8,
+      messages: nudges.map((n) => ({ text: n.text, after_seconds: n.after_seconds })),
+      hangup_after_unanswered: data.hangup_after_unanswered_nudges ?? false,
+    },
     voicemail_detection: {
       ...agent.config.voicemail_detection,
       enabled: data.voicemail_enabled ?? agent.config.voicemail_detection.enabled,
@@ -361,7 +417,6 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
     },
   };
   await api.updateAgent(agentId, { config });
-  writeStore(extraKey(agentId, "settings"), data);
   return data;
 }
 
@@ -457,6 +512,17 @@ export async function getTestRun(agentId: string, runId: string) {
  * `ring_strategy`, so a second/third number acts as the fallback recipient
  * if the first doesn't pick up within `ring_timeout_seconds`.
  */
+export async function orgSupportsCallTransfer(): Promise<boolean> {
+  try {
+    const { orgId } = requireScope();
+    const accounts = await api.listTelephonyAccounts(orgId);
+    if (!accounts.length) return true;
+    return accounts.some((a) => a.provider === "twilio" || a.provider === "plivo");
+  } catch {
+    return true;
+  }
+}
+
 export async function getCallTransferConfig(agentId: string): Promise<CallTransferConfig> {
   const agent = await api.getAgent(agentId);
   return agent.config?.call_transfer ?? { enabled: false, destinations: [] };

@@ -1,6 +1,8 @@
 "use client";
 
 import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
+import { api } from "@/lib/api";
+import { captureEvent } from "@/lib/posthog";
 import { createWebCall } from "@/lib/api/voice/calls";
 import { KoriApiError } from "@/lib/api/kori-errors";
 
@@ -24,6 +26,11 @@ export interface WebCallCallbacks {
   onError?: (error: unknown) => void;
 }
 
+async function hangUpSession(callId: string | undefined) {
+  if (!callId) return;
+  await api.endSession(callId).catch(() => undefined);
+}
+
 /** Connects the browser mic to a LiveKit room for a "Test Agent" call:
  * requests a room+token from the backend, joins over WebRTC, publishes the
  * mic, and plays back the agent's synthesized audio track. */
@@ -31,9 +38,11 @@ export async function startWebCall(agentId: string, callbacks: WebCallCallbacks 
   callbacks.onStatusChange?.("connecting");
   const attached: HTMLMediaElement[] = [];
   let audioCtx: AudioContext | null = null;
+  let callId: string | undefined;
 
   try {
     const { call_id, access_token, livekit_url } = await createWebCall(agentId);
+    callId = call_id;
     if (!livekit_url) {
       throw new Error("Server did not return a LiveKit URL — check voice.livekit_url in config.");
     }
@@ -70,19 +79,27 @@ export async function startWebCall(agentId: string, callbacks: WebCallCallbacks 
     await room.connect(livekit_url, access_token);
     await room.localParticipant.setMicrophoneEnabled(true);
     callbacks.onStatusChange?.("connected");
+    captureEvent("call_started", { call_id: callId, agent_id: agentId, channel: "web" });
+
+    let hungUp = false;
+    const hangUp = async () => {
+      if (hungUp) return;
+      hungUp = true;
+      for (const el of attached) {
+        el.remove();
+      }
+      await audioCtx?.close().catch(() => undefined);
+      await room.disconnect();
+      await hangUpSession(callId);
+    };
 
     return {
       room,
       callId: call_id,
-      disconnect: async () => {
-        for (const el of attached) {
-          el.remove();
-        }
-        await audioCtx?.close().catch(() => undefined);
-        await room.disconnect();
-      },
+      disconnect: hangUp,
     };
   } catch (error) {
+    await hangUpSession(callId);
     callbacks.onStatusChange?.("error");
     callbacks.onError?.(error);
     throw error;

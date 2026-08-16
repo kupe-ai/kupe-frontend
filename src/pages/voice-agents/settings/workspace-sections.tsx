@@ -17,7 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { Member } from "@/types";
+import { FEATURE_FLAG_KEYS } from "@/context/feature-flags-context";
 
 const ROLES = ["member", "admin", "owner"] as const;
 
@@ -307,6 +309,165 @@ export function KupeWorkspaceSettings() {
       )}
 
       <TelephonyAccountsCard orgId={org.id} isAdmin={Boolean(isAdmin)} />
+      {isAdmin && <WorkspaceAccessCard orgId={org.id} />}
     </div>
+  );
+}
+
+const ACCESS_FEATURE_KEYS = FEATURE_FLAG_KEYS.filter((k) => k !== "account_access");
+
+const ACCESS_LABELS: Record<string, string> = {
+  feature_agents: "Agents",
+  feature_outbound: "Outbound campaigns",
+  feature_inbound: "Inbound calls",
+  feature_phone_numbers: "Phone numbers",
+  feature_knowledge_base: "Knowledge base",
+  feature_analytics: "Analytics",
+  feature_voice_library: "Voice library",
+  feature_transfer: "Call transfer",
+  feature_batch_calls: "Batch calls",
+};
+
+function WorkspaceAccessCard({ orgId }: { orgId: string }) {
+  const [restricted, setRestricted] = useState(false);
+  const [orgFlags, setOrgFlags] = useState<Record<string, boolean>>({});
+  const [members, setMembers] = useState<
+    { user_id: string; email: string; role: string; restricted: boolean; flags: Record<string, boolean> }[]
+  >([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      const access = await api.getOrgAccess(orgId);
+      setRestricted(access.restricted);
+      setOrgFlags(access.flags);
+      setMembers(access.members);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId]);
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5 shadow-elevated">
+      <h2 className="text-sm font-semibold tracking-tight">Access</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Restrict this workspace or toggle product features per member. Owners and admins only.
+      </p>
+      {loading ? (
+        <div className="mt-4 space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col gap-4">
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">Restrict workspace</p>
+              <p className="text-xs text-muted-foreground">Blocks login and API for everyone in this org.</p>
+            </div>
+            <Switch
+              checked={restricted}
+              onCheckedChange={async (on) => {
+                setRestricted(on);
+                try {
+                  await api.patchOrgAccess(orgId, { restricted: on });
+                  await refresh();
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+            />
+          </label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {ACCESS_FEATURE_KEYS.map((key) => (
+              <label key={key} className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2">
+                <span className="text-sm">{ACCESS_LABELS[key] ?? key}</span>
+                <Switch
+                  size="sm"
+                  checked={orgFlags[key] !== false}
+                  onCheckedChange={async (on) => {
+                    try {
+                      await api.patchOrgAccess(orgId, { flags: { [key]: on } });
+                      await refresh();
+                    } catch (e) {
+                      toast.error((e as Error).message);
+                    }
+                  }}
+                />
+              </label>
+            ))}
+          </div>
+          <ul className="divide-y divide-border rounded-xl border border-border">
+            {members.map((m) => (
+              <li key={m.user_id} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{m.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.role}
+                      {m.restricted ? " · restricted" : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      size="sm"
+                      checked={!m.restricted}
+                      onCheckedChange={async (on) => {
+                        try {
+                          await api.patchMemberAccess(orgId, m.user_id, { restricted: !on });
+                          await refresh();
+                        } catch (e) {
+                          toast.error((e as Error).message);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-full"
+                      onClick={() => setExpanded((id) => (id === m.user_id ? null : m.user_id))}
+                    >
+                      Features
+                    </Button>
+                  </div>
+                </div>
+                {expanded === m.user_id && (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {ACCESS_FEATURE_KEYS.map((key) => (
+                      <label key={key} className="flex items-center justify-between gap-2 text-sm">
+                        <span>{ACCESS_LABELS[key] ?? key}</span>
+                        <Switch
+                          size="sm"
+                          checked={m.flags[key] !== false}
+                          onCheckedChange={async (on) => {
+                            try {
+                              await api.patchMemberAccess(orgId, m.user_id, { flags: { [key]: on } });
+                              await refresh();
+                            } catch (e) {
+                              toast.error((e as Error).message);
+                            }
+                          }}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

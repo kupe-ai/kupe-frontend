@@ -18,6 +18,7 @@ export interface VoiceTtsProvider {
   is_default: boolean;
   default_voice: string | null;
   supported_languages: string[];
+  capabilities?: { speaking_speed?: boolean; pitch?: boolean };
 }
 
 export type VoiceTtsVoice = CatalogVoice;
@@ -62,6 +63,7 @@ export async function loadVoiceProvidersCatalog(): Promise<VoiceProvidersCatalog
       is_default: Boolean(p.is_default),
       default_voice: p.default_voice ?? null,
       supported_languages: p.supported_languages ?? [],
+      capabilities: p.capabilities,
     })),
     stt: data.transcriber_providers.map((p) => ({
       id: p.id,

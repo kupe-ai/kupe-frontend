@@ -5,6 +5,7 @@ export interface VoiceAgentsNavItem {
   label: string;
   href: string;
   icon: KupeIconName;
+  flag?: string;
 }
 
 export interface VoiceAgentsNavSection {
@@ -34,18 +35,21 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         label: "Agents",
         href: "/agents",
         icon: "robot",
+        flag: "feature_agents",
       },
       {
         id: "knowledge",
         label: "Knowledge base",
         href: "/knowledge-base",
         icon: "book",
+        flag: "feature_knowledge_base",
       },
       {
         id: "voice-library",
         label: "Voice Library",
         href: "/voice-library",
         icon: "wave",
+        flag: "feature_voice_library",
       },
     ],
   },
@@ -58,18 +62,21 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         label: "Phone numbers",
         href: "/phone-numbers",
         icon: "phone",
+        flag: "feature_phone_numbers",
       },
       {
         id: "inbound",
         label: "Inbound calls",
         href: "/inbound-calls",
         icon: "inbound",
+        flag: "feature_inbound",
       },
       {
         id: "outbound",
         label: "Outbound campaigns",
         href: "/outbound-campaigns",
         icon: "megaphone",
+        flag: "feature_outbound",
       },
       {
         id: "deploy-code",
@@ -88,6 +95,7 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         label: "Agent analytics",
         href: "/analytics",
         icon: "bars",
+        flag: "feature_analytics",
       },
       {
         id: "usage",
@@ -113,6 +121,13 @@ export const VOICE_AGENTS_FOOTER_NAV: VoiceAgentsNavItem[] = [
     icon: "book",
   },
 ];
+
+export function filterNavByFlags<T extends { flag?: string }>(
+  items: T[],
+  isEnabled: (flag: string) => boolean,
+): T[] {
+  return items.filter((item) => !item.flag || isEnabled(item.flag));
+}
 
 export function isVoiceAgentsNavActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { CallTransferCard } from "@/CallTransferCard";
 import { api } from "@/lib/api";
+import { captureEvent } from "@/lib/posthog";
 import { listVoiceTtsVoices } from "@/lib/api/voice/providers";
 import { formatProviderModel } from "@/lib/voice/provider-brand";
 import type {
@@ -51,9 +52,19 @@ const SECTIONS: { id: Section; label: string; hint: string }[] = [
 ];
 
 const DEFAULT_CONFIG: AgentConfig = {
-  llm: { temperature: 0.5, max_tokens: 1024, language: "en" },
+  llm: {
+    temperature: 0.5,
+    max_tokens: 1024,
+    language: "en",
+    allowed_languages: ["en"],
+    multilingual_enabled: false,
+    auto_detect_language: false,
+    output_numbers_indic: false,
+    switch_after_seconds: null,
+  },
+  tts: { speaking_speed: 1.0, pitch: 0 },
   session: { max_duration_seconds: 180, allow_interruptions: true, record_calls: true },
-  turn: { vad_stop_secs: 0.2 },
+  turn: { vad_stop_secs: 0.2, eagerness: 5, volume_threshold_db: -30 },
   audio: {
     noise_cancellation: "off",
     background_noise: { enabled: false, source: "preset", id: "office", volume: 0.25 },
@@ -66,7 +77,7 @@ const DEFAULT_CONFIG: AgentConfig = {
     session_aware_template:
       "Just a heads up — we have about {remaining_seconds} seconds left in this {duration_seconds}-second call with {agent_name}.",
   },
-  silence_breaker: { enabled: false, idle_seconds: 8 },
+  silence_breaker: { enabled: false, idle_seconds: 8, messages: [], hangup_after_unanswered: false },
   voicemail_detection: {
     enabled: true,
     message: "Sorry we missed you. Please call us back when you can.",
@@ -113,12 +124,14 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
   };
   return {
     llm: { ...DEFAULT_CONFIG.llm, ...llm },
+    tts: {
+      ...DEFAULT_CONFIG.tts,
+      ...((data.tts as AgentConfig["tts"]) ?? {}),
+    },
     session: { ...DEFAULT_CONFIG.session, ...session },
     turn: {
-      vad_stop_secs:
-        typeof (data.turn as AgentConfig["turn"] | undefined)?.vad_stop_secs === "number"
-          ? (data.turn as AgentConfig["turn"]).vad_stop_secs
-          : DEFAULT_CONFIG.turn.vad_stop_secs,
+      ...DEFAULT_CONFIG.turn,
+      ...((data.turn as AgentConfig["turn"]) ?? {}),
     },
     audio: {
       ...DEFAULT_CONFIG.audio,
@@ -361,6 +374,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
         flow_definition: saved.flow_definition ?? prev.flow_definition,
       }));
       onSaved(saved);
+      captureEvent("agent_saved", { agent_id: saved.id, org_id: orgId, project_id: projectId });
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 1800);
       if (saved.id) {

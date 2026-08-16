@@ -1,9 +1,16 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ProtectedLayout from "@/app/protected-layout";
 import VoiceAgentsLayout from "@/app/voice-agents-layout";
 import { VoiceAgentsPageShimmer, VoiceEditorShimmer } from "@/components/ui/shimmer";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
+import { useFeatureFlags } from "@/context/feature-flags-context";
+
+function Flagged({ flag, children }: { flag: string; children: ReactNode }) {
+  const { isEnabled } = useFeatureFlags();
+  if (!isEnabled(flag)) return <Navigate to="/" replace />;
+  return children;
+}
 
 const LoginPage = lazyWithRetry(() => import("@/pages/login/page"));
 const AuthCallbackPage = lazyWithRetry(() => import("@/pages/auth-callback/page"));
@@ -69,25 +76,27 @@ export default function AppRoutes() {
                 </Suspense>
               }
             />
-            <Route path="/agents" element={<VoiceAgentsAgentsPage />} />
+            <Route path="/agents" element={<Flagged flag="feature_agents"><VoiceAgentsAgentsPage /></Flagged>} />
             <Route
               path="/agents/:id"
               element={
+                <Flagged flag="feature_agents">
                 <Suspense fallback={<VoiceEditorShimmer />}>
                   <VoiceAgentEditorPage />
                 </Suspense>
+                </Flagged>
               }
             />
-            <Route path="/knowledge-base" element={<VoiceAgentsKnowledgePage />} />
-            <Route path="/knowledge-base/:id" element={<VoiceAgentsKnowledgeDetailPage />} />
-            <Route path="/voice-library" element={<VoiceLibraryPage />} />
-            <Route path="/phone-numbers" element={<VoiceAgentsPhoneNumbersPage />} />
-            <Route path="/inbound-calls" element={<VoiceAgentsInboundPage />} />
-            <Route path="/outbound-campaigns" element={<VoiceAgentsOutboundPage />} />
+            <Route path="/knowledge-base" element={<Flagged flag="feature_knowledge_base"><VoiceAgentsKnowledgePage /></Flagged>} />
+            <Route path="/knowledge-base/:id" element={<Flagged flag="feature_knowledge_base"><VoiceAgentsKnowledgeDetailPage /></Flagged>} />
+            <Route path="/voice-library" element={<Flagged flag="feature_voice_library"><VoiceLibraryPage /></Flagged>} />
+            <Route path="/phone-numbers" element={<Flagged flag="feature_phone_numbers"><VoiceAgentsPhoneNumbersPage /></Flagged>} />
+            <Route path="/inbound-calls" element={<Flagged flag="feature_inbound"><VoiceAgentsInboundPage /></Flagged>} />
+            <Route path="/outbound-campaigns" element={<Flagged flag="feature_outbound"><VoiceAgentsOutboundPage /></Flagged>} />
             <Route path="/deploy-with-code" element={<VoiceAgentsDeployCodePage />} />
             <Route path="/deploy-with-code/apis/:slug" element={<VoiceAgentsDeployApiPage />} />
             <Route path="/deploy-with-code/recipes/:slug" element={<VoiceAgentsDeployRecipePage />} />
-            <Route path="/analytics" element={<VoiceAgentsAnalyticsPage />} />
+            <Route path="/analytics" element={<Flagged flag="feature_analytics"><VoiceAgentsAnalyticsPage /></Flagged>} />
             <Route path="/usage" element={<VoiceAgentsUsagePage />} />
             <Route path="/settings" element={<VoiceAgentsSettingsPage />} />
             <Route path="/documentation" element={<VoiceAgentsDocsPage />} />
