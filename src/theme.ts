@@ -44,7 +44,7 @@ export const kupe = {
 
   /** Hero fills use the brand PNG, not CSS color stops. */
   assets: {
-    heroGradient: "/brand/hero-gradient.png",
+    heroGradient: "/brand/kupe-builder.jpeg",
     logoLight: "/brand/kupe-light.png",
     logoDark: "/brand/kupe-dark.png",
     logoMark: "/brand/kupe-mark.png",

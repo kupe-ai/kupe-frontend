@@ -363,12 +363,25 @@ function getPayloadConfigFromPayload(
   return configLabelKey in config ? config[configLabelKey] : config[key]
 }
 
-/** Theme CSS gradient (primary-from → primary → primary-to), not the hero PNG. */
-function ChartThemeGradient({ id }: { id: string }) {
+/** Brand wash for chart fills. Bars default to vertical (light top → deep bottom). */
+function ChartThemeGradient({
+  id,
+  direction = "vertical",
+}: {
+  id: string
+  direction?: "vertical" | "horizontal"
+}) {
+  const vertical = direction === "vertical"
   return (
-    <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="18%">
+    <linearGradient
+      id={id}
+      x1={vertical ? "0" : "0"}
+      y1={vertical ? "0" : "0"}
+      x2={vertical ? "0" : "1"}
+      y2={vertical ? "1" : "0"}
+    >
       <stop offset="0%" stopColor="var(--primary-from)" />
-      <stop offset="50%" stopColor="var(--primary)" />
+      <stop offset="42%" stopColor="var(--primary)" />
       <stop offset="100%" stopColor="var(--primary-to)" />
     </linearGradient>
   )

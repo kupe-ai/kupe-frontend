@@ -243,7 +243,7 @@ function VolumeChart({ byHour }: { byHour: Record<string, number> }) {
             <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
             <YAxis tickLine={false} axisLine={false} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="rate" fill="url(#analytics-volume-fill)" radius={4} maxBarSize={28} />
+            <Bar dataKey="rate" fill="url(#analytics-volume-fill)" radius={[6, 6, 2, 2]} maxBarSize={28} />
           </BarChart>
         </ChartContainer>
       )}

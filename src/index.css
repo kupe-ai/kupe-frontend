@@ -139,7 +139,7 @@
   --kupe-orange: #f86c1e;
   --kupe-coral: #f96b44;
   --kupe-pink: #faacdb;
-  --kupe-hero-image: url("/brand/hero-gradient.png");
+  --kupe-hero-image: url("/brand/kupe-builder.jpeg");
   --kupe-hero-cta: var(--kupe-hero-image);
   --kupe-marketing-cta: linear-gradient(100deg, #f86c1e, #f96b44, #faacdb);
   --kupe-dashboard: var(--kupe-hero-image);
@@ -410,15 +410,13 @@
   .kupe-chip-active {
     background-color: #4048ff;
     background-image: var(--kupe-hero-image);
-    /* Crop into the vivid core — the source PNG has black margins + a pale band. */
-    background-size: 260%;
-    background-position: 58% 38%;
+    /* Milli Agent Builder: cover the cropped vertical wash (pale top → navy bottom). */
+    background-size: cover;
+    background-position: center;
     background-repeat: no-repeat;
   }
   .kupe-chip-active {
     color: #fff;
-    background-size: 340%;
-    background-position: 55% 36%;
     box-shadow:
       0 1px 2px rgb(1 7 153 / 0.28),
       0 6px 14px rgb(64 72 255 / 0.38);
@@ -429,9 +427,28 @@
     background-repeat: no-repeat;
   }
   [data-slot="button"][data-variant="default"] {
+    position: relative;
+    overflow: hidden;
     box-shadow:
       0 1px 2px rgb(1 7 153 / 0.22),
-      0 6px 16px rgb(64 72 255 / 0.32);
+      0 6px 18px rgb(64 72 255 / 0.38);
+  }
+  [data-slot="button"][data-variant="default"]::after {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 20%,
+      rgb(255 255 255 / 0.32) 50%,
+      transparent 80%
+    );
+    transform: translateX(-120%);
+    transition: transform 0.7s var(--ease-out-soft);
+  }
+  [data-slot="button"][data-variant="default"]:hover::after {
+    transform: translateX(120%);
   }
 }
 
@@ -659,8 +676,8 @@
 .login-landing .login-email-cta {
   background-color: #4048ff !important;
   background-image: var(--kupe-hero-image) !important;
-  background-size: 260% !important;
-  background-position: 58% 38% !important;
+  background-size: cover !important;
+  background-position: center !important;
   color: #fff !important;
   border: none !important;
   box-shadow:

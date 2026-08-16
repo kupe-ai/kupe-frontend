@@ -189,7 +189,7 @@ export default function VoiceAgentsHomePage() {
             />
             <YAxis tickLine={false} axisLine={false} width={36} tick={{ fontSize: 11 }} allowDecimals={false} />
             <ChartTooltip cursor={{ fill: "var(--muted)", opacity: 0.35 }} content={<ChartTooltipContent />} />
-            <Bar dataKey="rate" fill="url(#home-volume-fill)" radius={4} maxBarSize={28} />
+            <Bar dataKey="rate" fill="url(#home-volume-fill)" radius={[6, 6, 2, 2]} maxBarSize={28} />
           </BarChart>
         </ChartContainer>
       </section>
