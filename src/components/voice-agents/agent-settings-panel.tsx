@@ -35,7 +35,7 @@ import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
-import { displayProviderName } from "@/lib/voice/provider-brand";
+import { displayModelName, displayProviderName } from "@/lib/voice/provider-brand";
 
 function SettingRow({
   title,
@@ -99,15 +99,16 @@ function RangeControl({
 function providerOptions(
   rows: { id: string; provider_name: string; model_name: string; is_default?: boolean }[],
 ): SearchableOption[] {
-  return rows.map((p) => ({
-    value: p.id,
-    label: p.model_name,
-    group: p.provider_name,
-    groupLabel: displayProviderName(p.provider_name),
-    icon: <ProviderLogo provider={p.provider_name} size="sm" />,
-    keywords: `${p.provider_name} ${displayProviderName(p.provider_name)} ${p.model_name}`,
-    hint: p.is_default ? "default" : undefined,
-  }));
+  return rows.map((p) => {
+    const label = displayModelName(p.model_name);
+    return {
+      value: p.id,
+      label,
+      icon: <ProviderLogo provider={p.provider_name} size="sm" />,
+      keywords: `${p.provider_name} ${displayProviderName(p.provider_name)} ${p.model_name} ${label}`,
+      hint: p.is_default ? "default" : undefined,
+    };
+  });
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
@@ -355,7 +356,7 @@ export function AgentSettingsPanel({
           options={providerOptions(llmProviders)}
         />
       </SettingRow>
-      <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Soniox tts-rt-v2.">
+      <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Kupe tts-rt-v2.">
         <SearchableSelect
           value={ttsId}
           onChange={(v) => {
@@ -377,7 +378,7 @@ export function AgentSettingsPanel({
           placeholder={voices.length ? "Select voice" : "No voices for this TTS"}
         />
       </SettingRow>
-      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Soniox stt-rt-v5.">
+      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Kupe stt-rt-v5.">
         <SearchableSelect
           value={sttId}
           onChange={setSttId}

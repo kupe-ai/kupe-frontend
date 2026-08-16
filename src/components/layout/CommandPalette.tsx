@@ -38,7 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const SETTINGS_HREF = "/voice-agents/settings";
+const SETTINGS_HREF = "/settings";
 
 const PAGE_ITEMS = [
   ...VOICE_AGENTS_NAV.flatMap((s) => s.items),

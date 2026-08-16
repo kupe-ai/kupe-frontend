@@ -32,18 +32,18 @@ export function DeployBreadcrumb({
       ? DEPLOY_API_CARDS.map((c) => ({
           slug: c.slug,
           title: c.title,
-          href: `/voice-agents/deploy-with-code/apis/${c.slug}`,
+          href: `/deploy-with-code/apis/${c.slug}`,
         }))
       : DEPLOY_RECIPES.map((r) => ({
           slug: r.slug,
           title: r.title,
-          href: `/voice-agents/deploy-with-code/recipes/${r.slug}`,
+          href: `/deploy-with-code/recipes/${r.slug}`,
         }));
 
   return (
     <nav className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
       <Link
-        to="/voice-agents/deploy-with-code"
+        to="/deploy-with-code"
         className="inline-flex items-center gap-0.5 hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -67,13 +67,13 @@ export function DeployBreadcrumb({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuItem asChild>
-            <Link to="/voice-agents/deploy-with-code">
+            <Link to="/deploy-with-code">
               APIs
               {section === "apis" ? <Check className="ml-auto size-3.5" /> : null}
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/voice-agents/deploy-with-code/recipes/moengage">
+            <Link to="/deploy-with-code/recipes/moengage">
               Recipes & Guides
               {section === "recipes" ? (
                 <Check className="ml-auto size-3.5" />

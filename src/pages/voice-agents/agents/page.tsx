@@ -55,7 +55,7 @@ export default function VoiceAgentsAgentsPage() {
     try {
       const agent = await createVoiceAgent({ prompt: text });
       refreshRecents();
-      navigate(`/voice-agents/agents/${agent.id}`);
+      navigate(`/agents/${agent.id}`);
     } catch {
       toast.error("Couldn't create agent");
     } finally {
@@ -68,7 +68,7 @@ export default function VoiceAgentsAgentsPage() {
     try {
       const agent = await createVoiceAgent({ name: "New agent" });
       refreshRecents();
-      navigate(`/voice-agents/agents/${agent.id}`);
+      navigate(`/agents/${agent.id}`);
     } catch {
       toast.error("Couldn't create agent");
     } finally {

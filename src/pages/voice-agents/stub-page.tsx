@@ -27,7 +27,7 @@ export function VoiceAgentsStubPage({
         This section uses dummy data for now — wiring to a live API comes next.
       </p>
       <Button asChild variant="outline" className="w-fit rounded-full">
-        <Link to="/voice-agents">Back to Home</Link>
+        <Link to="/">Back to Home</Link>
       </Button>
     </div>
   );

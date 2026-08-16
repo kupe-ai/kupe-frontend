@@ -5,6 +5,59 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* shadcn/Kori data-* shortcuts — Radix uses data-state, not data-open. */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -91,6 +144,8 @@
   --kupe-marketing-cta: linear-gradient(100deg, #f86c1e, #f96b44, #faacdb);
   --kupe-dashboard: var(--kupe-hero-image);
   --kupe-voice: var(--kupe-hero-image);
+  /* CSS color-stop gradient for charts / visualizers — not the hero PNG. */
+  --kupe-theme-gradient: linear-gradient(100deg, var(--primary-from), var(--primary), var(--primary-to));
 
   --elevation: 0 1px 2px rgb(14 14 14 / 0.06);
   --elevation-right: -1px 0 3px rgb(14 14 14 / 0.05);
@@ -337,18 +392,46 @@
   .stagger > *:nth-child(6) { animation-delay: 0.22s; }
   .stagger > *:nth-child(7) { animation-delay: 0.26s; }
   .stagger > *:nth-child(8) { animation-delay: 0.3s; }
+  .stagger > *:nth-child(9) { animation-delay: 0.34s; }
+  .stagger > *:nth-child(10) { animation-delay: 0.38s; }
+  .stagger > *:nth-child(11) { animation-delay: 0.42s; }
+  .stagger > *:nth-child(12) { animation-delay: 0.46s; }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
   .kupe-voice-gradient,
   .kupe-hero-cta,
   .kupe-hero-fill,
   .kupe-chip-active {
-    background-color: #010799;
+    background-color: #4048ff;
     background-image: var(--kupe-hero-image);
-    background-size: cover;
-    background-position: center;
+    /* Crop into the vivid core — the source PNG has black margins + a pale band. */
+    background-size: 260%;
+    background-position: 58% 38%;
     background-repeat: no-repeat;
   }
   .kupe-chip-active {
     color: #fff;
+    background-size: 340%;
+    background-position: 55% 36%;
+    box-shadow:
+      0 1px 2px rgb(1 7 153 / 0.28),
+      0 6px 14px rgb(64 72 255 / 0.38);
+  }
+  .kupe-theme-gradient {
+    background-color: var(--primary);
+    background-image: var(--kupe-theme-gradient);
+    background-repeat: no-repeat;
+  }
+  [data-slot="button"][data-variant="default"] {
+    box-shadow:
+      0 1px 2px rgb(1 7 153 / 0.22),
+      0 6px 16px rgb(64 72 255 / 0.32);
   }
 }
 
@@ -544,7 +627,11 @@
   .animate-pop-in-up,
   .animate-slide-up,
   .stagger > *,
-  .animate-kori-wordmark {
+  .animate-kori-wordmark,
+  .animate-in,
+  .animate-out,
+  .animate-collapsible-down,
+  .animate-collapsible-up {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
@@ -570,12 +657,15 @@
  * Login landing — Claude-style split auth + cream product trailer.
  * ------------------------------------------------------------------ */
 .login-landing .login-email-cta {
-  background-color: #010799 !important;
+  background-color: #4048ff !important;
   background-image: var(--kupe-hero-image) !important;
-  background-size: cover !important;
-  background-position: center !important;
+  background-size: 260% !important;
+  background-position: 58% 38% !important;
   color: #fff !important;
   border: none !important;
+  box-shadow:
+    0 1px 2px rgb(1 7 153 / 0.22),
+    0 6px 16px rgb(64 72 255 / 0.32);
 }
 .login-landing .login-email-cta:hover {
   filter: brightness(1.06);

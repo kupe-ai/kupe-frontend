@@ -8,6 +8,8 @@ export type CatalogVoice = {
   source: "catalog" | "cloned";
   gender?: string | null;
   preview_url?: string | null;
+  /** Only meaningful for source="cloned" — visible org-wide vs. owner-only. */
+  is_public?: boolean;
 };
 
 export type ProviderVoice = {
@@ -494,6 +496,30 @@ export type TelephonyAccountBody = {
   is_default?: boolean;
 };
 
+export type BatchScheduleRecurrence = "once" | "daily" | "weekly" | "monthly";
+
+export type BatchSchedule = {
+  recurrence: BatchScheduleRecurrence | null;
+  start_at: string | null;
+  days_of_week: number[];
+  day_of_month: number | null;
+  window_start: string | null;
+  window_end: string | null;
+  timezone: string;
+  limit_per_period: number | null;
+};
+
+export const EMPTY_BATCH_SCHEDULE: BatchSchedule = {
+  recurrence: null,
+  start_at: null,
+  days_of_week: [],
+  day_of_month: null,
+  window_start: null,
+  window_end: null,
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+  limit_per_period: null,
+};
+
 export type Batch = {
   id: string;
   org_id: string;
@@ -504,6 +530,7 @@ export type Batch = {
   status: BatchStatus;
   max_concurrent_calls: number;
   retry_policy: RetryPolicy;
+  schedule: BatchSchedule;
   created_by: string | null;
   created_at: string;
   started_at: string | null;
@@ -518,6 +545,7 @@ export type BatchCreateBody = {
   name: string;
   max_concurrent_calls?: number;
   retry_policy?: RetryPolicy;
+  schedule?: BatchSchedule;
 };
 
 export type BatchContact = {

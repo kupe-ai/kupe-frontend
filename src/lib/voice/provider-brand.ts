@@ -7,7 +7,9 @@ const BRANDS: Record<string, { label: string; logo: string; mono?: boolean }> = 
   eleven_labs: { label: "ElevenLabs", logo: "/providers/elevenlabs.svg", mono: true },
   elevenlabs: { label: "ElevenLabs", logo: "/providers/elevenlabs.svg", mono: true },
   cartesia: { label: "Cartesia", logo: "/providers/cartesia.png" },
-  soniox: { label: "Soniox", logo: "/providers/soniox.png" },
+  // Licensed white-label: shown as "Kupe" everywhere, not "Soniox".
+  soniox: { label: "Kupe", logo: "/brand/kupe-mark.png" },
+  kupe: { label: "Kupe", logo: "/brand/kupe-mark.png" },
   grok_tts: { label: "Grok", logo: "/providers/grok.svg", mono: true },
   grok: { label: "Grok", logo: "/providers/grok.svg", mono: true },
   sarvam: { label: "Sarvam", logo: "/providers/sarvam.svg" },
@@ -31,6 +33,51 @@ export function displayProviderName(name: string): string {
     .replace(/\bAi\b/g, "AI")
     .replace(/\bTts\b/g, "TTS")
     .replace(/\bStt\b/g, "STT");
+}
+
+const MODEL_ACRONYMS = new Set([
+  "ai",
+  "asr",
+  "en",
+  "gpt",
+  "hd",
+  "it",
+  "llm",
+  "oss",
+  "rt",
+  "stt",
+  "tts",
+  "vad",
+]);
+
+/** Humanize catalog ids like `eleven_flash_v2_5` → `Eleven Flash v2.5`. */
+export function displayModelName(name: string): string {
+  let raw = name.trim();
+  if (!raw) return raw;
+  const slash = raw.lastIndexOf("/");
+  if (slash >= 0) raw = raw.slice(slash + 1);
+  raw = raw.replace(/[vV](\d+)_(\d+)/g, "v$1.$2");
+
+  return raw
+    .split(/[:_\-\s]+/)
+    .filter(Boolean)
+    .flatMap((token) => {
+      if (/^v\d+(\.\d+)*$/i.test(token) || /^[eaEA]\d+[bB]$/.test(token)) return [token];
+      return token.replace(/([a-zA-Z])(\d)/g, "$1 $2").split(" ");
+    })
+    .filter(Boolean)
+    .map(formatModelToken)
+    .join(" ");
+}
+
+function formatModelToken(token: string): string {
+  if (/^v\d+(\.\d+)*$/i.test(token)) return `v${token.slice(1)}`;
+  if (/^\d+(\.\d+)+$/.test(token) || /^\d{4}$/.test(token)) return token;
+  if (/^\d+[bB]$/.test(token) || /^[eaEA]\d+[bB]$/.test(token)) return token.toUpperCase();
+  if (/^\d+o$/i.test(token)) return token.toLowerCase();
+  const lower = token.toLowerCase();
+  if (MODEL_ACRONYMS.has(lower)) return token.toUpperCase();
+  return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
 }
 
 export function providerLogoSrc(name: string): string | null {

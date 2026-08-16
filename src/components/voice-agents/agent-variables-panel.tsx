@@ -111,8 +111,8 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
       {infoOpen && (
-        <div className="flex items-start gap-3 rounded-xl border border-sky-200/80 bg-sky-50/80 px-4 py-3 dark:border-sky-900/50 dark:bg-sky-950/30">
-          <Info className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+        <div className="flex items-start gap-3 rounded-xl border border-primary/20 bg-[var(--kupe-hero-pale)] px-4 py-3 dark:border-primary/25 dark:bg-primary/10">
+          <Info className="mt-0.5 size-4 shrink-0 text-primary" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold">Input and output variables</p>
             <p className="mt-0.5 text-sm text-muted-foreground">

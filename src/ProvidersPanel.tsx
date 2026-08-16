@@ -4,7 +4,7 @@ import type { ProviderSelection, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { displayProviderName } from "@/lib/voice/provider-brand";
+import { displayModelName, displayProviderName } from "@/lib/voice/provider-brand";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 
 type Props = {
@@ -59,15 +59,16 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
         placeholder={`Select ${label}`}
         searchPlaceholder={`Search ${label}…`}
         className="w-full"
-        options={items.map((item) => ({
-          value: item.id,
-          label: item.model_name,
-          group: item.provider_name,
-          groupLabel: displayProviderName(item.provider_name),
-          icon: <ProviderLogo provider={item.provider_name} size="sm" />,
-          keywords: `${item.provider_name} ${displayProviderName(item.provider_name)} ${item.model_name}`,
-          hint: item.is_default ? "default" : undefined,
-        }))}
+        options={items.map((item) => {
+          const label = displayModelName(item.model_name);
+          return {
+            value: item.id,
+            label,
+            icon: <ProviderLogo provider={item.provider_name} size="sm" />,
+            keywords: `${item.provider_name} ${displayProviderName(item.provider_name)} ${item.model_name} ${label}`,
+            hint: item.is_default ? "default" : undefined,
+          };
+        })}
       />
     </div>
   );

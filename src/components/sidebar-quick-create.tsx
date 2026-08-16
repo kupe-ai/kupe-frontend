@@ -38,8 +38,8 @@ export function SidebarQuickCreate({
     startTransition(async () => {
       try {
         const agent = await createVoiceAgent({ name: "New agent" });
-        pushRecentActivity(`/voice-agents/agents/${agent.id}`, agent.name);
-        navigate(`/voice-agents/agents/${agent.id}`);
+        pushRecentActivity(`/agents/${agent.id}`, agent.name);
+        navigate(`/agents/${agent.id}`);
       } catch {
         toast.error("Couldn't create agent");
       }
@@ -71,11 +71,11 @@ export function SidebarQuickCreate({
           <Bot className="size-4" />
           New agent
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go("/voice-agents/outbound-campaigns", "Outbound campaigns")}>
+        <DropdownMenuItem onSelect={() => go("/outbound-campaigns", "Outbound campaigns")}>
           <Megaphone className="size-4" />
           New campaign
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => go("/voice-agents/phone-numbers", "Phone numbers")}>
+        <DropdownMenuItem onSelect={() => go("/phone-numbers", "Phone numbers")}>
           <Phone className="size-4" />
           Phone numbers
         </DropdownMenuItem>

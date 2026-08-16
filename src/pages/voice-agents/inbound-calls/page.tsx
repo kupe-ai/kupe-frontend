@@ -83,7 +83,7 @@ export default function VoiceAgentsInboundPage() {
               <Button
                 variant="outline"
                 className="rounded-full"
-                onClick={() => navigate("/voice-agents/deploy-with-code/apis/inbound-deployments")}
+                onClick={() => navigate("/deploy-with-code/apis/inbound-deployments")}
               >
                 Build with API →
               </Button>

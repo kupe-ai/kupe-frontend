@@ -220,8 +220,8 @@ function KycWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="gap-0 overflow-hidden p-0 sm:max-w-lg">
         <DialogTitle className="sr-only">KYC verification</DialogTitle>
-        <div className="kupe-hero-fill flex items-center gap-2 px-4 py-3 text-white">
-          <AsciiIcon kind="phone" tone="coral" size="sm" className="!text-primary" />
+        <div className="flex items-center gap-2 bg-gradient-to-r from-primary-from to-primary-to px-4 py-3 text-primary-foreground">
+          <AsciiIcon kind="phone" tone="coral" size="sm" className="!text-primary-foreground" />
           <span className="text-sm font-semibold tracking-tight">kupe</span>
         </div>
 
@@ -284,8 +284,8 @@ function KycWizard({
                     setStep("verify");
                   }}
                 >
-                  <div className="kupe-hero-fill flex size-11 shrink-0 items-center justify-center rounded-lg text-white">
-                    <AsciiIcon kind="building" tone="slate" size="sm" className="!text-background" />
+                  <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary-from to-primary-to text-primary-foreground">
+                    <AsciiIcon kind="building" tone="slate" size="sm" className="!text-primary-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">Company / Business</p>

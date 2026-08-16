@@ -31,7 +31,7 @@ import {
 } from "@/lib/voice-agents-nav";
 import { pushRecentActivity } from "@/lib/recent-activity";
 
-const SETTINGS_HREF = "/voice-agents/settings";
+const SETTINGS_HREF = "/settings";
 
 const COLLAPSE_KEY = "kupe:sidebar-collapsed";
 
@@ -176,7 +176,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const isEditor = /^\/voice-agents\/agents\/[^/]+\/?$/.test(pathname);
+  const isEditor = /^\/agents\/[^/]+\/?$/.test(pathname);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -244,7 +244,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         <aside
           className={cn(
             "hidden h-full min-h-0 shrink-0 flex-col rounded-2xl border border-border bg-sidebar pt-1.5 shadow-elevated md:flex print:hidden",
-            mounted && "transition-[width] duration-300 ease-in-out",
+            mounted && "transition-[width] duration-300 ease-[var(--ease-pop)]",
             collapsed ? "w-14" : "w-[220px]",
           )}
         >
@@ -261,7 +261,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               )}
             >
               <Link
-                to="/voice-agents"
+                to="/"
                 className={cn(
                   "flex min-w-0 items-center outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   collapsed && "justify-center",
@@ -339,7 +339,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-pane text-pane-foreground shadow-elevated print:rounded-none print:border-0 print:bg-white print:shadow-none">
           {/* Mobile header */}
           <header className="flex h-14 items-center justify-between gap-2 border-b border-border px-4 md:hidden print:hidden">
-            <Link to="/voice-agents" className="flex items-center gap-1.5">
+            <Link to="/" className="flex items-center gap-1.5">
               <BrandLockup height={22} />
             </Link>
             <div className="flex items-center gap-1">
@@ -358,8 +358,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
           <main className="min-h-0 flex-1 overflow-hidden pb-24 md:pb-0 print:overflow-visible print:pb-0">
             <div
+              key={pathname}
               className={cn(
-                "animate-fade-in mx-auto h-full w-full max-w-none p-0",
+                "animate-fade-in-up mx-auto h-full w-full max-w-none p-0",
                 isEditor ? "overflow-hidden" : "overflow-y-auto",
               )}
             >

@@ -15,7 +15,7 @@ export default function LoginPage() {
   }
 
   if (session) {
-    return <Navigate to="/voice-agents" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (

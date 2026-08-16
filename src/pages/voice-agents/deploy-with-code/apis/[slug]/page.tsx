@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router-dom";
 import { Copy, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { DeployBreadcrumb } from "@/components/voice-agents/deploy-breadcrumb";
+import { MethodChip } from "@/components/voice-agents/method-chip";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -47,7 +48,7 @@ export default function DeployApiDetailPage() {
     return (
       <div className="px-6 py-8 text-sm text-muted-foreground">
         API guide not found.{" "}
-        <Link to="/voice-agents/deploy-with-code" className="underline">
+        <Link to="/deploy-with-code" className="underline">
           Back
         </Link>
       </div>
@@ -88,7 +89,7 @@ export default function DeployApiDetailPage() {
             Copy prompt
           </Button>
           <Button variant="outline" className="rounded-full" asChild>
-            <Link to="/voice-agents/deploy-with-code/recipes/moengage">
+            <Link to="/deploy-with-code/recipes/moengage">
               View docs
             </Link>
           </Button>
@@ -188,6 +189,28 @@ export default function DeployApiDetailPage() {
           <pre className="overflow-x-auto p-4 font-mono text-[11px] leading-relaxed text-foreground/90">
             {activeCode}
           </pre>
+        </div>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-base font-semibold">Endpoints</h2>
+        <div className="mt-3 overflow-hidden rounded-xl border border-border">
+          <div className="divide-y divide-border">
+            {api.endpoints.map((ep) => (
+              <div
+                key={`${ep.method}-${ep.path}`}
+                className="flex flex-wrap items-center gap-3 px-4 py-2.5 odd:bg-card even:bg-well/40"
+              >
+                <MethodChip method={ep.method} />
+                <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-foreground">
+                  {ep.path}
+                </code>
+                <span className="w-full shrink-0 text-xs text-muted-foreground sm:w-auto sm:max-w-[22rem] sm:text-right">
+                  {ep.summary}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

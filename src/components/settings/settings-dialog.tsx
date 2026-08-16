@@ -198,7 +198,7 @@ export function SettingsDialog() {
               </h2>
               <p className="mt-0.5 text-sm text-muted-foreground">{meta.description}</p>
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 pb-16">
+            <div key={section} className="animate-fade-in min-h-0 flex-1 overflow-y-auto px-6 py-5 pb-16">
               <SettingsSectionBody section={section} />
             </div>
           </section>

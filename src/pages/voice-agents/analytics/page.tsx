@@ -37,6 +37,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
+  ChartThemeGradient,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -235,11 +236,14 @@ function VolumeChart({ byHour }: { byHour: Record<string, number> }) {
       ) : (
         <ChartContainer config={barConfig} className="h-[220px] w-full">
           <BarChart data={data}>
+            <defs>
+              <ChartThemeGradient id="analytics-volume-fill" />
+            </defs>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
             <YAxis tickLine={false} axisLine={false} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
             <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="rate" fill="var(--color-rate)" radius={4} maxBarSize={28} />
+            <Bar dataKey="rate" fill="url(#analytics-volume-fill)" radius={4} maxBarSize={28} />
           </BarChart>
         </ChartContainer>
       )}
@@ -385,7 +389,7 @@ function EngagementTab({ data }: { data: Awaited<ReturnType<typeof getAnalyticsE
           ).map(([label, value], i) => (
             <div key={label} className="flex flex-col items-center">
               <div
-                className="flex h-28 w-24 items-center justify-center bg-sky-500/80 text-sm font-semibold text-white"
+                className="flex h-28 w-24 items-center justify-center bg-primary/80 text-sm font-semibold text-white"
                 style={{ opacity: 1 - i * 0.15 }}
               >
                 {value}

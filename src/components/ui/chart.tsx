@@ -363,6 +363,17 @@ function getPayloadConfigFromPayload(
   return configLabelKey in config ? config[configLabelKey] : config[key]
 }
 
+/** Theme CSS gradient (primary-from → primary → primary-to), not the hero PNG. */
+function ChartThemeGradient({ id }: { id: string }) {
+  return (
+    <linearGradient id={id} gradientUnits="userSpaceOnUse" x1="0%" y1="0%" x2="100%" y2="18%">
+      <stop offset="0%" stopColor="var(--primary-from)" />
+      <stop offset="50%" stopColor="var(--primary)" />
+      <stop offset="100%" stopColor="var(--primary-to)" />
+    </linearGradient>
+  )
+}
+
 export {
   ChartContainer,
   ChartTooltip,
@@ -370,4 +381,5 @@ export {
   ChartLegend,
   ChartLegendContent,
   ChartStyle,
+  ChartThemeGradient,
 }

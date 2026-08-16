@@ -140,7 +140,7 @@ export function SidebarWorkspaceMenu({
 
         <DropdownMenuItem
           onSelect={() => {
-            pushRecentActivity("/voice-agents/settings", "Settings");
+            pushRecentActivity("/settings", "Settings");
             settings.openSettings();
           }}
         >
@@ -232,7 +232,7 @@ export function SidebarWorkspaceMenu({
 
         <DropdownMenuItem
           onSelect={() => {
-            pushRecentActivity("/voice-agents/settings", "New workspace");
+            pushRecentActivity("/settings", "New workspace");
             settings.openSettings("workspace");
           }}
         >

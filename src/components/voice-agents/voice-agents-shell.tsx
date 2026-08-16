@@ -46,7 +46,7 @@ function NavLinkRow({
 export function VoiceAgentsShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const isAgentEditor = /^\/voice-agents\/agents\/[^/]+\/?$/.test(pathname);
+  const isAgentEditor = /^\/agents\/[^/]+\/?$/.test(pathname);
   if (isAgentEditor) {
     return (
       <div className="flex h-full min-h-0 w-full overflow-hidden">{children}</div>

@@ -27,6 +27,7 @@ import { AgentAskKoriPanel } from "@/components/voice-agents/agent-ask-kori-pane
 import { AgentSettingsPanel } from "@/components/voice-agents/agent-settings-panel";
 import { AgentTestsPanel } from "@/components/voice-agents/agent-tests-panel";
 import { AgentToolsPanel } from "@/components/voice-agents/agent-tools-panel";
+import { AgentTransferPanel } from "@/components/voice-agents/agent-transfer-panel";
 import { AgentVariablesPanel } from "@/components/voice-agents/agent-variables-panel";
 import { TestAgentCallDialog } from "@/components/voice-agents/test-agent-call-dialog";
 import { StatusChip } from "@/components/ui/status-chip";
@@ -133,7 +134,7 @@ export default function VoiceAgentEditorPage() {
           {friendlyVoiceError(agentQuery.error, "It may have been deleted or you don't have access.")}
         </p>
         <Button asChild variant="outline" size="sm" className="rounded-full">
-          <Link to="/voice-agents/agents">Back to agents</Link>
+          <Link to="/agents">Back to agents</Link>
         </Button>
       </div>
     );
@@ -146,7 +147,7 @@ export default function VoiceAgentEditorPage() {
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
         <div className="flex min-w-0 items-center gap-2">
           <Button type="button" variant="ghost" size="icon-sm" asChild aria-label="Back to agents">
-            <Link to="/voice-agents/agents">
+            <Link to="/agents">
               <ChevronLeft className="size-4" />
             </Link>
           </Button>
@@ -241,6 +242,7 @@ export default function VoiceAgentEditorPage() {
           )}
           {section === "variables" && <AgentVariablesPanel agentId={id} />}
           {section === "tools" && <AgentToolsPanel agentId={id} />}
+          {section === "transfer" && <AgentTransferPanel agentId={id} />}
           {section === "settings" && (
             <AgentSettingsPanel agentId={id} agent={agent} onAgentUpdated={refresh} />
           )}

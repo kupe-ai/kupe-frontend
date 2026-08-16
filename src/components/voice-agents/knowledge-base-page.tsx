@@ -107,7 +107,7 @@ export default function VoiceAgentsKnowledgePage() {
   function handleCreated(kb: VoiceKnowledgeBase) {
     setCreateOpen(false);
     toast.message("Knowledge base created");
-    navigate(`/voice-agents/knowledge-base/${kb.id}`);
+    navigate(`/knowledge-base/${kb.id}`);
   }
 
   const showEmptyState = !loading && items.length === 0 && !search;
@@ -182,7 +182,7 @@ export default function VoiceAgentsKnowledgePage() {
                     {
                       label: "Open",
                       icon: ExternalLink,
-                      onSelect: () => navigate(`/voice-agents/knowledge-base/${kb.id}`),
+                      onSelect: () => navigate(`/knowledge-base/${kb.id}`),
                     },
                     { label: "Rename", icon: Pencil, onSelect: () => setRenaming(kb) },
                     {
@@ -209,7 +209,7 @@ export default function VoiceAgentsKnowledgePage() {
                   <li className="cursor-context-menu">
                     <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
                       <Link
-                        to={`/voice-agents/knowledge-base/${kb.id}`}
+                        to={`/knowledge-base/${kb.id}`}
                         className="flex min-w-0 items-center gap-3 hover:opacity-90"
                       >
                         <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
@@ -239,7 +239,7 @@ export default function VoiceAgentsKnowledgePage() {
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
                             onSelect={() =>
-                              navigate(`/voice-agents/knowledge-base/${kb.id}`)
+                              navigate(`/knowledge-base/${kb.id}`)
                             }
                           >
                             Open

@@ -100,7 +100,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
     return (
       <div className="voice-page">
         <Link
-          to="/voice-agents/knowledge-base"
+          to="/knowledge-base"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-4" />
@@ -117,7 +117,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
     return (
       <div className="voice-page">
         <Link
-          to="/voice-agents/knowledge-base"
+          to="/knowledge-base"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="size-4" />
@@ -135,7 +135,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
           <Link
-            to="/voice-agents/knowledge-base"
+            to="/knowledge-base"
             className="inline-flex items-center gap-0.5 hover:text-foreground"
           >
             <ChevronLeft className="size-4" />
@@ -280,9 +280,9 @@ export default function VoiceAgentsKnowledgeDetailPage() {
       </section>
 
       {/* Test retrieval */}
-      <section className="mt-8 rounded-2xl border border-sky-200/80 bg-sky-50/60 p-5 dark:border-sky-900 dark:bg-sky-950/30">
+      <section className="mt-8 rounded-2xl border border-primary/20 bg-[var(--kupe-hero-pale)] p-5 dark:border-primary/25 dark:bg-primary/10">
         <div className="flex items-start gap-3">
-          <Search className="mt-0.5 size-4 text-sky-700 dark:text-sky-300" />
+          <Search className="mt-0.5 size-4 text-primary" />
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-semibold">Test retrieval</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">

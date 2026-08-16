@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
 import { readStore, scopedKey, writeStore } from "@/lib/api/local-store";
-import type { AgentConfig, PromptVariable } from "@/types";
+import type { AgentConfig, CallTransferConfig, PromptVariable } from "@/types";
 
 export interface InputVariable {
   id: string;
@@ -402,6 +402,29 @@ export async function getTestRun(agentId: string, runId: string) {
   const run = readList<AgentTestRun>(agentId, "test-runs").find((r) => r.id === runId);
   if (!run) throw new Error("Test run not found");
   return run;
+}
+
+/**
+ * Call transfer — reads/writes `AgentConfig.call_transfer` directly (real
+ * backend field, same shape the LiveKit worker's `transfer_call` tool
+ * consumes). Each destination's `numbers` list is dialed in order per
+ * `ring_strategy`, so a second/third number acts as the fallback recipient
+ * if the first doesn't pick up within `ring_timeout_seconds`.
+ */
+export async function getCallTransferConfig(agentId: string): Promise<CallTransferConfig> {
+  const agent = await api.getAgent(agentId);
+  return agent.config?.call_transfer ?? { enabled: false, destinations: [] };
+}
+
+export async function updateCallTransferConfig(
+  agentId: string,
+  callTransfer: CallTransferConfig,
+): Promise<CallTransferConfig> {
+  const agent = await api.getAgent(agentId);
+  await api.updateAgent(agentId, {
+    config: { ...agent.config, call_transfer: callTransfer },
+  });
+  return callTransfer;
 }
 
 export async function copilotTurn(_agentId: string, message: string) {

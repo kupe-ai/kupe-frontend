@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DateTimePicker } from "@/components/ui/date-time-picker";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,10 @@ import {
   listCampaigns,
   pauseCampaign,
   resumeCampaign,
+  updateCampaignSchedule,
   uploadCampaignCohort,
+  EMPTY_BATCH_SCHEDULE,
+  type BatchSchedule,
   type VoiceCampaign,
 } from "@/lib/api/voice/campaigns";
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
@@ -89,7 +93,7 @@ export default function VoiceAgentsOutboundPage() {
               <Button
                 variant="outline"
                 className="rounded-full"
-                onClick={() => navigate("/voice-agents/deploy-with-code/apis/batch-outbound")}
+                onClick={() => navigate("/deploy-with-code/apis/batch-outbound")}
               >
                 Build with API →
               </Button>
@@ -182,6 +186,7 @@ function ScheduleCampaignDialog({
   const [cohortFile, setCohortFile] = useState<File | null>(null);
   const [cohortRows, setCohortRows] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [schedule, setSchedule] = useState<BatchSchedule>(EMPTY_BATCH_SCHEDULE);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -193,6 +198,7 @@ function ScheduleCampaignDialog({
       setCampaignId(null);
       setCohortFile(null);
       setCohortRows(null);
+      setSchedule(EMPTY_BATCH_SCHEDULE);
       listVoiceAgents({ page_size: 100 }).then((res) => setAgents(res.items)).catch(() => setAgents([]));
       listPhoneNumbers().then((rows) => setNumbers(rows.filter((n) => n.status === "active"))).catch(() => setNumbers([]));
     }
@@ -244,8 +250,18 @@ function ScheduleCampaignDialog({
     if (!campaignId) return;
     setSubmitting(true);
     try {
-      await resumeCampaign(campaignId);
-      toast.success("Campaign launched");
+      if (schedule.recurrence) {
+        // Recurring (or a future one-off): hand the schedule to the
+        // backend scheduler and leave the batch in draft — it starts
+        // itself on the next matching day/window, and auto-pauses (never
+        // cancels — in-flight calls always finish) once limit_per_period
+        // is hit or the dial window closes.
+        await updateCampaignSchedule(campaignId, schedule);
+        toast.success("Campaign scheduled");
+      } else {
+        await resumeCampaign(campaignId);
+        toast.success("Campaign launched");
+      }
       onCreated();
       onOpenChange(false);
     } catch {
@@ -355,13 +371,7 @@ function ScheduleCampaignDialog({
             </div>
           ) : null}
 
-          {step === 2 ? (
-            <div className="space-y-3 py-4 text-sm">
-              <p className="font-medium">Schedule</p>
-              <p className="text-muted-foreground">Campaign dials sequentially starting immediately on launch.</p>
-              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">Start now · dial window 9:00–18:00 Asia/Kolkata</div>
-            </div>
-          ) : null}
+          {step === 2 ? <ScheduleStep schedule={schedule} onChange={setSchedule} /> : null}
 
           {step === 3 ? (
             <div className="space-y-3 py-4 text-sm">
@@ -371,6 +381,7 @@ function ScheduleCampaignDialog({
                 <Row label="Agent" value={agents.find((a) => a.id === agentId)?.name || "—"} />
                 <Row label="Connection" value={numbers.find((n) => n.id === connection)?.e164_number || "—"} />
                 <Row label="Recipients" value={cohortRows !== null ? `${cohortRows} contacts` : "—"} />
+                <Row label="Schedule" value={scheduleSummary(schedule)} />
               </dl>
             </div>
           ) : null}
@@ -404,6 +415,173 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex justify-between gap-4">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="truncate font-medium">{value}</dd>
+    </div>
+  );
+}
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function scheduleSummary(s: BatchSchedule): string {
+  if (!s.recurrence) return "Start now — dials immediately on launch";
+  const limit = s.limit_per_period ? `, up to ${s.limit_per_period} calls/period` : "";
+  const window = s.window_start && s.window_end ? ` (${s.window_start}–${s.window_end} ${s.timezone})` : "";
+  if (s.recurrence === "once") return `Once — ${s.start_at ? new Date(s.start_at).toLocaleString() : "no date set"}`;
+  if (s.recurrence === "daily") return `Every day${window}${limit}`;
+  if (s.recurrence === "weekly") {
+    const days = s.days_of_week.length ? s.days_of_week.map((d) => DAY_LABELS[d]).join(", ") : "every day";
+    return `Weekly on ${days}${window}${limit}`;
+  }
+  return `Monthly on day ${s.day_of_month ?? 1}${window}${limit}`;
+}
+
+function ScheduleStep({
+  schedule,
+  onChange,
+}: {
+  schedule: BatchSchedule;
+  onChange: (s: BatchSchedule) => void;
+}) {
+  const mode: "now" | "recurring" = schedule.recurrence ? "recurring" : "now";
+
+  function patch(p: Partial<BatchSchedule>) {
+    onChange({ ...schedule, ...p });
+  }
+
+  return (
+    <div className="space-y-4 py-4 text-sm">
+      <p className="font-medium">Schedule</p>
+
+      <div className="inline-flex rounded-full bg-muted/70 p-1">
+        {(
+          [
+            ["now", "Start now"],
+            ["recurring", "Recurring"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() =>
+              patch(id === "now" ? { recurrence: null } : { recurrence: "daily", timezone: schedule.timezone })
+            }
+            className={cn(
+              "pressable rounded-full px-3.5 py-1.5 text-sm",
+              mode === id ? "bg-background font-medium text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "now" && (
+        <p className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-muted-foreground">
+          Campaign dials sequentially starting immediately on launch.
+        </p>
+      )}
+
+      {mode === "recurring" && (
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Repeats</Label>
+              <Select
+                value={schedule.recurrence ?? "daily"}
+                onValueChange={(v) => patch({ recurrence: v as BatchSchedule["recurrence"] })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Every day</SelectItem>
+                  <SelectItem value="weekly">Every week</SelectItem>
+                  <SelectItem value="monthly">Every month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Max calls per period</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="Unlimited"
+                value={schedule.limit_per_period ?? ""}
+                onChange={(e) => patch({ limit_per_period: e.target.value ? Number(e.target.value) : null })}
+              />
+            </div>
+          </div>
+
+          {schedule.recurrence === "weekly" && (
+            <div className="space-y-1.5">
+              <Label>On these days</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {DAY_LABELS.map((label, dow) => {
+                  const active = schedule.days_of_week.includes(dow);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() =>
+                        patch({
+                          days_of_week: active
+                            ? schedule.days_of_week.filter((d) => d !== dow)
+                            : [...schedule.days_of_week, dow].sort(),
+                        })
+                      }
+                      className={cn(
+                        "pressable rounded-full border px-3 py-1 text-xs font-medium",
+                        active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {schedule.recurrence === "monthly" && (
+            <div className="space-y-1.5">
+              <Label>Day of month</Label>
+              <Input
+                type="number"
+                min={1}
+                max={28}
+                value={schedule.day_of_month ?? 1}
+                onChange={(e) => patch({ day_of_month: Number(e.target.value) || 1 })}
+                className="w-24"
+              />
+            </div>
+          )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Dial window start</Label>
+              <DateTimePicker
+                granularity="time"
+                value={schedule.window_start ?? ""}
+                onChange={(v) => patch({ window_start: v || null })}
+                placeholder="9:00 AM"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Dial window end</Label>
+              <DateTimePicker
+                granularity="time"
+                value={schedule.window_end ?? ""}
+                onChange={(v) => patch({ window_end: v || null })}
+                placeholder="6:00 PM"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Timezone: {schedule.timezone}. If the max-calls limit is hit, or the dial window closes, the
+            campaign pauses automatically — calls already in progress always finish; only calls still
+            queued are held back until the next period.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

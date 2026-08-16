@@ -19,6 +19,7 @@ import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
 import { Matrix } from "@/components/ui/matrix";
 import {
   ChartContainer,
+  ChartThemeGradient,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -174,6 +175,9 @@ export default function VoiceAgentsHomePage() {
         </div>
         <ChartContainer config={chartConfig} className="mt-3 h-[180px] w-full">
           <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }} barCategoryGap="18%">
+            <defs>
+              <ChartThemeGradient id="home-volume-fill" />
+            </defs>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="hour"
@@ -185,7 +189,7 @@ export default function VoiceAgentsHomePage() {
             />
             <YAxis tickLine={false} axisLine={false} width={36} tick={{ fontSize: 11 }} allowDecimals={false} />
             <ChartTooltip cursor={{ fill: "var(--muted)", opacity: 0.35 }} content={<ChartTooltipContent />} />
-            <Bar dataKey="rate" fill="var(--color-rate)" radius={4} maxBarSize={28} />
+            <Bar dataKey="rate" fill="url(#home-volume-fill)" radius={4} maxBarSize={28} />
           </BarChart>
         </ChartContainer>
       </section>
@@ -223,7 +227,7 @@ export default function VoiceAgentsHomePage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="stagger mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {visibleTemplates.map((tpl) => (
             <QuickContextMenu
               key={tpl.id}
@@ -253,7 +257,7 @@ export default function VoiceAgentsHomePage() {
                   setSelected(tpl);
                   setDialogOpen(true);
                 }}
-                className="cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/30"
+                className="pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-transform duration-200 [transition-timing-function:var(--ease-pop)] hover:-translate-y-0.5 hover:bg-muted/30"
               >
                 <AgentAvatar seed={tpl.seed} size={36} />
                 <h3 className="mt-2.5 text-sm font-semibold tracking-tight">{tpl.name}</h3>

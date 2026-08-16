@@ -61,7 +61,7 @@ export default function VoiceAgentsDeployCodePage() {
               className="rounded-full"
               onClick={() => {
                 if (!settings?.openSettings("keys")) {
-                  navigate("/voice-agents/settings");
+                  navigate("/settings");
                 }
               }}
             >
@@ -72,7 +72,7 @@ export default function VoiceAgentsDeployCodePage() {
               variant="outline"
               className="rounded-full"
               onClick={() =>
-                navigate("/voice-agents/deploy-with-code/recipes/moengage")
+                navigate("/deploy-with-code/recipes/moengage")
               }
             >
               <BookOpen className="size-3.5" />
@@ -129,7 +129,7 @@ export default function VoiceAgentsDeployCodePage() {
           {DEPLOY_API_CARDS.map((card) => (
             <Link
               key={card.slug}
-              to={`/voice-agents/deploy-with-code/apis/${card.slug}`}
+              to={`/deploy-with-code/apis/${card.slug}`}
               className="pressable rounded-2xl border border-border bg-card p-5 shadow-elevated hover:bg-muted/20"
             >
               <AsciiIcon kind={card.kind} tone={card.tone} size="md" />
@@ -151,7 +151,7 @@ export default function VoiceAgentsDeployCodePage() {
             variant="ghost"
             className="rounded-full"
             onClick={() =>
-              navigate("/voice-agents/deploy-with-code/recipes/moengage")
+              navigate("/deploy-with-code/recipes/moengage")
             }
           >
             Browse all
@@ -161,7 +161,7 @@ export default function VoiceAgentsDeployCodePage() {
           {DEPLOY_RECIPES.map((r) => (
             <li key={r.slug}>
               <Link
-                to={`/voice-agents/deploy-with-code/recipes/${r.slug}`}
+                to={`/deploy-with-code/recipes/${r.slug}`}
                 className="flex items-start justify-between gap-3 px-4 py-3 hover:bg-muted/30"
               >
                 <div className="min-w-0">

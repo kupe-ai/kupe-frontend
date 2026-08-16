@@ -8,6 +8,7 @@ import {
   Code2,
   BarChart3,
   Settings,
+  AudioLines,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,7 +32,7 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
       {
         id: "home",
         label: "Home",
-        href: "/voice-agents",
+        href: "/",
         icon: Home,
       },
     ],
@@ -43,14 +44,20 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
       {
         id: "agents",
         label: "Agents",
-        href: "/voice-agents/agents",
+        href: "/agents",
         icon: Bot,
       },
       {
         id: "knowledge",
         label: "Knowledge base",
-        href: "/voice-agents/knowledge-base",
+        href: "/knowledge-base",
         icon: BookOpen,
+      },
+      {
+        id: "voice-library",
+        label: "Voice Library",
+        href: "/voice-library",
+        icon: AudioLines,
       },
     ],
   },
@@ -61,25 +68,25 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
       {
         id: "phone-numbers",
         label: "Phone numbers",
-        href: "/voice-agents/phone-numbers",
+        href: "/phone-numbers",
         icon: Phone,
       },
       {
         id: "inbound",
         label: "Inbound calls",
-        href: "/voice-agents/inbound-calls",
+        href: "/inbound-calls",
         icon: PhoneIncoming,
       },
       {
         id: "outbound",
         label: "Outbound campaigns",
-        href: "/voice-agents/outbound-campaigns",
+        href: "/outbound-campaigns",
         icon: Megaphone,
       },
       {
         id: "deploy-code",
         label: "Deploy with code",
-        href: "/voice-agents/deploy-with-code",
+        href: "/deploy-with-code",
         icon: Code2,
       },
     ],
@@ -91,7 +98,7 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
       {
         id: "analytics",
         label: "Agent analytics",
-        href: "/voice-agents/analytics",
+        href: "/analytics",
         icon: BarChart3,
       },
     ],
@@ -102,18 +109,18 @@ export const VOICE_AGENTS_FOOTER_NAV: VoiceAgentsNavItem[] = [
   {
     id: "settings",
     label: "Settings",
-    href: "/voice-agents/settings",
+    href: "/settings",
     icon: Settings,
   },
   {
     id: "docs",
     label: "Documentation",
-    href: "/voice-agents/documentation",
+    href: "/documentation",
     icon: BookOpen,
   },
 ];
 
 export function isVoiceAgentsNavActive(pathname: string, href: string) {
-  if (href === "/voice-agents") return pathname === "/voice-agents";
+  if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
 }

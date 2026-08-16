@@ -36,7 +36,7 @@ export default function OnboardingPage() {
 
   // Already has an org — nothing to onboard.
   if (workspace.orgs.length > 0) {
-    return <Navigate to="/voice-agents" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const suggestedName =
@@ -53,7 +53,7 @@ export default function OnboardingPage() {
       await api.createProject(org.id, "Default");
       localStorage.setItem("kupe.orgId", org.id);
       workspace.refresh();
-      navigate("/voice-agents", { replace: true });
+      navigate("/", { replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not create your workspace");
       setSubmitting(false);

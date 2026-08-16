@@ -31,7 +31,7 @@ function Chip({
         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
         tone === "muted" && "bg-muted text-foreground",
         tone === "tools" && "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100",
-        tone === "vars" && "bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100",
+        tone === "vars" && "bg-primary/10 text-primary",
       )}
     >
       {children}
@@ -155,7 +155,7 @@ export function TemplateAgentDialog({
                 onClick={() => {
                   void ensureAgent().then((id) => {
                     onOpenChange(false);
-                    navigate(`/voice-agents/agents/${id}`);
+                    navigate(`/agents/${id}`);
                   });
                 }}
               >
@@ -170,7 +170,7 @@ export function TemplateAgentDialog({
                 onClick={() => {
                   void ensureAgent().then((id) => {
                     onOpenChange(false);
-                    navigate(`/voice-agents/agents/${id}`);
+                    navigate(`/agents/${id}`);
                   });
                 }}
               >

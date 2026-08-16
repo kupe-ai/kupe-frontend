@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ProtectedLayout from "@/app/protected-layout";
 import VoiceAgentsLayout from "@/app/voice-agents-layout";
 import { VoiceAgentsPageShimmer, VoiceEditorShimmer } from "@/components/ui/shimmer";
@@ -12,6 +12,7 @@ const VoiceAgentsHomePage = lazyWithRetry(() => import("@/pages/voice-agents/pag
 const VoiceAgentsAgentsPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/page"));
 const VoiceAgentEditorPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/[id]/page"));
 const VoiceAgentsKnowledgePage = lazyWithRetry(() => import("@/pages/voice-agents/knowledge-base/page"));
+const VoiceLibraryPage = lazyWithRetry(() => import("@/pages/voice-agents/voice-library/page"));
 const VoiceAgentsKnowledgeDetailPage = lazyWithRetry(
   () => import("@/pages/voice-agents/knowledge-base/[id]/page"),
 );
@@ -43,6 +44,13 @@ function PageFallback() {
   );
 }
 
+/** Old /voice-agents/... bookmarks → /... */
+function LegacyVoiceAgentsRedirect() {
+  const { pathname, search } = useLocation();
+  const rest = pathname.replace(/^\/voice-agents/, "") || "/";
+  return <Navigate to={`${rest}${search}`} replace />;
+}
+
 export default function AppRoutes() {
   return (
     <Suspense fallback={<PageFallback />}>
@@ -52,41 +60,40 @@ export default function AppRoutes() {
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route element={<ProtectedLayout />}>
           <Route element={<VoiceAgentsLayout />}>
-            <Route path="/" element={<Navigate to="/voice-agents" replace />} />
             <Route
-              path="/voice-agents"
+              path="/"
               element={
                 <Suspense fallback={<VoiceAgentsPageShimmer />}>
                   <VoiceAgentsHomePage />
                 </Suspense>
               }
             />
-            <Route path="/voice-agents/agents" element={<VoiceAgentsAgentsPage />} />
+            <Route path="/agents" element={<VoiceAgentsAgentsPage />} />
             <Route
-              path="/voice-agents/agents/:id"
+              path="/agents/:id"
               element={
                 <Suspense fallback={<VoiceEditorShimmer />}>
                   <VoiceAgentEditorPage />
                 </Suspense>
               }
             />
-            <Route path="/voice-agents/knowledge-base" element={<VoiceAgentsKnowledgePage />} />
-            <Route path="/voice-agents/knowledge-base/:id" element={<VoiceAgentsKnowledgeDetailPage />} />
-            <Route path="/voice-agents/phone-numbers" element={<VoiceAgentsPhoneNumbersPage />} />
-            <Route path="/voice-agents/inbound-calls" element={<VoiceAgentsInboundPage />} />
-            <Route path="/voice-agents/outbound-campaigns" element={<VoiceAgentsOutboundPage />} />
-            <Route path="/voice-agents/deploy-with-code" element={<VoiceAgentsDeployCodePage />} />
-            <Route path="/voice-agents/deploy-with-code/apis/:slug" element={<VoiceAgentsDeployApiPage />} />
-            <Route
-              path="/voice-agents/deploy-with-code/recipes/:slug"
-              element={<VoiceAgentsDeployRecipePage />}
-            />
-            <Route path="/voice-agents/analytics" element={<VoiceAgentsAnalyticsPage />} />
-            <Route path="/voice-agents/settings" element={<VoiceAgentsSettingsPage />} />
-            <Route path="/voice-agents/documentation" element={<VoiceAgentsDocsPage />} />
+            <Route path="/knowledge-base" element={<VoiceAgentsKnowledgePage />} />
+            <Route path="/knowledge-base/:id" element={<VoiceAgentsKnowledgeDetailPage />} />
+            <Route path="/voice-library" element={<VoiceLibraryPage />} />
+            <Route path="/phone-numbers" element={<VoiceAgentsPhoneNumbersPage />} />
+            <Route path="/inbound-calls" element={<VoiceAgentsInboundPage />} />
+            <Route path="/outbound-campaigns" element={<VoiceAgentsOutboundPage />} />
+            <Route path="/deploy-with-code" element={<VoiceAgentsDeployCodePage />} />
+            <Route path="/deploy-with-code/apis/:slug" element={<VoiceAgentsDeployApiPage />} />
+            <Route path="/deploy-with-code/recipes/:slug" element={<VoiceAgentsDeployRecipePage />} />
+            <Route path="/analytics" element={<VoiceAgentsAnalyticsPage />} />
+            <Route path="/settings" element={<VoiceAgentsSettingsPage />} />
+            <Route path="/documentation" element={<VoiceAgentsDocsPage />} />
+            <Route path="/voice-agents" element={<Navigate to="/" replace />} />
+            <Route path="/voice-agents/*" element={<LegacyVoiceAgentsRedirect />} />
           </Route>
         </Route>
-        <Route path="*" element={<Navigate to="/voice-agents" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   );

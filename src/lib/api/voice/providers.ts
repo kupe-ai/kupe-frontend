@@ -93,3 +93,27 @@ export async function listVoiceTtsVoices(providerId?: string): Promise<VoiceTtsV
 export async function listVoiceSttProviders(): Promise<VoiceSttProvider[]> {
   return (await loadVoiceProvidersCatalog()).stt;
 }
+
+/** The Kupe-branded TTS provider (Soniox under the hood — masked server-side,
+ * see kupe-backend's catalog_fields.py) — the only provider the Voice
+ * Library / cloning UI needs, since cloning is only offered on this one. */
+export async function getKupeVoiceProvider(): Promise<VoiceTtsProvider | null> {
+  const { tts } = await loadVoiceProvidersCatalog();
+  return tts.find((p) => p.provider_name.toLowerCase() === "kupe") ?? tts.find((p) => p.is_default) ?? tts[0] ?? null;
+}
+
+export async function cloneVoice(data: { name: string; isPublic: boolean; sample: File }): Promise<CatalogVoice> {
+  return api.cloneVoice(data);
+}
+
+export async function updateVoice(voiceId: string, data: { name?: string; isPublic?: boolean }): Promise<CatalogVoice> {
+  return api.updateVoice(voiceId, data);
+}
+
+export async function deleteVoice(voiceId: string): Promise<void> {
+  return api.deleteVoice(voiceId);
+}
+
+export async function speakVoicePreview(voiceId: string, text: string, language = "en"): Promise<Blob> {
+  return api.speakVoice(voiceId, { text, language });
+}

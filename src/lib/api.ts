@@ -12,6 +12,7 @@ import type {
   Batch,
   BatchContact,
   BatchCreateBody,
+  BatchSchedule,
   BatchStats,
   CatalogTool,
   CatalogVoice,
@@ -56,7 +57,10 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
 
   const headers = new Headers(init?.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (init?.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  // FormData sets its own multipart boundary — never force JSON on it.
+  if (init?.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   try {
     return await fetch(`${BACKEND_URL}${path}`, { ...init, headers });
@@ -80,6 +84,32 @@ async function authedJson<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   listVoices: (providerId: string) =>
     authedJson<{ items: CatalogVoice[] }>(`/v1/voices?provider_id=${encodeURIComponent(providerId)}`),
+  cloneVoice: (data: { name: string; isPublic: boolean; sample: File }) => {
+    const form = new FormData();
+    form.set("name", data.name);
+    form.set("is_public", String(data.isPublic));
+    form.set("sample", data.sample);
+    return authedJson<CatalogVoice>("/v1/voices/clone", { method: "POST", body: form });
+  },
+  updateVoice: (voiceId: string, data: { name?: string; isPublic?: boolean }) => {
+    const form = new FormData();
+    if (data.name != null) form.set("name", data.name);
+    if (data.isPublic != null) form.set("is_public", String(data.isPublic));
+    return authedJson<CatalogVoice>(`/v1/voices/${voiceId}`, { method: "PATCH", body: form });
+  },
+  deleteVoice: (voiceId: string) =>
+    authedJson<void>(`/v1/voices/${voiceId}`, { method: "DELETE" }),
+  speakVoice: async (voiceId: string, data: { text: string; language?: string }): Promise<Blob> => {
+    const res = await authedFetch(`/v1/voices/${voiceId}/speak`, {
+      method: "POST",
+      body: JSON.stringify({ text: data.text, language: data.language ?? "en" }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Backend returned ${res.status}`);
+    }
+    return res.blob();
+  },
   listOrgs: (params?: ListParams) => authedJson<Page<Organization>>(`/v1/orgs${qs(params)}`),
   createOrg: (name: string) =>
     authedJson<Organization>("/v1/orgs", { method: "POST", body: JSON.stringify({ name }) }),
@@ -272,4 +302,6 @@ export const api = {
   pauseBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/pause`, { method: "POST" }),
   resumeBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/resume`, { method: "POST" }),
   cancelBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/cancel`, { method: "POST" }),
+  updateBatchSchedule: (batchId: string, schedule: BatchSchedule) =>
+    authedJson<Batch>(`/v1/batches/${batchId}/schedule`, { method: "PATCH", body: JSON.stringify(schedule) }),
 };

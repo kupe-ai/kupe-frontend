@@ -20,7 +20,7 @@ export default function VoiceAgentsDocsPage() {
         description="Guides for voice agents and campaigns."
         actions={
           <Button asChild variant="outline" className="rounded-full">
-            <Link to="/voice-agents">Back to Home</Link>
+            <Link to="/">Back to Home</Link>
           </Button>
         }
       />

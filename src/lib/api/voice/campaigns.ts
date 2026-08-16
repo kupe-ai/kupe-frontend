@@ -1,6 +1,9 @@
 import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
-import type { Batch } from "@/types";
+import { EMPTY_BATCH_SCHEDULE, type Batch, type BatchSchedule } from "@/types";
+
+export type { BatchSchedule };
+export { EMPTY_BATCH_SCHEDULE };
 
 export interface VoiceCampaign {
   id: string;
@@ -8,7 +11,7 @@ export interface VoiceCampaign {
   agent_id: string;
   status: "draft" | "scheduled" | "running" | "paused" | "completed";
   connection_config: Record<string, unknown>;
-  schedule: Record<string, unknown>;
+  schedule: BatchSchedule;
 }
 
 export interface VoiceDialJob {
@@ -33,7 +36,7 @@ function toCampaign(b: Batch): VoiceCampaign {
     agent_id: b.agent_id,
     status: mapStatus(b.status),
     connection_config: { telephony_account_id: b.telephony_account_id },
-    schedule: {},
+    schedule: b.schedule ?? EMPTY_BATCH_SCHEDULE,
   };
 }
 
@@ -71,6 +74,10 @@ export async function createCampaign(
     name: data.name,
   });
   return toCampaign(batch);
+}
+
+export async function updateCampaignSchedule(campaignId: string, schedule: BatchSchedule) {
+  return toCampaign(await api.updateBatchSchedule(campaignId, schedule));
 }
 
 export async function uploadCampaignCohort(campaignId: string, file: File) {

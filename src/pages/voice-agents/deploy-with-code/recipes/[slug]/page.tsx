@@ -19,7 +19,7 @@ export default function DeployRecipeDetailPage() {
     return (
       <div className="voice-page voice-page-narrow text-sm text-muted-foreground">
         Recipe not found.{" "}
-        <Link to="/voice-agents/deploy-with-code" className="underline">
+        <Link to="/deploy-with-code" className="underline">
           Back
         </Link>
       </div>

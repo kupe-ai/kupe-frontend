@@ -488,6 +488,8 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
               heightPct={heightPct}
               isHighlighted={isHighlighted}
               state={state}
+              index={index}
+              barCount={barCount}
             />
           )
         })}
@@ -501,22 +503,35 @@ const Bar = memo<{
   heightPct: number
   isHighlighted: boolean
   state?: AgentState
-}>(({ heightPct, isHighlighted, state }) => (
-  <div
-    data-highlighted={isHighlighted}
-    className={cn(
-      "max-w-[12px] min-w-[8px] flex-1 transition-all duration-150",
-      "rounded-full",
-      "bg-border data-[highlighted=true]:bg-primary",
-      state === "speaking" && "bg-primary",
-      state === "thinking" && isHighlighted && "animate-pulse"
-    )}
-    style={{
-      height: `${heightPct}%`,
-      animationDuration: state === "thinking" ? "300ms" : undefined,
-    }}
-  />
-))
+  index: number
+  barCount: number
+}>(({ heightPct, isHighlighted, state, index, barCount }) => {
+  const active = isHighlighted || state === "speaking"
+  const span = Math.max(1, barCount - 1)
+
+  return (
+    <div
+      data-highlighted={isHighlighted}
+      className={cn(
+        "max-w-[12px] min-w-[8px] flex-1 transition-all duration-150",
+        "rounded-full",
+        active ? "kupe-theme-gradient" : "bg-border",
+        state === "thinking" && isHighlighted && "animate-pulse"
+      )}
+      style={{
+        height: `${heightPct}%`,
+        animationDuration: state === "thinking" ? "300ms" : undefined,
+        ...(active
+          ? {
+              backgroundRepeat: "no-repeat",
+              backgroundSize: `${barCount * 100}% 100%`,
+              backgroundPosition: `${(index / span) * 100}% 50%`,
+            }
+          : undefined),
+      }}
+    />
+  )
+})
 
 Bar.displayName = "Bar"
 

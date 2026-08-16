@@ -7,5 +7,5 @@ export default function VoiceAgentsSettingsPage() {
     document.title = "Settings · Voice Agents · Kupe";
   }, []);
 
-  return <Navigate to="/voice-agents?openSettings=workspace" replace />;
+  return <Navigate to="/?openSettings=workspace" replace />;
 }
