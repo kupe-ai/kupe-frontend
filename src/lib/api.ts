@@ -23,6 +23,11 @@ import type {
   Organization,
   Page,
   PlaybackUrl,
+  PlivoComplianceApplication,
+  PlivoComplianceRequirementsOut,
+  PlivoComplianceSubmitBody,
+  PlivoNumberSearchOut,
+  PlivoPurchaseBody,
   PostCallAnalysis,
   Project,
   RateLimitConfig,
@@ -273,6 +278,28 @@ export const api = {
     }),
   deleteTelephonyAccount: (accountId: string) =>
     authedJson<void>(`/v1/telephony-accounts/${accountId}`, { method: "DELETE" }),
+
+  // Plivo-managed telephony (number search/purchase + India KYC)
+  searchPlivoNumbers: (orgId: string, countryIso: string, pattern?: string) =>
+    authedJson<PlivoNumberSearchOut>(
+      `/v1/orgs/${orgId}/plivo/numbers/search?country_iso=${countryIso}${pattern ? `&pattern=${encodeURIComponent(pattern)}` : ""}`,
+    ),
+  purchasePlivoNumber: (orgId: string, body: PlivoPurchaseBody) =>
+    authedJson<TelephonyAccount>(`/v1/orgs/${orgId}/plivo/numbers/purchase`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getPlivoComplianceRequirements: (orgId: string) =>
+    authedJson<PlivoComplianceRequirementsOut>(`/v1/orgs/${orgId}/plivo/compliance/requirements`),
+  getPlivoComplianceStatus: (orgId: string) =>
+    authedJson<PlivoComplianceApplication | null>(`/v1/orgs/${orgId}/plivo/compliance`),
+  submitPlivoCompliance: (orgId: string, body: PlivoComplianceSubmitBody) =>
+    authedJson<PlivoComplianceApplication>(`/v1/orgs/${orgId}/plivo/compliance`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  refreshPlivoCompliance: (orgId: string) =>
+    authedJson<PlivoComplianceApplication | null>(`/v1/orgs/${orgId}/plivo/compliance/refresh`, { method: "POST" }),
 
   listRateLimitConfigs: (orgId?: string) =>
     authedJson<RateLimitConfig[]>(`/v1/rate-limit-configs${orgId ? `?org_id=${orgId}` : ""}`),

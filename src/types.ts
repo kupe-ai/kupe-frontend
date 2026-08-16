@@ -502,6 +502,89 @@ export type TelephonyAccount = {
   is_default: boolean;
   created_at: string;
   updated_at: string;
+  managed_by_kupe: boolean;
+  country_iso: string | null;
+  monthly_rent_minor_units: number | null;
+  rent_currency: string;
+  next_rent_charge_at: string | null;
+};
+
+export type PlivoCountry = "US" | "IN";
+
+export type PlivoComplianceStatus = "draft" | "submitted" | "accepted" | "rejected" | "suspended" | "expired";
+
+export type PlivoNumberSearchResult = {
+  number: string;
+  country_iso: string;
+  number_type: string;
+  monthly_rental_rate: string | null;
+  setup_rate: string | null;
+  voice_enabled: boolean;
+  sms_enabled: boolean;
+  requires_compliance: boolean;
+};
+
+export type PlivoNumberSearchOut = {
+  numbers: PlivoNumberSearchResult[];
+  compliance_status: PlivoComplianceStatus | null;
+  monthly_rent_inr: number;
+  purchase_price_inr: number;
+};
+
+export type PlivoPurchaseBody = {
+  number: string;
+  country_iso: PlivoCountry;
+  compliance_application_id?: string | null;
+};
+
+export type PlivoComplianceRequirement = {
+  name: string;
+  label: string;
+  input_type: string;
+  required: boolean;
+};
+
+export type PlivoComplianceRequirementsOut = {
+  end_user_type: string;
+  document_requirements: PlivoComplianceRequirement[];
+  raw: Record<string, unknown>;
+};
+
+export type PlivoComplianceEndUser = {
+  business_name: string;
+  salutation?: string;
+  first_name: string;
+  last_name: string;
+  fiscal_identification_code: string;
+  email: string;
+  phone_number: string;
+  address_line1: string;
+  city: string;
+  region: string;
+  postal_code: string;
+  country_iso?: string;
+};
+
+export type PlivoComplianceSubmitBody = {
+  end_user: PlivoComplianceEndUser;
+  registration_certificate_base64: string;
+  registration_certificate_filename?: string;
+  gst_certificate_base64: string;
+  gst_certificate_filename?: string;
+};
+
+export type PlivoComplianceApplication = {
+  id: string;
+  org_id: string;
+  compliance_id: string;
+  country_iso: string;
+  number_type: string;
+  user_type: string;
+  business_name: string;
+  status: PlivoComplianceStatus;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TelephonyAccountBody = {
