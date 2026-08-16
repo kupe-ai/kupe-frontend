@@ -40,6 +40,7 @@ import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 import type { CatalogVoice } from "@/types";
+import { AudioTrimSlider, sliceAudioFile } from "./audio-trim-slider";
 import { TtsStudio } from "./tts-studio";
 
 const ALL_PROVIDERS = "__all__";
@@ -156,6 +157,8 @@ function VoiceLibraryPageInner() {
             voices={myVoices}
             loading={loading}
             isOwner
+            onClone={() => setCloneOpen(true)}
+            cloneDisabled={!canClone}
             onChanged={() => void refresh()}
           />
           <VoiceSection
@@ -195,6 +198,8 @@ function VoiceSection({
   voices,
   loading,
   isOwner,
+  onClone,
+  cloneDisabled,
   onChanged,
 }: {
   title: string;
@@ -202,6 +207,8 @@ function VoiceSection({
   voices: CatalogVoice[];
   loading: boolean;
   isOwner?: boolean;
+  onClone?: () => void;
+  cloneDisabled?: boolean;
   onChanged: () => void;
 }) {
   return (
@@ -217,8 +224,19 @@ function VoiceSection({
           ))}
         </div>
       ) : voices.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted-foreground">
-          Nothing here yet.
+        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-6 py-10 text-center">
+          <p className="text-sm text-muted-foreground">Nothing here yet.</p>
+          {onClone ? (
+            <Button
+              type="button"
+              className="rounded-full"
+              disabled={cloneDisabled}
+              onClick={onClone}
+            >
+              <KupeIcon name="plus" className="size-4" />
+              Clone voice
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -269,7 +287,7 @@ function VoiceCard({
 
   return (
     <div className="animate-pop-in-up flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-border dark:bg-white">
+      <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background">
         <Matrix
           rows={5}
           cols={5}
@@ -434,14 +452,20 @@ function CloneVoiceDialog({
   const [name, setName] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [start, setStart] = useState(0);
+  const [end, setEnd] = useState(0);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bufferRef = useRef<AudioBuffer | null>(null);
 
   useEffect(() => {
     if (!open) {
       setName("");
       setIsPublic(false);
       setFile(null);
+      setStart(0);
+      setEnd(0);
+      bufferRef.current = null;
     }
   }, [open]);
 
@@ -452,7 +476,8 @@ function CloneVoiceDialog({
     }
     setSaving(true);
     try {
-      await cloneVoice({ name: name.trim(), isPublic, sample: file });
+      const sample = await sliceAudioFile(file, bufferRef.current, start, end);
+      await cloneVoice({ name: name.trim(), isPublic, sample });
       toast.success("Voice cloned");
       onCloned();
     } catch (err) {
@@ -464,30 +489,58 @@ function CloneVoiceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Clone a voice</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-1.5">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
             <Label>Name</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Priya" />
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <Label>Reference clip</Label>
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="pressable flex w-full items-center justify-between rounded-lg border border-dashed border-border px-3 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted/40"
-            >
-              {file ? file.name : "Choose an audio file (clean speech, 30s+ recommended)"}
-            </button>
+            {file ? (
+              <AudioTrimSlider
+                file={file}
+                start={start}
+                end={end}
+                onChange={(nextStart, nextEnd) => {
+                  setStart(nextStart);
+                  setEnd(nextEnd);
+                }}
+                onDecoded={(buffer) => {
+                  bufferRef.current = buffer;
+                }}
+                onClear={() => {
+                  setFile(null);
+                  setStart(0);
+                  setEnd(0);
+                  bufferRef.current = null;
+                  if (fileRef.current) fileRef.current.value = "";
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="pressable flex w-full items-center justify-between rounded-lg border border-dashed border-border px-3 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted/40"
+              >
+                Choose an audio file (clean speech, 30s+ recommended)
+              </button>
+            )}
             <input
               ref={fileRef}
               type="file"
               accept="audio/*"
               className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                const next = e.target.files?.[0] ?? null;
+                setFile(next);
+                setStart(0);
+                setEnd(0);
+                bufferRef.current = null;
+              }}
             />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">

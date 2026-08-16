@@ -353,6 +353,8 @@ export interface BarVisualizerProps extends HTMLAttributes<HTMLDivElement> {
   demo?: boolean
   /** Align bars from center instead of bottom */
   centerAlign?: boolean
+  /** Solid fill instead of the brand gradient. Default true. */
+  flat?: boolean
 }
 
 const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
@@ -365,6 +367,7 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
       maxHeight = 100,
       demo = false,
       centerAlign = false,
+      flat = true,
       className,
       style,
       ...props
@@ -374,8 +377,8 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
     // Audio processing
     const realVolumeBands = useMultibandVolume(mediaStream, {
       bands: barCount,
-      loPass: 100,
-      hiPass: 200,
+      loPass: 40,
+      hiPass: 400,
     })
 
     // Generate fake volume data for demo mode using refs to avoid state updates
@@ -447,15 +450,22 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
       [demo, fakeVolumeBands, realVolumeBands]
     )
 
-    // Animation sequencing
+    // Live mic/agent audio should drive every bar. The listening blink is
+    // only for idle / connecting placeholders with no stream.
+    const liveAudio = Boolean(mediaStream) && !demo
+    const animatorState =
+      liveAudio && (state === "listening" || state === "speaking")
+        ? "speaking"
+        : state
+
     const highlightedIndices = useBarAnimator(
-      state,
+      animatorState,
       barCount,
-      state === "connecting"
+      animatorState === "connecting"
         ? 2000 / barCount
-        : state === "thinking"
+        : animatorState === "thinking"
           ? 150
-          : state === "listening"
+          : animatorState === "listening"
             ? 500
             : 1000
     )
@@ -487,7 +497,8 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
               key={index}
               heightPct={heightPct}
               isHighlighted={isHighlighted}
-              state={state}
+              state={liveAudio ? "speaking" : state}
+              flat={flat}
             />
           )
         })}
@@ -501,7 +512,8 @@ const Bar = memo<{
   heightPct: number
   isHighlighted: boolean
   state?: AgentState
-}>(({ heightPct, isHighlighted, state }) => {
+  flat?: boolean
+}>(({ heightPct, isHighlighted, state, flat = true }) => {
   const active = isHighlighted || state === "speaking"
 
   return (
@@ -509,8 +521,8 @@ const Bar = memo<{
       data-highlighted={isHighlighted}
       className={cn(
         "max-w-[12px] min-w-[8px] flex-1 transition-all duration-150",
-        "rounded-full",
-        active ? "kupe-theme-gradient" : "bg-border",
+        "rounded-md",
+        active ? (flat ? "bg-primary" : "kupe-theme-gradient") : "bg-border",
         state === "thinking" && isHighlighted && "animate-pulse"
       )}
       style={{
@@ -533,6 +545,7 @@ const BarVisualizer = memo(BarVisualizerComponent, (prevProps, nextProps) => {
     prevProps.maxHeight === nextProps.maxHeight &&
     prevProps.demo === nextProps.demo &&
     prevProps.centerAlign === nextProps.centerAlign &&
+    prevProps.flat === nextProps.flat &&
     prevProps.className === nextProps.className &&
     JSON.stringify(prevProps.style) === JSON.stringify(nextProps.style)
   )

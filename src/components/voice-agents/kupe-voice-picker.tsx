@@ -114,7 +114,7 @@ function KupeVoicePickerInner({
 function VoiceOrb({ seed }: { seed: string }) {
   const pattern = React.useMemo(() => seededPattern(seed, 5, 5), [seed]);
   return (
-    <span className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-border dark:bg-white">
+    <span className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-background">
       <Matrix
         rows={5}
         cols={5}
@@ -181,7 +181,7 @@ function VoicePickerItem({
       className="flex items-center gap-3"
     >
       <span
-        className="relative z-10 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-white dark:bg-white"
+        className="relative z-10 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-background"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={handlePreview}

@@ -474,6 +474,8 @@ export type ApiKey = {
 
 export type CreatedApiKey = ApiKey & { api_key: string };
 
+export type ToolKind = "custom_webhook" | "composio";
+
 export type CatalogTool = {
   id: string;
   org_id: string;
@@ -486,6 +488,10 @@ export type CatalogTool = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  kind: ToolKind;
+  composio_toolkit_slug: string | null;
+  composio_tool_slug: string | null;
+  composio_connection_id: string | null;
 };
 
 export type AgentTool = CatalogTool & { enabled: boolean };
@@ -716,4 +722,73 @@ export type RateLimitConfig = {
   burst: number;
   created_at: string;
   updated_at: string;
+};
+
+// ---------------------------------------------------------------------
+// Composio app integrations
+// ---------------------------------------------------------------------
+
+export type ComposioToolkitCategory = { id: string; name: string };
+
+export type ComposioToolkit = {
+  slug: string;
+  name: string;
+  logo: string;
+  description: string;
+  categories: ComposioToolkitCategory[];
+  no_auth: boolean;
+  connected: boolean;
+};
+
+export type ComposioToolkitsPage = {
+  items: ComposioToolkit[];
+  next_cursor: string | null;
+};
+
+export type ComposioTool = {
+  slug: string;
+  name: string;
+  description: string;
+  input_parameters: Record<string, unknown>;
+};
+
+export type ComposioToolsPage = {
+  items: ComposioTool[];
+  next_cursor: string | null;
+};
+
+export type ComposioConnectionStatus = "initializing" | "active" | "failed" | "expired";
+
+export type ComposioConnection = {
+  id: string;
+  org_id: string;
+  toolkit_slug: string;
+  toolkit_name: string;
+  status: ComposioConnectionStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ComposioConnectOut = {
+  connection: ComposioConnection;
+  redirect_url: string | null;
+};
+
+export type ToolCallEvent = {
+  id: number;
+  session_id: string;
+  agent_id: string | null;
+  tool_name: string;
+  tool_kind: "custom_webhook" | "composio" | "system";
+  latency_ms: number;
+  ok: boolean;
+  created_at: string;
+};
+
+export type ToolCallStatsRow = {
+  tool_name: string;
+  tool_kind: "custom_webhook" | "composio" | "system";
+  call_count: number;
+  success_count: number;
+  avg_latency_ms: number;
 };

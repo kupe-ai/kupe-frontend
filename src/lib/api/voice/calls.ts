@@ -77,6 +77,36 @@ export async function listInteractions(
   };
 }
 
+function toTranscriptTurns(turns: unknown, fallbackText?: string): VoiceCallTranscriptTurn[] {
+  const list = Array.isArray(turns) ? turns : [];
+  const mapped = list
+    .map((t, i) => {
+      if (!t || typeof t !== "object") return null;
+      const row = t as { role?: string; text?: string };
+      const text = typeof row.text === "string" ? row.text.trim() : "";
+      if (!text) return null;
+      const role: VoiceCallTranscriptTurn["role"] =
+        row.role === "assistant" || row.role === "agent" ? "agent" : row.role === "user" ? "user" : "system";
+      return { role, text, ts_offset_ms: 0, ordinal: i };
+    })
+    .filter((t): t is VoiceCallTranscriptTurn => t != null);
+  if (mapped.length > 0) return mapped;
+  if (!fallbackText?.trim()) return [];
+  return fallbackText
+    .split("\n")
+    .map((line, i) => {
+      const match = line.match(/^(user|assistant|agent|system)\s*:\s*(.*)$/i);
+      if (!match) return null;
+      const roleRaw = match[1].toLowerCase();
+      const role: VoiceCallTranscriptTurn["role"] =
+        roleRaw === "assistant" || roleRaw === "agent" ? "agent" : roleRaw === "user" ? "user" : "system";
+      const text = match[2].trim();
+      if (!text) return null;
+      return { role, text, ts_offset_ms: 0, ordinal: i };
+    })
+    .filter((t): t is VoiceCallTranscriptTurn => t != null);
+}
+
 export async function getInteraction(callId: string) {
   const { orgId } = requireScope();
   const sessions = await api.listSessions(orgId, { limit: 100 });
@@ -93,14 +123,19 @@ export async function getInteraction(callId: string) {
   let transcript: VoiceCallTranscriptTurn[] = [];
   try {
     const info = await api.getTranscript(callId);
-    transcript = (info.turns ?? []).map((t, i) => ({
-      role: t.role === "assistant" ? "agent" : t.role === "user" ? "user" : "system",
-      text: t.text,
-      ts_offset_ms: 0,
-      ordinal: i,
-    }));
+    transcript = toTranscriptTurns(info.turns, info.transcript);
   } catch {
     transcript = [];
   }
-  return { ...base, transcript };
+  let recording_url: string | null = null;
+  try {
+    const rec = await api.getRecording(callId);
+    if (rec.status === "complete" && rec.id) {
+      const play = await api.getPlaybackUrl(rec.id);
+      recording_url = play.url;
+    }
+  } catch {
+    recording_url = null;
+  }
+  return { ...base, transcript, recording_url };
 }

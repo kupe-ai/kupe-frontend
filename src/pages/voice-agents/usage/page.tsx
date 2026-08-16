@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { VoicePagination } from "@/components/voice-agents/shared";
 import {
   ChartContainer,
+  ChartThemeGradient,
   ChartTooltip,
   ChartTooltipContent,
   type ChartConfig,
@@ -188,12 +189,15 @@ export default function UsagePage() {
           <EmptyChart />
         ) : (
           <ChartContainer config={chartConfig} className="h-56 w-full">
-            <BarChart data={chartData}>
+            <BarChart data={chartData} barCategoryGap="18%">
+              <defs>
+                <ChartThemeGradient id="usage-cost-fill" />
+              </defs>
               <CartesianGrid vertical={false} stroke="var(--border)" />
               <XAxis dataKey="day" tickLine={false} axisLine={false} className="text-caption" />
               <YAxis tickLine={false} axisLine={false} width={40} className="text-caption" />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="cost" fill="var(--chart-1)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="cost" fill="url(#usage-cost-fill)" radius={[6, 6, 2, 2]} maxBarSize={28} />
             </BarChart>
           </ChartContainer>
         )}

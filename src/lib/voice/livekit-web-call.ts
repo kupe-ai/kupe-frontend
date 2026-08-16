@@ -1,6 +1,6 @@
 "use client";
 
-import { Room, RoomEvent, Track, type RemoteTrack } from "livekit-client";
+import { Room, RoomEvent, Track, type LocalTrackPublication, type RemoteTrack } from "livekit-client";
 import { api } from "@/lib/api";
 import { captureEvent } from "@/lib/posthog";
 import { createWebCall } from "@/lib/api/voice/calls";
@@ -16,13 +16,14 @@ export interface WebCallHandle {
 
 export interface WebCallCallbacks {
   onStatusChange?: (status: WebCallStatus) => void;
-  /** Fired with a live 0-1 amplitude reading of the agent's audio, for a
-   * waveform in the Test Agent modal. */
+  /** Live 0-1 amplitude of the agent's published track (from LiveKit RTP
+   * levels — no extra Web Audio graph on the playback track). */
   onAgentAudioLevel?: (level: number) => void;
-  /** Fired once with the agent's raw audio track when it's subscribed, so
-   * callers can build their own MediaStream (e.g. for BarVisualizer's
-   * frequency-band analysis) without this module owning that concern. */
+  /** Fired once with a clone of the agent's audio track for visualizers.
+   * Cloned so analysis cannot steal samples from playback. */
   onAgentTrack?: (track: MediaStreamTrack) => void;
+  /** Clone of the local microphone track for the listening visualizer. */
+  onLocalTrack?: (track: MediaStreamTrack) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -31,13 +32,40 @@ async function hangUpSession(callId: string | undefined) {
   await api.endSession(callId).catch(() => undefined);
 }
 
+function attachRemoteAudio(track: RemoteTrack, attached: HTMLMediaElement[]) {
+  const el = track.attach();
+  el.autoplay = true;
+  (el as HTMLVideoElement).playsInline = true;
+  el.setAttribute("playsinline", "true");
+  el.style.display = "none";
+  document.body.appendChild(el);
+  attached.push(el);
+  void el.play().catch(() => undefined);
+}
+
+function emitLocalMic(
+  pub: LocalTrackPublication,
+  callbacks: WebCallCallbacks,
+  clones: MediaStreamTrack[],
+  seen: Set<string>,
+) {
+  if (pub.source !== Track.Source.Microphone || !pub.track) return;
+  const id = pub.trackSid || pub.track.sid;
+  if (id && seen.has(id)) return;
+  if (id) seen.add(id);
+  const cloned = pub.track.mediaStreamTrack.clone();
+  clones.push(cloned);
+  callbacks.onLocalTrack?.(cloned);
+}
+
 /** Connects the browser mic to a LiveKit room for a "Test Agent" call:
  * requests a room+token from the backend, joins over WebRTC, publishes the
  * mic, and plays back the agent's synthesized audio track. */
 export async function startWebCall(agentId: string, callbacks: WebCallCallbacks = {}): Promise<WebCallHandle> {
   callbacks.onStatusChange?.("connecting");
   const attached: HTMLMediaElement[] = [];
-  let audioCtx: AudioContext | null = null;
+  const clones: MediaStreamTrack[] = [];
+  let levelRaf = 0;
   let callId: string | undefined;
 
   try {
@@ -46,38 +74,63 @@ export async function startWebCall(agentId: string, callbacks: WebCallCallbacks 
     if (!livekit_url) {
       throw new Error("Server did not return a LiveKit URL — check voice.livekit_url in config.");
     }
-    const room = new Room({ adaptiveStream: true, dynacast: true });
+    const room = new Room({
+      adaptiveStream: false,
+      dynacast: false,
+      publishDefaults: {
+        dtx: true,
+        red: true,
+        stopMicTrackOnMute: true,
+      },
+      audioCaptureDefaults: {
+        autoGainControl: true,
+        echoCancellation: true,
+        noiseSuppression: true,
+        channelCount: 1,
+      },
+    });
+
+    const seenLocal = new Set<string>();
 
     room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
       if (track.kind !== Track.Kind.Audio) return;
-      const el = track.attach();
-      el.autoplay = true;
-      document.body.appendChild(el);
-      attached.push(el);
+      attachRemoteAudio(track, attached);
+      const cloned = track.mediaStreamTrack.clone();
+      clones.push(cloned);
+      callbacks.onAgentTrack?.(cloned);
+    });
 
-      callbacks.onAgentTrack?.(track.mediaStreamTrack);
-
-      if (callbacks.onAgentAudioLevel) {
-        audioCtx = new AudioContext();
-        const source = audioCtx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        const tick = () => {
-          analyser.getByteFrequencyData(data);
-          const avg = data.reduce((a, b) => a + b, 0) / data.length / 255;
-          callbacks.onAgentAudioLevel?.(avg);
-          if (room.state === "connected") requestAnimationFrame(tick);
-        };
-        tick();
-      }
+    room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
+      emitLocalMic(pub, callbacks, clones, seenLocal);
     });
 
     room.on(RoomEvent.Disconnected, () => callbacks.onStatusChange?.("ended"));
 
     await room.connect(livekit_url, access_token);
     await room.localParticipant.setMicrophoneEnabled(true);
+
+    for (const pub of room.localParticipant.audioTrackPublications.values()) {
+      emitLocalMic(pub, callbacks, clones, seenLocal);
+    }
+
+    const pumpAgentLevel = () => {
+      let max = 0;
+      let speaking = false;
+      room.remoteParticipants.forEach((p) => {
+        if (p.audioLevel > max) max = p.audioLevel;
+        if (p.isSpeaking) speaking = true;
+      });
+      // LiveKit isSpeaking is the reliable switch; audioLevel alone can sit
+      // under the UI's 0.04 threshold and never flip the visualizer.
+      callbacks.onAgentAudioLevel?.(speaking ? Math.max(max, 0.2) : max);
+      if (room.state === "connected") {
+        levelRaf = requestAnimationFrame(pumpAgentLevel);
+      }
+    };
+    if (callbacks.onAgentAudioLevel) {
+      levelRaf = requestAnimationFrame(pumpAgentLevel);
+    }
+
     callbacks.onStatusChange?.("connected");
     captureEvent("call_started", { call_id: callId, agent_id: agentId, channel: "web" });
 
@@ -85,10 +138,17 @@ export async function startWebCall(agentId: string, callbacks: WebCallCallbacks 
     const hangUp = async () => {
       if (hungUp) return;
       hungUp = true;
+      if (levelRaf) cancelAnimationFrame(levelRaf);
       for (const el of attached) {
         el.remove();
       }
-      await audioCtx?.close().catch(() => undefined);
+      for (const track of clones) {
+        try {
+          track.stop();
+        } catch {
+          // already ended
+        }
+      }
       await room.disconnect();
       await hangUpSession(callId);
     };

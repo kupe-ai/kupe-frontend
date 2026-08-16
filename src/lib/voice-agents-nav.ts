@@ -51,6 +51,12 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         icon: "wave",
         flag: "feature_voice_library",
       },
+      {
+        id: "integrations",
+        label: "Integrations",
+        href: "/integrations",
+        icon: "plug",
+      },
     ],
   },
   {

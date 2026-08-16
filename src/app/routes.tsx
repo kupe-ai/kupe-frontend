@@ -20,6 +20,7 @@ const VoiceAgentsAgentsPage = lazyWithRetry(() => import("@/pages/voice-agents/a
 const VoiceAgentEditorPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/[id]/page"));
 const VoiceAgentsKnowledgePage = lazyWithRetry(() => import("@/pages/voice-agents/knowledge-base/page"));
 const VoiceLibraryPage = lazyWithRetry(() => import("@/pages/voice-agents/voice-library/page"));
+const VoiceAgentsIntegrationsPage = lazyWithRetry(() => import("@/pages/voice-agents/integrations/page"));
 const VoiceAgentsKnowledgeDetailPage = lazyWithRetry(
   () => import("@/pages/voice-agents/knowledge-base/[id]/page"),
 );
@@ -90,6 +91,7 @@ export default function AppRoutes() {
             <Route path="/knowledge-base" element={<Flagged flag="feature_knowledge_base"><VoiceAgentsKnowledgePage /></Flagged>} />
             <Route path="/knowledge-base/:id" element={<Flagged flag="feature_knowledge_base"><VoiceAgentsKnowledgeDetailPage /></Flagged>} />
             <Route path="/voice-library" element={<Flagged flag="feature_voice_library"><VoiceLibraryPage /></Flagged>} />
+            <Route path="/integrations" element={<VoiceAgentsIntegrationsPage />} />
             <Route path="/phone-numbers" element={<Flagged flag="feature_phone_numbers"><VoiceAgentsPhoneNumbersPage /></Flagged>} />
             <Route path="/inbound-calls" element={<Flagged flag="feature_inbound"><VoiceAgentsInboundPage /></Flagged>} />
             <Route path="/outbound-campaigns" element={<Flagged flag="feature_outbound"><VoiceAgentsOutboundPage /></Flagged>} />

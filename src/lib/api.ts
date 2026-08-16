@@ -16,6 +16,10 @@ import type {
   BatchStats,
   CatalogTool,
   CatalogVoice,
+  ComposioConnectOut,
+  ComposioConnection,
+  ComposioToolkitsPage,
+  ComposioToolsPage,
   CreateSessionBody,
   CreatedApiKey,
   Member,
@@ -39,6 +43,8 @@ import type {
   SessionUsage,
   TelephonyAccount,
   TelephonyAccountBody,
+  ToolCallEvent,
+  ToolCallStatsRow,
   TranscriptInfo,
   UsageCostSummary,
   UsageDailyRow,
@@ -280,6 +286,43 @@ export const api = {
     }),
   detachAnalysisTool: (analysisId: string, toolId: string) =>
     authedJson(`/v1/post-call-analyses/${analysisId}/tools/${toolId}`, { method: "DELETE" }),
+
+  // Composio app integrations
+  listComposioToolkits: (orgId: string, params?: { category?: string; cursor?: string }) =>
+    authedJson<ComposioToolkitsPage>(
+      `/v1/orgs/${orgId}/composio/toolkits?${new URLSearchParams(params as Record<string, string>).toString()}`,
+    ),
+  listComposioToolkitTools: (orgId: string, toolkitSlug: string, cursor?: string) =>
+    authedJson<ComposioToolsPage>(
+      `/v1/orgs/${orgId}/composio/toolkits/${toolkitSlug}/tools${cursor ? `?cursor=${cursor}` : ""}`,
+    ),
+  listComposioConnections: (orgId: string) =>
+    authedJson<ComposioConnection[]>(`/v1/orgs/${orgId}/composio/connections`),
+  connectComposioToolkit: (orgId: string, toolkitSlug: string, callbackUrl: string) =>
+    authedJson<ComposioConnectOut>(`/v1/orgs/${orgId}/composio/connections`, {
+      method: "POST",
+      body: JSON.stringify({ toolkit_slug: toolkitSlug, callback_url: callbackUrl }),
+    }),
+  refreshComposioConnection: (connectionId: string) =>
+    authedJson<ComposioConnection>(`/v1/composio/connections/${connectionId}/refresh`, { method: "POST" }),
+  disconnectComposio: (connectionId: string) =>
+    authedJson<void>(`/v1/composio/connections/${connectionId}`, { method: "DELETE" }),
+  attachComposioTool: (
+    orgId: string,
+    body: { toolkit_slug: string; tool_slug: string; connection_id: string; name?: string; label?: string },
+  ) => authedJson<CatalogTool>(`/v1/orgs/${orgId}/composio/tools`, { method: "POST", body: JSON.stringify(body) }),
+
+  // Tool-call events (agent analytics)
+  listToolCallEvents: (orgId: string, params?: ListParams & { agent_id?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.limit != null) sp.set("limit", String(params.limit));
+    if (params?.offset != null) sp.set("offset", String(params.offset));
+    if (params?.agent_id) sp.set("agent_id", params.agent_id);
+    const s = sp.toString();
+    return authedJson<Page<ToolCallEvent>>(`/v1/orgs/${orgId}/tool-call-events${s ? `?${s}` : ""}`);
+  },
+  getToolCallStats: (orgId: string, agentId: string) =>
+    authedJson<ToolCallStatsRow[]>(`/v1/orgs/${orgId}/agents/${agentId}/tool-call-stats`),
 
   listAudioAssets: (orgId: string, projectId: string, params?: ListParams) =>
     authedJson<AudioAssetList>(`/v1/orgs/${orgId}/projects/${projectId}/audio-assets${qs(params)}`),

@@ -446,6 +446,12 @@
   .ki .ki-minute {
     transform-origin: 12px 12px;
   }
+  .ki .ki-plug-a,
+  .ki .ki-plug-b,
+  .ki .ki-spark {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
 
   :is(.group\/nav:hover, .group\/nav:focus-within) .ki-home .ki-roof,
   .ki-home:hover .ki-roof {
@@ -655,6 +661,14 @@
   .ki-copy:hover .ki-back {
     animation: ki-copy 0.45s var(--ease-pop);
   }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-plug .ki-plug-b,
+  .ki-plug:hover .ki-plug-b {
+    animation: ki-plug-connect 0.5s var(--ease-pop);
+  }
+  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-plug .ki-spark,
+  .ki-plug:hover .ki-spark {
+    animation: ki-plug-spark 0.6s var(--ease-pop);
+  }
   .animate-prompt-cycle {
     animation: kupe-prompt-cycle 2.8s var(--ease-out-soft) both;
   }
@@ -840,38 +854,46 @@
   /* True iOS pill + circular thumb. Global `corner-shape: squircle` would
      otherwise turn rounded-full into a rounded square. */
   [data-slot="switch"] {
+    overflow: hidden;
+    isolation: isolate;
     border-radius: 999px;
     corner-shape: round;
     background-color: var(--input);
+    background-image: none;
+    box-shadow: inset 0 0 0 1px rgb(14 14 14 / 0.08);
     transition:
-      background 0.28s var(--ease-spring),
-      box-shadow 0.28s var(--ease-spring);
+      background 0.22s var(--ease-out-soft),
+      box-shadow 0.22s var(--ease-out-soft);
+  }
+  .dark [data-slot="switch"] {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
   }
   [data-slot="switch"][data-checked],
   [data-slot="switch"][data-state="checked"] {
     background-color: var(--primary);
     background-image: linear-gradient(
-      100deg,
-      var(--primary-from) 0%,
-      var(--primary) 42%,
+      180deg,
+      color-mix(in srgb, var(--primary) 72%, white) 0%,
+      var(--primary) 48%,
       var(--primary-to) 100%
     );
     box-shadow:
-      0 1px 2px rgb(1 7 153 / 0.22),
-      0 4px 10px rgb(64 72 255 / 0.28);
+      inset 0 1px 0 rgb(255 255 255 / 0.28),
+      inset 0 0 0 1px rgb(1 7 153 / 0.22),
+      0 1px 2px rgb(1 7 153 / 0.28);
   }
   [data-slot="switch-thumb"] {
     border-radius: 999px;
     corner-shape: round;
     background: #fff;
-    border: 1px solid rgb(14 14 14 / 0.08);
-    box-shadow: 0 1px 3px rgb(14 14 14 / 0.18);
-    transition: transform 0.32s var(--ease-spring);
+    border: 1px solid rgb(14 14 14 / 0.06);
+    box-shadow: 0 1px 2px rgb(14 14 14 / 0.16);
+    transition: transform 0.28s var(--ease-out-soft);
   }
   .dark [data-slot="switch-thumb"] {
-    background: #fafafa;
-    border-color: rgb(255 255 255 / 0.18);
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+    background: #fff;
+    border-color: rgb(255 255 255 / 0.12);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   }
 
   .voice-page {
@@ -1211,6 +1233,16 @@
 @keyframes ki-copy {
   0%, 100% { transform: translate(0, 0); }
   45% { transform: translate(-1.5px, -1.5px); }
+}
+@keyframes ki-plug-connect {
+  0% { transform: translateY(-2px); opacity: 0.5; }
+  60% { transform: translateY(0.5px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes ki-plug-spark {
+  0%, 100% { opacity: 0; transform: scale(0.6); }
+  35% { opacity: 1; transform: scale(1.3); }
+  60% { opacity: 0.7; transform: scale(0.9); }
 }
 @keyframes kupe-prompt-cycle {
   0% { transform: translateY(110%); opacity: 0; }

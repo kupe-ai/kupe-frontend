@@ -35,7 +35,8 @@ export type KupeIconName =
   | "check-square"
   | "plus"
   | "clock"
-  | "copy";
+  | "copy"
+  | "plug";
 
 type SvgProps = { className?: string };
 
@@ -464,6 +465,23 @@ function CopyIcon({ className }: SvgProps) {
   );
 }
 
+function PlugIcon({ className }: SvgProps) {
+  return (
+    <Frame name="plug" className={className}>
+      <g className="ki-plug-a">
+        <path d="M9.5 3.6v4.2" />
+        <path d="M13 3.6v4.2" />
+        <path d="M7.4 7.8h7.2a1 1 0 0 1 1 1v1.6a4.6 4.6 0 0 1-4.6 4.6 4.6 4.6 0 0 1-4.6-4.6V8.8a1 1 0 0 1 1-1Z" />
+      </g>
+      <g className="ki-plug-b">
+        <path d="M11.2 15v2.4" />
+        <path d="M8 20.4l3.2-3 3.2 3" />
+      </g>
+      <circle className="ki-spark" cx="17.6" cy="6.4" r="1" />
+    </Frame>
+  );
+}
+
 const ICONS: Record<KupeIconName, (props: SvgProps) => ReactElement> = {
   home: HomeIcon,
   robot: RobotIcon,
@@ -499,6 +517,7 @@ const ICONS: Record<KupeIconName, (props: SvgProps) => ReactElement> = {
   plus: PlusIcon,
   clock: ClockIcon,
   copy: CopyIcon,
+  plug: PlugIcon,
 };
 
 export function KupeIcon({

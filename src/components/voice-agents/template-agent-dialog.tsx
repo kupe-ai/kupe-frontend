@@ -105,6 +105,7 @@ export function TemplateAgentDialog({
             <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8">
               <BarVisualizer
                 demo
+                flat
                 state="listening"
                 barCount={15}
                 className="w-full max-w-[220px] bg-transparent p-0"

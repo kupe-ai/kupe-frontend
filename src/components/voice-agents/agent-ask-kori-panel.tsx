@@ -29,7 +29,8 @@ type ChatBubble =
 /**
  * Embedded Ask AI companion for the agent editor — always visible on the right.
  * Text chat is backed by POST /v1/agents/{id}/copilot. Talk uses a LiveKit
- * web call with the Bar Visualizer driven by the agent's audio.
+ * web call. The bar visualizer shows the user's mic while listening and the
+ * agent's audio while the bot is speaking (solid bars, no gradient).
  */
 export function AgentAskKoriPanel({
   agentId,
@@ -63,7 +64,8 @@ export function AgentAskKoriPanel({
 
   const [callStatus, setCallStatus] = useState<WebCallStatus>("idle");
   const [level, setLevel] = useState(0);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const handleRef = useRef<WebCallHandle | null>(null);
   const live = callStatus === "connecting" || callStatus === "connected";
@@ -95,7 +97,8 @@ export function AgentAskKoriPanel({
     handleRef.current = null;
     setCallStatus("idle");
     setLevel(0);
-    setMediaStream(null);
+    setAgentStream(null);
+    setLocalStream(null);
     setMuted(false);
   }
 
@@ -103,13 +106,15 @@ export function AgentAskKoriPanel({
     if (live) return;
     setCallStatus("connecting");
     setLevel(0);
-    setMediaStream(null);
+    setAgentStream(null);
+    setLocalStream(null);
     setMuted(false);
     try {
       const handle = await startWebCall(agentId, {
         onStatusChange: (s) => setCallStatus(s),
         onAgentAudioLevel: (l) => setLevel(l),
-        onAgentTrack: (track) => setMediaStream(new MediaStream([track])),
+        onAgentTrack: (track) => setAgentStream(new MediaStream([track])),
+        onLocalTrack: (track) => setLocalStream(new MediaStream([track])),
         onError: (err) => {
           const msg = friendlyVoiceError(err, webCallErrorMessage(err));
           toast.error(msg);
@@ -199,10 +204,12 @@ export function AgentAskKoriPanel({
     setDraft("");
   }
 
+  const agentSpeaking = live && callStatus === "connected" && level > 0.04;
+  const vizStream = agentSpeaking ? agentStream : (localStream ?? agentStream);
   const visualizerState: AgentState | undefined = live
     ? callStatus === "connecting"
       ? "connecting"
-      : level > 0.04
+      : agentSpeaking
         ? "speaking"
         : "listening"
     : "listening";
@@ -244,8 +251,9 @@ export function AgentAskKoriPanel({
       <div className="shrink-0 border-b border-border px-3 py-3">
         <BarVisualizer
           state={visualizerState}
-          mediaStream={mediaStream}
-          demo={!mediaStream}
+          mediaStream={vizStream}
+          demo={!vizStream}
+          flat
           barCount={13}
           className="h-20 w-full rounded-xl bg-muted/50 p-2.5"
         />

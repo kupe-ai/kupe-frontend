@@ -9,7 +9,8 @@ export type DeployApiSlug =
   | "dnd-lists"
   | "agent-management"
   | "call-transfer"
-  | "voice-cloning";
+  | "voice-cloning"
+  | "tool-integrations";
 
 export type DeployRecipeSlug =
   | "moengage"
@@ -376,6 +377,69 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
         label: "list-contacts",
         code: `curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?status=queued" \\
   -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+    ],
+  },
+  {
+    slug: "tool-integrations",
+    title: "Tool integrations",
+    description: "Custom webhook tools, your own MCP, and 1000+ Composio apps — all callable mid-call.",
+    kind: "code",
+    tone: "sky",
+    headline: "Give your agent real actions — a webhook, your MCP server, or any Composio app.",
+    about:
+      "Every tool your agent can call during a conversation is a row in the same org-scoped catalog, attached to an agent the same way regardless of where it executes: a custom HTTP webhook you own, or a Composio-backed action (Gmail, Slack, Calendar, CRMs, and 1000+ more) authorized once per org. Both execute server-side, in kupe-agents, mid-call — never client-side, so they work identically on web and phone calls. Everything here also works from the Integrations tab in the dashboard; use the API when you want tools provisioned as part of your own deploy, not clicked through by hand.",
+    endpoints: [
+      { method: "POST", path: "/v1/orgs/{org_id}/tools", summary: "Create a custom webhook tool (name, JSON-schema parameters, http_url/method/headers)." },
+      { method: "GET", path: "/v1/orgs/{org_id}/tools", summary: "List your org's tool catalog (webhook + Composio)." },
+      { method: "PATCH", path: "/v1/tools/{tool_id}", summary: "Update a tool's schema, URL, or headers." },
+      { method: "POST", path: "/v1/agents/{agent_id}/tools", summary: "Attach any tool (webhook or Composio) to an agent." },
+      { method: "GET", path: "/v1/orgs/{org_id}/composio/toolkits", summary: "Browse connectable apps (logos, categories, connection status)." },
+      { method: "POST", path: "/v1/orgs/{org_id}/composio/connections", summary: "Start connecting an app — returns an OAuth redirect URL when one's needed." },
+      { method: "GET", path: "/v1/orgs/{org_id}/composio/toolkits/{toolkit_slug}/tools", summary: "List the actions available once an app is connected." },
+      { method: "POST", path: "/v1/orgs/{org_id}/composio/tools", summary: "Add a specific Composio action to your tool catalog." },
+      { method: "GET", path: "/v1/orgs/{org_id}/agents/{agent_id}/tool-call-stats", summary: "Per-tool call count, success rate, and latency for an agent." },
+    ],
+    curlTabs: [
+      {
+        id: "create-webhook-tool",
+        label: "webhook-tool",
+        code: `curl -X POST ${API_BASE_URL}/v1/orgs/<org_id>/tools \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "name": "check_availability",
+    "description": "Look up open appointment slots",
+    "parameters": {"date": {"type": "string"}},
+    "required": ["date"],
+    "http_url": "https://api.yourcrm.com/slots",
+    "http_method": "GET"
+  }'
+
+# attach it to an agent
+curl -X POST ${API_BASE_URL}/v1/agents/<agent_id>/tools \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{"tool_id": "<tool_id>", "enabled": true}'`,
+      },
+      {
+        id: "connect-composio-app",
+        label: "composio-app",
+        code: `# 1. browse connectable apps
+curl "${API_BASE_URL}/v1/orgs/<org_id>/composio/toolkits?category=email" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"
+
+# 2. connect one (open redirect_url for OAuth apps)
+curl -X POST ${API_BASE_URL}/v1/orgs/<org_id>/composio/connections \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{"toolkit_slug": "gmail", "callback_url": "https://yourapp.com/callback"}'
+
+# 3. add a specific action once connected
+curl -X POST ${API_BASE_URL}/v1/orgs/<org_id>/composio/tools \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{"toolkit_slug": "gmail", "tool_slug": "GMAIL_SEND_EMAIL", "connection_id": "<connection_id>"}'`,
       },
     ],
   },

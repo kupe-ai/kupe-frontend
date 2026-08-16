@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Play } from "lucide-react";
 import { toast } from "sonner";
 import { AudioPlayer } from "@/components/ui/audio-player";
 import { Button } from "@/components/ui/button";
@@ -189,14 +188,6 @@ export function TtsStudio({
                     {clip.voiceName} · {clip.providerLine} ·{" "}
                     {new Date(clip.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                   </p>
-                  <button
-                    type="button"
-                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary"
-                    onClick={() => setAudioUrl(clip.audioUrl)}
-                  >
-                    <Play className="size-3.5" />
-                    Play
-                  </button>
                 </li>
               ))}
             </ul>

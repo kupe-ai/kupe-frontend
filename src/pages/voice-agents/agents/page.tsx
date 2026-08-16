@@ -102,7 +102,7 @@ export default function VoiceAgentsAgentsPage() {
       />
 
       <section className="mt-10 flex flex-col items-center text-center">
-        <AgentAvatar muted size={64} alt="" />
+        <AgentAvatar muted size={64} alt="" className="text-neutral-500 opacity-60 dark:text-neutral-400" />
         <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
           What should your voice agent do?
         </h1>

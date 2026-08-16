@@ -53,13 +53,11 @@ function callErrorCopy(raw: string): { title: string; body: string } {
 /**
  * Real browser "Test Agent" call — connects the mic to a LiveKit room via
  * POST /v1/calls, plays the agent's synthesized voice back, and shows a
- * live Bar Visualizer driven by the agent's actual audio frequency bands.
+ * live bar visualizer: user mic while listening, agent audio while speaking.
  *
- * Live transcript: listens for LiveKit's client-side `TranscriptionReceived`
- * event. Kupe's agent backend doesn't publish transcription segments yet
- * (no publisher found in kupe-agents), so this panel ships correctly empty
- * today and will populate automatically the moment the backend starts
- * emitting them — not a bug, a forward-compatible no-op until then.
+ * Live transcript: the agent publishes `{kind:"transcript"}` on the LiveKit
+ * data channel. TranscriptionReceived is a fallback if a provider also
+ * ships LiveKit transcription segments.
  */
 export function TestAgentCallDialog({
   open,
@@ -76,7 +74,8 @@ export function TestAgentCallDialog({
 }) {
   const [status, setStatus] = useState<WebCallStatus>("idle");
   const [level, setLevel] = useState(0);
-  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
+  const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [turns, setTurns] = useState<LiveTurn[]>([]);
@@ -89,7 +88,8 @@ export function TestAgentCallDialog({
       handleRef.current = null;
       setStatus("idle");
       setLevel(0);
-      setMediaStream(null);
+      setAgentStream(null);
+      setLocalStream(null);
       setMuted(false);
       setErrorMsg(null);
       setTurns([]);
@@ -102,7 +102,8 @@ export function TestAgentCallDialog({
     void startWebCall(agentId, {
       onStatusChange: (s) => !cancelled && setStatus(s),
       onAgentAudioLevel: (l) => !cancelled && setLevel(l),
-      onAgentTrack: (track) => !cancelled && setMediaStream(new MediaStream([track])),
+      onAgentTrack: (track) => !cancelled && setAgentStream(new MediaStream([track])),
+      onLocalTrack: (track) => !cancelled && setLocalStream(new MediaStream([track])),
       onError: (err) => {
         if (cancelled) return;
         setErrorMsg(friendlyVoiceError(err, webCallErrorMessage(err)));
@@ -114,6 +115,36 @@ export function TestAgentCallDialog({
       }
       handleRef.current = handle;
 
+      handle.room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+        if (cancelled) return;
+        try {
+          const parsed = JSON.parse(new TextDecoder().decode(payload)) as {
+            kind?: string;
+            role?: string;
+            text?: string;
+            final?: boolean;
+          };
+          if (parsed.kind !== "transcript" || !parsed.text) return;
+          const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
+          const id = `${role}-live`;
+          setTurns((prev) => {
+            const next = [...prev];
+            if (parsed.final === false) {
+              const idx = next.findIndex((t) => t.id === id);
+              if (idx >= 0) next[idx] = { id, role, text: parsed.text! };
+              else next.push({ id, role, text: parsed.text! });
+              return next;
+            }
+            const liveIdx = next.findIndex((t) => t.id === id);
+            const turn = { id: `${role}-${next.length}-${parsed.text!.slice(0, 12)}`, role, text: parsed.text! };
+            if (liveIdx >= 0) next[liveIdx] = turn;
+            else next.push(turn);
+            return next;
+          });
+        } catch {
+          // ignore non-transcript data messages
+        }
+      });
       handle.room.on(
         RoomEvent.TranscriptionReceived,
         (segments: TranscriptionSegment[], participant) => {
@@ -159,11 +190,13 @@ export function TestAgentCallDialog({
           ? "Couldn't connect"
           : "Call ended";
 
+  const agentSpeaking = status === "connected" && level > 0.04;
+  const vizStream = agentSpeaking ? agentStream : (localStream ?? agentStream);
   const visualizerState: AgentState | undefined =
     status === "connecting"
       ? "connecting"
       : status === "connected"
-        ? level > 0.04
+        ? agentSpeaking
           ? "speaking"
           : "listening"
         : undefined;
@@ -220,8 +253,9 @@ export function TestAgentCallDialog({
           ) : (
             <BarVisualizer
               state={visualizerState}
-              mediaStream={mediaStream}
-              demo={!mediaStream && status === "connecting"}
+              mediaStream={vizStream}
+              demo={!vizStream && status === "connecting"}
+              flat
               barCount={15}
               className="w-full"
             />

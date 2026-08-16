@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Phone, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -45,12 +45,36 @@ function newDestination(): TransferDestination {
 export function AgentTransferPanel({ agentId }: { agentId: string }) {
   const [config, setConfig] = useState<CallTransferConfig>({ enabled: false, destinations: [] });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const readyRef = useRef(false);
+  const lastSavedRef = useRef("");
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  const persist = useCallback(async (next: CallTransferConfig) => {
+    const serialized = JSON.stringify(next);
+    if (serialized === lastSavedRef.current) return;
+    setSaveState("saving");
+    try {
+      const saved = await updateCallTransferConfig(agentId, next);
+      lastSavedRef.current = JSON.stringify(saved);
+      setConfig(saved);
+      captureEvent("transfer_configured", { agent_id: agentId, enabled: saved.enabled });
+      setSaveState("saved");
+    } catch (err) {
+      setSaveState("idle");
+      toast.error(friendlyVoiceError(err, "Couldn't save transfer settings"));
+    }
+  }, [agentId]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    readyRef.current = false;
     try {
-      setConfig(await getCallTransferConfig(agentId));
+      const loaded = await getCallTransferConfig(agentId);
+      lastSavedRef.current = JSON.stringify(loaded);
+      setConfig(loaded);
+      readyRef.current = true;
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't load transfer settings"));
     } finally {
@@ -62,19 +86,21 @@ export function AgentTransferPanel({ agentId }: { agentId: string }) {
     void refresh();
   }, [refresh]);
 
-  async function save(next: CallTransferConfig) {
-    setSaving(true);
-    try {
-      const saved = await updateCallTransferConfig(agentId, next);
-      setConfig(saved);
-      captureEvent("transfer_configured", { agent_id: agentId, enabled: saved.enabled });
-      toast.success("Transfer settings saved");
-    } catch (err) {
-      toast.error(friendlyVoiceError(err, "Couldn't save transfer settings"));
-    } finally {
-      setSaving(false);
-    }
-  }
+  useEffect(() => {
+    if (!readyRef.current) return;
+    if (JSON.stringify(config) === lastSavedRef.current) return;
+    const t = setTimeout(() => void persist(configRef.current), 500);
+    return () => clearTimeout(t);
+  }, [config, persist]);
+
+  useEffect(() => {
+    return () => {
+      const latest = configRef.current;
+      if (readyRef.current && JSON.stringify(latest) !== lastSavedRef.current) {
+        void updateCallTransferConfig(agentId, latest).catch(() => undefined);
+      }
+    };
+  }, [agentId]);
 
   function patchDestination(id: string, patch: Partial<TransferDestination>) {
     setConfig((c) => ({
@@ -111,6 +137,11 @@ export function AgentTransferPanel({ agentId }: { agentId: string }) {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {saveState === "saving" ? (
+            <span className="text-xs text-muted-foreground">Saving…</span>
+          ) : saveState === "saved" ? (
+            <span className="text-xs text-muted-foreground">Saved</span>
+          ) : null}
           <Label htmlFor="transfer-enabled" className="text-sm text-muted-foreground">
             {config.enabled ? "Enabled" : "Disabled"}
           </Label>
@@ -150,12 +181,6 @@ export function AgentTransferPanel({ agentId }: { agentId: string }) {
           </Button>
         </div>
       )}
-
-      <div className="flex justify-end border-t border-border pt-4">
-        <Button type="button" className="rounded-full" onClick={() => void save(config)} loading={saving}>
-          Save
-        </Button>
-      </div>
     </div>
   );
 }
