@@ -185,7 +185,7 @@ export function CommandPalette({
                       onSelect={() => go(item.href, item.label)}
                       className={cn("group/nav gap-2.5", active && "font-semibold")}
                     >
-                      <ModernIcon name={item.icon} className="size-4 text-muted-foreground" />
+                      <ModernIcon name={item.icon} className="size-5 text-muted-foreground" />
                       <span className="flex-1">{item.label}</span>
                       {active && (
                         <span className="text-xs text-muted-foreground">Current</span>

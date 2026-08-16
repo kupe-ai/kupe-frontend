@@ -87,7 +87,7 @@ function NavLinks({
                 : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             );
 
-            const icon = <ModernIcon name={item.icon} className="size-4" />;
+            const icon = <ModernIcon name={item.icon} className="size-5" />;
 
             const link = isSettings ? (
               <button

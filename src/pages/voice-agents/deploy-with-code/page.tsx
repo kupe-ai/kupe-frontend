@@ -134,7 +134,7 @@ export default function VoiceAgentsDeployCodePage() {
               to={`/deploy-with-code/apis/${card.slug}`}
               className="group/nav pressable rounded-2xl border border-border bg-card p-5 shadow-elevated hover:bg-muted/20"
             >
-              <AsciiIcon kind={card.kind} tone={card.tone} size="md" />
+              <AsciiIcon kind={card.kind} tone={card.tone} size="lg" />
               <h3 className="mt-3 text-sm font-semibold">{card.title}</h3>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 {card.description}

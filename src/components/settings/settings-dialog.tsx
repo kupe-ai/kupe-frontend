@@ -177,7 +177,7 @@ export function SettingsDialog() {
                           <KupeIcon
                             name={item.icon}
                             className={cn(
-                              "size-4",
+                              "size-5",
                               active ? "text-foreground" : "text-muted-foreground",
                             )}
                           />

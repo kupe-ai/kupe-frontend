@@ -215,7 +215,7 @@ export default function VoiceAgentEditorPage() {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <KupeIcon name={item.icon} className="size-4 opacity-80" />
+                <KupeIcon name={item.icon} className="size-5 opacity-80" />
                 {item.label}
               </button>
             );

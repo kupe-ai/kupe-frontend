@@ -37,7 +37,7 @@ function NavLinkRow({
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
-      <ModernIcon name={icon} className="size-4" />
+      <ModernIcon name={icon} className="size-5" />
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
   );

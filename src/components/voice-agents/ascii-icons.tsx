@@ -53,13 +53,13 @@ const TONE_CLASS: Record<AsciiIconTone, string> = {
 };
 
 const TONE_BG: Record<AsciiIconTone, string> = {
-  amber: "bg-amber-500/10 ring-amber-500/25 group-hover/nav:ring-amber-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(245,158,11,0.55)]",
-  coral: "bg-primary/10 ring-primary/25 group-hover/nav:ring-primary/50 group-hover/nav:shadow-[0_0_18px_-6px_color-mix(in_oklch,var(--primary)_55%,transparent)]",
-  emerald: "bg-emerald-500/10 ring-emerald-500/25 group-hover/nav:ring-emerald-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(52,211,153,0.5)]",
-  sky: "bg-primary/10 ring-primary/25 group-hover/nav:ring-primary/50 group-hover/nav:shadow-[0_0_18px_-6px_color-mix(in_oklch,var(--primary)_55%,transparent)]",
-  violet: "bg-violet-500/10 ring-violet-500/25 group-hover/nav:ring-violet-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(167,139,250,0.5)]",
-  slate: "bg-muted ring-border group-hover/nav:ring-foreground/20",
-  rose: "bg-rose-500/10 ring-rose-500/25 group-hover/nav:ring-rose-400/55 group-hover/nav:shadow-[0_0_18px_-6px_rgba(251,113,133,0.5)]",
+  amber: "bg-amber-500/10",
+  coral: "bg-primary/10",
+  emerald: "bg-emerald-500/10",
+  sky: "bg-primary/10",
+  violet: "bg-violet-500/10",
+  slate: "bg-muted",
+  rose: "bg-rose-500/10",
 };
 
 const ICONS: Record<AsciiIconKind, KupeIconName> = {
@@ -88,10 +88,10 @@ const ICONS: Record<AsciiIconKind, KupeIconName> = {
 };
 
 const SIZE_CLASS = {
-  sm: "size-4",
-  md: "size-5",
-  lg: "size-6",
-  xl: "size-8",
+  sm: "size-5",
+  md: "size-6",
+  lg: "size-7",
+  xl: "size-9",
 } as const;
 
 const BOX_SIZE = {
@@ -119,7 +119,7 @@ export function AsciiIcon({
       role={title ? "img" : "presentation"}
       aria-label={title}
       className={cn(
-        "group/nav inline-flex items-center justify-center rounded-xl ring-1 transition-[box-shadow,background-color] duration-200",
+        "group/nav inline-flex items-center justify-center rounded-xl",
         BOX_SIZE[size],
         TONE_BG[tone],
         TONE_CLASS[tone],
