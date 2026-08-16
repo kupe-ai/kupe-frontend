@@ -22,9 +22,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DEPLOY_API_CARDS, DEPLOY_RECIPES } from "@/lib/voice-deploy-data";
 import { createVoiceApiKey } from "@/lib/api/voice/api-keys";
+import { useSettingsDialogOptional } from "@/components/settings/settings-dialog-context";
 
 export default function VoiceAgentsDeployCodePage() {
   const navigate = useNavigate();
+  const settings = useSettingsDialogOptional();
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
@@ -54,7 +56,15 @@ export default function VoiceAgentsDeployCodePage() {
         title="Deploy with code"
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="rounded-full" onClick={() => navigate("/voice-agents/settings")}>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => {
+                if (!settings?.openSettings("keys")) {
+                  navigate("/voice-agents/settings");
+                }
+              }}
+            >
               <KeyRound className="size-3.5" />
               API keys
             </Button>

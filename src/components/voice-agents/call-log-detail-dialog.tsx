@@ -13,7 +13,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Message, MessageContent } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
 import { getInteraction } from "@/lib/api/voice/calls";
@@ -51,19 +51,25 @@ export function CallLogDetailDialog({
 
   if (!callId) return null;
 
-  const interactionInfo = detail
+  const interactionInfo: {
+    key: string;
+    value: string;
+    chip?: boolean;
+    copy?: boolean;
+    truncate?: boolean;
+  }[] = detail
     ? [
-        { key: "Call ID", value: detail.id },
-        { key: "Direction", value: detail.direction },
+        { key: "Call ID", value: detail.id, copy: true, truncate: true },
+        { key: "Direction", value: detail.direction, chip: true },
         { key: "Channel", value: detail.channel },
-        { key: "Status", value: detail.status },
-        { key: "Connectivity", value: detail.connectivity ?? "—" },
+        { key: "Status", value: detail.status, chip: true },
+        { key: "Connectivity", value: detail.connectivity ?? "—", chip: true },
         { key: "Ended by", value: detail.ended_by ?? "—" },
         { key: "Started at", value: new Date(detail.started_at).toLocaleString() },
         { key: "Duration", value: detail.duration_seconds != null ? `${detail.duration_seconds}s` : "—" },
         { key: "Language", value: detail.language ?? "—" },
         { key: "Messages", value: String(detail.message_count) },
-        { key: "User identifier", value: detail.user_identifier ?? "—" },
+        { key: "User identifier", value: detail.user_identifier ?? "—", copy: Boolean(detail.user_identifier), truncate: true },
       ]
     : [];
 
@@ -81,7 +87,7 @@ export function CallLogDetailDialog({
           <div className="min-w-0">
             <h2 className="text-base font-semibold">Unified View Details</h2>
             <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="truncate font-mono">{callId}</span>
+              <span className="min-w-0 truncate font-mono" title={callId}>{callId}</span>
               <button type="button" onClick={() => copy(callId)}>
                 <Copy className="size-3.5" />
               </button>
@@ -128,9 +134,7 @@ export function CallLogDetailDialog({
               <section>
                 <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Goal status</p>
                 <div className="mt-2">
-                  <Badge variant="secondary" className="font-normal capitalize">
-                    {detail.goal_status ?? "not_evaluated"}
-                  </Badge>
+                  <StatusChip status={detail.goal_status ?? "not_evaluated"} />
                 </div>
               </section>
 
@@ -152,9 +156,25 @@ export function CallLogDetailDialog({
                 <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">Interaction info</p>
                 <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2">
                   {interactionInfo.map((v) => (
-                    <div key={v.key}>
+                    <div key={v.key} className="min-w-0">
                       <dt className="text-xs text-muted-foreground">{v.key}</dt>
-                      <dd className="mt-0.5 break-all text-sm">{v.value}</dd>
+                      <dd className="mt-0.5 min-w-0 text-sm">
+                        {v.chip ? (
+                          <StatusChip status={v.value} />
+                        ) : v.copy ? (
+                          <button
+                            type="button"
+                            title={v.value}
+                            className="inline-flex w-full max-w-[14rem] min-w-0 items-center gap-1"
+                            onClick={() => copy(v.value)}
+                          >
+                            <span className={cn("min-w-0 font-mono text-xs", v.truncate && "truncate")}>{v.value}</span>
+                            <Copy className="size-3 shrink-0 text-muted-foreground" />
+                          </button>
+                        ) : (
+                          <span className="break-all">{v.value}</span>
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>

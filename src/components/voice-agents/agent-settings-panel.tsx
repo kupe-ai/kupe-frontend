@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { GripVertical, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/searchable-select";
+import { SearchableMultiSelect, SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
 import { KupeVoicePicker } from "@/components/voice-agents/kupe-voice-picker";
+import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 import { cn } from "@/lib/utils";
 import {
   getAgentSettings,
@@ -34,6 +35,7 @@ import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
+import { displayProviderName } from "@/lib/voice/provider-brand";
 
 function SettingRow({
   title,
@@ -74,6 +76,7 @@ function RangeControl({
   format?: (v: number) => string;
   className?: string;
 }) {
+  const progress = max === min ? 0 : ((value - min) / (max - min)) * 100;
   return (
     <div className={cn("flex items-center gap-3", className)}>
       <input
@@ -83,13 +86,28 @@ function RangeControl({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-36 cursor-pointer appearance-none rounded-full bg-muted accent-foreground"
+        className="kupe-range"
+        style={{ "--range-progress": `${progress}%` } as CSSProperties}
       />
       <span className="min-w-[3.5rem] text-right text-sm tabular-nums text-muted-foreground">
         {format ? format(value) : value}
       </span>
     </div>
   );
+}
+
+function providerOptions(
+  rows: { id: string; provider_name: string; model_name: string; is_default?: boolean }[],
+): SearchableOption[] {
+  return rows.map((p) => ({
+    value: p.id,
+    label: p.model_name,
+    group: p.provider_name,
+    groupLabel: displayProviderName(p.provider_name),
+    icon: <ProviderLogo provider={p.provider_name} size="sm" />,
+    keywords: `${p.provider_name} ${displayProviderName(p.provider_name)} ${p.model_name}`,
+    hint: p.is_default ? "default" : undefined,
+  }));
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
@@ -334,12 +352,7 @@ export function AgentSettingsPanel({
           disabled={!llmProviders.length}
           placeholder={llmProviders.length ? "Select LLM" : "No LLMs available"}
           searchPlaceholder="Search models…"
-          options={llmProviders.map((p) => ({
-            value: p.id,
-            label: `${p.provider_name} · ${p.model_name}`,
-            keywords: `${p.provider_name} ${p.model_name}`,
-            hint: p.is_default ? "default" : undefined,
-          }))}
+          options={providerOptions(llmProviders)}
         />
       </SettingRow>
       <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Soniox tts-rt-v2.">
@@ -352,12 +365,7 @@ export function AgentSettingsPanel({
           disabled={!ttsProviders.length}
           placeholder={ttsProviders.length ? "Select TTS" : "No TTS available"}
           searchPlaceholder="Search TTS models…"
-          options={ttsProviders.map((p) => ({
-            value: p.id,
-            label: `${p.provider_name} · ${p.model_name}`,
-            keywords: `${p.provider_name} ${p.model_name}`,
-            hint: p.is_default ? "default" : undefined,
-          }))}
+          options={providerOptions(ttsProviders)}
         />
       </SettingRow>
       <SettingRow title="Voice identity" description="Specific TTS voice for this model — search, preview, and pick.">
@@ -376,12 +384,7 @@ export function AgentSettingsPanel({
           disabled={!sttProviders.length}
           placeholder={sttProviders.length ? "Select STT" : "No STT available"}
           searchPlaceholder="Search STT models…"
-          options={sttProviders.map((p) => ({
-            value: p.id,
-            label: `${p.provider_name} · ${p.model_name}`,
-            keywords: `${p.provider_name} ${p.model_name} ${p.name}`,
-            hint: p.is_default ? "default" : undefined,
-          }))}
+          options={providerOptions(sttProviders)}
         />
       </SettingRow>
 
@@ -405,17 +408,6 @@ export function AgentSettingsPanel({
           onChange={(v) => set("pitch", v)}
           format={(v) => v.toFixed(2)}
         />
-      </SettingRow>
-      <SettingRow title="Pronunciation dictionary" description="Custom pronunciations for names and brands.">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="rounded-full"
-          onClick={() => toast.message("Upload dictionary — coming soon")}
-        >
-          + Upload dictionary
-        </Button>
       </SettingRow>
 
       <SectionTitle>Thinking & knowledge</SectionTitle>

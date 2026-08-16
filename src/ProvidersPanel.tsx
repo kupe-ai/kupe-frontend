@@ -4,6 +4,8 @@ import type { ProviderSelection, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { displayProviderName } from "@/lib/voice/provider-brand";
+import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 
 type Props = {
   selection: ProviderSelection | null;
@@ -59,8 +61,11 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
         className="w-full"
         options={items.map((item) => ({
           value: item.id,
-          label: `${item.provider_name} / ${item.model_name}`,
-          keywords: `${item.provider_name} ${item.model_name}`,
+          label: item.model_name,
+          group: item.provider_name,
+          groupLabel: displayProviderName(item.provider_name),
+          icon: <ProviderLogo provider={item.provider_name} size="sm" />,
+          keywords: `${item.provider_name} ${displayProviderName(item.provider_name)} ${item.model_name}`,
           hint: item.is_default ? "default" : undefined,
         }))}
       />

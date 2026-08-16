@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, Pencil, Sparkles, XIcon } from "lucide-react";
-import { PetSprite } from "@/components/pets/pet-sprite";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -137,7 +137,7 @@ export function TemplateAgentDialog({
             </Button>
 
             <div className="pr-8">
-              <PetSprite seed={template.seed} size={36} frame="stand" />
+              <AgentAvatar seed={template.seed} size={48} />
               <h2 className="mt-3 text-xl font-semibold tracking-tight">
                 {template.name}
               </h2>

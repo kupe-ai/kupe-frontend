@@ -8,23 +8,25 @@ import {
   MoreVertical,
   Pencil,
   Search,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { VoicePagination } from "@/components/voice-agents/shared";
+import { QuickContextMenu } from "@/components/quick-context-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/ui/status-chip";
 import {
   getKnowledgeBase,
+  deleteKnowledgeFile,
   listKnowledgeFiles,
   searchKnowledgeBase,
   uploadKnowledgeFile,
 } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceKnowledgeBase, VoiceKnowledgeFile } from "@/lib/api/voice/types";
-import { cn } from "@/lib/utils";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 
 function formatBytes(bytes: number) {
@@ -187,28 +189,21 @@ export default function VoiceAgentsKnowledgeDetailPage() {
           />
           <div>
             <p className="text-xs text-muted-foreground">Status</p>
-            <Badge
-              className={cn(
-                "mt-1 font-normal",
-                kb.status === "processing" &&
-                  "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
-              )}
-            >
-              {kb.status === "processing" ? "Processing" : kb.status}
-            </Badge>
+            <StatusChip className="mt-1" status={kb.status} />
           </div>
           <Stat label="Created" value={new Date(kb.created_at).toLocaleDateString()} />
           <div>
             <p className="text-xs text-muted-foreground">KB ID</p>
             <button
               type="button"
-              className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-sm hover:underline"
+              className="mt-1 inline-flex w-[11rem] max-w-full min-w-0 items-center gap-1 text-sm hover:underline"
+              title={kb.id}
               onClick={() => {
                 void navigator.clipboard.writeText(kb.id);
                 toast.message("Copied KB ID");
               }}
             >
-              <span className="truncate">{kb.id.slice(0, 12)}…{kb.id.slice(-4)}</span>
+              <span className="min-w-0 truncate font-mono text-xs">{kb.id}</span>
               <Copy className="size-3.5 shrink-0 text-muted-foreground" />
             </button>
           </div>
@@ -227,33 +222,48 @@ export default function VoiceAgentsKnowledgeDetailPage() {
           </div>
           <ul className="divide-y divide-border">
             {files.map((f) => (
-              <li
+              <QuickContextMenu
                 key={f.id}
-                className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3"
+                title={f.name}
+                items={[
+                  {
+                    label: "Copy name",
+                    icon: Copy,
+                    onSelect: () => {
+                      void navigator.clipboard.writeText(f.name);
+                      toast.message("Name copied");
+                    },
+                  },
+                  { type: "separator" },
+                  {
+                    label: "Delete",
+                    icon: Trash2,
+                    variant: "destructive",
+                    onSelect: async () => {
+                      await deleteKnowledgeFile(id, f.id);
+                      toast.message("File deleted");
+                      void refresh();
+                    },
+                  },
+                ]}
               >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-                    {f.name.split(".").pop()?.toUpperCase().slice(0, 4) || "FILE"}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{f.name}</p>
+                <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+                      {f.name.split(".").pop()?.toUpperCase().slice(0, 4) || "FILE"}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{f.name}</p>
+                    </div>
                   </div>
-                </div>
-                <span className="text-sm text-muted-foreground">{formatBytes(f.size_bytes)}</span>
-                <Badge
-                  className={cn(
-                    "font-normal",
-                    f.status === "processing" &&
-                      "bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-100",
-                  )}
-                >
-                  {f.status === "processing" ? "Processing" : f.status}
-                </Badge>
-                <span className="text-sm text-muted-foreground">{f.chunk_count}</span>
-                <Button variant="ghost" size="icon-sm" aria-label="File options">
-                  <MoreVertical className="size-4" />
-                </Button>
-              </li>
+                  <span className="text-sm text-muted-foreground">{formatBytes(f.size_bytes)}</span>
+                  <StatusChip status={f.status} />
+                  <span className="text-sm text-muted-foreground">{f.chunk_count}</span>
+                  <Button variant="ghost" size="icon-sm" aria-label="File options">
+                    <MoreVertical className="size-4" />
+                  </Button>
+                </li>
+              </QuickContextMenu>
             ))}
           </ul>
           <div className="border-t border-border px-3">

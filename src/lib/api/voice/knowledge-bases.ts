@@ -43,6 +43,16 @@ export async function createKnowledgeBase(input: { name: string; description?: s
   return row;
 }
 
+export async function updateKnowledgeBase(kbId: string, data: Partial<Pick<VoiceKnowledgeBase, "name" | "description">>) {
+  const rows = readStore<VoiceKnowledgeBase[]>(kbKey(), []);
+  const now = new Date().toISOString();
+  const next = rows.map((k) => (k.id === kbId ? { ...k, ...data, updated_at: now } : k));
+  writeStore(kbKey(), next);
+  const row = next.find((k) => k.id === kbId);
+  if (!row) throw new Error("Knowledge base not found");
+  return row;
+}
+
 export async function deleteKnowledgeBase(kbId: string) {
   writeStore(
     kbKey(),
@@ -68,6 +78,14 @@ export async function uploadKnowledgeFile(kbId: string, file: File): Promise<Voi
   };
   writeStore(filesKey(kbId), [row, ...readStore<VoiceKnowledgeFile[]>(filesKey(kbId), [])]);
   return row;
+}
+
+export async function deleteKnowledgeFile(kbId: string, fileId: string) {
+  writeStore(
+    filesKey(kbId),
+    readStore<VoiceKnowledgeFile[]>(filesKey(kbId), []).filter((f) => f.id !== fileId),
+  );
+  return { success: true };
 }
 
 export async function searchKnowledgeBase(_kbId: string, _query: string, _topK = 5) {

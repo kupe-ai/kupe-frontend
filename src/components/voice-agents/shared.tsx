@@ -1,18 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Copy,
+  ExternalLink,
+  Pencil,
   Search,
+  Trash2,
 } from "lucide-react";
-import { PetSprite } from "@/components/pets/pet-sprite";
+import { toast } from "sonner";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { QuickContextMenu, type QuickMenuEntry } from "@/components/quick-context-menu";
+import { RenameDialog } from "@/components/rename-dialog";
+import {
+  deleteVoiceAgent,
+  duplicateVoiceAgent,
+  listVoiceAgentTemplates,
+  updateVoiceAgent,
+} from "@/lib/api/voice/agents";
 import {
   Select,
   SelectContent,
@@ -28,7 +41,6 @@ import {
   type VoiceAgentTemplate,
 } from "@/lib/voice-agents-data";
 import { TemplateAgentDialog } from "@/components/voice-agents/template-agent-dialog";
-import { listVoiceAgentTemplates } from "@/lib/api/voice/agents";
 
 export function VoicePageHeader({
   title,
@@ -122,19 +134,33 @@ export function VoicePagination({
   );
 }
 
+async function copyValue(text: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.message(`${label} copied`);
+  } catch {
+    toast.error(`Couldn't copy ${label.toLowerCase()}`);
+  }
+}
+
 export function RecentAgentsTable({
   agents,
   searchPlaceholder = "Search...",
   defaultPerPage = 3,
+  onChanged,
 }: {
   agents: RecentVoiceAgent[];
   searchPlaceholder?: string;
   defaultPerPage?: number;
+  onChanged?: () => void;
 }) {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(defaultPerPage);
+  const [renaming, setRenaming] = useState<RecentVoiceAgent | null>(null);
+  const [renamingBusy, setRenamingBusy] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -197,29 +223,55 @@ export function RecentAgentsTable({
         ) : (
           <ul className="divide-y divide-border">
             {pageItems.map((agent) => (
-              <li key={agent.id}>
-                <Link
-                  to={`/voice-agents/agents/${agent.id}`}
-                  className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex size-9 items-center justify-center rounded-full bg-muted">
-                      <PetSprite seed={agent.seed} size={22} frame="stand" />
+              <QuickContextMenu
+                key={agent.id}
+                title={agent.name}
+                items={agentMenuItems(agent, {
+                  onOpen: () => navigate(`/voice-agents/agents/${agent.id}`),
+                  onRename: () => setRenaming(agent),
+                  onDuplicate: async () => {
+                    try {
+                      const copy = await duplicateVoiceAgent(agent.id);
+                      toast.message("Agent duplicated");
+                      onChanged?.();
+                      navigate(`/voice-agents/agents/${copy.id}`);
+                    } catch {
+                      toast.error("Couldn't duplicate agent");
+                    }
+                  },
+                  onDelete: async () => {
+                    try {
+                      await deleteVoiceAgent(agent.id);
+                      toast.message("Agent deleted");
+                      onChanged?.();
+                    } catch {
+                      toast.error("Couldn't delete agent");
+                    }
+                  },
+                })}
+              >
+                <li className="cursor-context-menu">
+                  <Link
+                    to={`/voice-agents/agents/${agent.id}`}
+                    className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <AgentAvatar seed={agent.seed} size={36} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">
+                          {agent.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {agent.email}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">
-                        {agent.name}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {agent.email}
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-sm text-muted-foreground tabular-nums">
-                    {agent.lastEdited}
-                  </span>
-                </Link>
-              </li>
+                    <span className="text-sm text-muted-foreground tabular-nums">
+                      {agent.lastEdited}
+                    </span>
+                  </Link>
+                </li>
+              </QuickContextMenu>
             ))}
           </ul>
         )}
@@ -233,8 +285,69 @@ export function RecentAgentsTable({
           />
         </div>
       </div>
+
+      <RenameDialog
+        open={Boolean(renaming)}
+        onOpenChange={(open) => {
+          if (!open) setRenaming(null);
+        }}
+        title="Rename agent"
+        initial={renaming?.name ?? ""}
+        submitting={renamingBusy}
+        onSubmit={async (name) => {
+          if (!renaming) return;
+          setRenamingBusy(true);
+          try {
+            await updateVoiceAgent(renaming.id, { name });
+            toast.message("Agent renamed");
+            setRenaming(null);
+            onChanged?.();
+          } catch {
+            toast.error("Couldn't rename agent");
+          } finally {
+            setRenamingBusy(false);
+          }
+        }}
+      />
     </div>
   );
+}
+
+function agentMenuItems(
+  agent: RecentVoiceAgent,
+  handlers: {
+    onOpen: () => void;
+    onRename: () => void;
+    onDuplicate: () => void | Promise<void>;
+    onDelete: () => void | Promise<void>;
+  },
+): QuickMenuEntry[] {
+  const href = `${typeof window !== "undefined" ? window.location.origin : ""}/voice-agents/agents/${agent.id}`;
+  return [
+    { label: "Open", icon: ExternalLink, onSelect: handlers.onOpen },
+    { label: "Rename", icon: Pencil, onSelect: handlers.onRename },
+    {
+      label: "Duplicate",
+      icon: Copy,
+      onSelect: () => void handlers.onDuplicate(),
+    },
+    {
+      label: "Copy",
+      icon: Copy,
+      children: [
+        { label: "Copy name", onSelect: () => void copyValue(agent.name, "Name") },
+        { label: "Copy link", onSelect: () => void copyValue(href, "Link") },
+        { label: "Copy ID", onSelect: () => void copyValue(agent.id, "ID") },
+      ],
+    },
+    { type: "separator" },
+    {
+      label: "Delete",
+      icon: Trash2,
+      variant: "destructive",
+      onSelect: () => void handlers.onDelete(),
+    },
+  ];
 }
 
 const INITIAL_TEMPLATE_COUNT = 6;
@@ -304,8 +417,8 @@ export function AgentTemplatesSection({
               className={cn(
                 "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
                 filter === f.id
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  ? "kupe-chip-active"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
               )}
             >
               {f.label}
@@ -316,22 +429,28 @@ export function AgentTemplatesSection({
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visible.map((tpl) => (
-          <button
+          <QuickContextMenu
             key={tpl.id}
-            type="button"
-            onClick={() => openTemplate(tpl)}
-            className="rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/30"
+            title={tpl.name}
+            items={[
+              { label: "Use template", icon: ExternalLink, onSelect: () => openTemplate(tpl) },
+              { label: "Copy name", icon: Copy, onSelect: () => void copyValue(tpl.name, "Name") },
+            ]}
           >
-            <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-              <PetSprite seed={tpl.seed} size={26} frame="stand" />
-            </div>
-            <h3 className="mt-3 text-sm font-semibold tracking-tight">
-              {tpl.name}
-            </h3>
-            <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
-              {tpl.description}
-            </p>
-          </button>
+            <button
+              type="button"
+              onClick={() => openTemplate(tpl)}
+              className="cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/30"
+            >
+              <AgentAvatar seed={tpl.seed} size={40} />
+              <h3 className="mt-3 text-sm font-semibold tracking-tight">
+                {tpl.name}
+              </h3>
+              <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-muted-foreground">
+                {tpl.description}
+              </p>
+            </button>
+          </QuickContextMenu>
         ))}
       </div>
 

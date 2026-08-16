@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronRight, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { QuickContextMenu } from "@/components/quick-context-menu";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,6 @@ const STATUS_LABEL: Record<VoiceKycApplication["status"], string> = {
 };
 
 export default function VoiceAgentsPhoneNumbersPage() {
-  const navigate = useNavigate();
   const [kycOpen, setKycOpen] = useState(false);
   const [applications, setApplications] = useState<VoiceKycApplication[]>([]);
   const [numbers, setNumbers] = useState<VoicePhoneNumber[]>([]);
@@ -73,11 +72,34 @@ export default function VoiceAgentsPhoneNumbersPage() {
           </div>
           <ul className="divide-y divide-border">
             {numbers.map((n) => (
-              <li key={n.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-3">
-                <span className="font-mono text-sm">{n.e164_number}</span>
-                <span className="text-sm capitalize text-muted-foreground">{n.provider}</span>
-                <Badge className="font-normal capitalize">{n.status.replace("_", " ")}</Badge>
-              </li>
+              <QuickContextMenu
+                key={n.id}
+                title={n.e164_number}
+                items={[
+                  {
+                    label: "Copy number",
+                    icon: Copy,
+                    onSelect: () => {
+                      void navigator.clipboard.writeText(n.e164_number);
+                      toast.message("Number copied");
+                    },
+                  },
+                  {
+                    label: "Copy ID",
+                    icon: Copy,
+                    onSelect: () => {
+                      void navigator.clipboard.writeText(n.id);
+                      toast.message("ID copied");
+                    },
+                  },
+                ]}
+              >
+                <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                  <span className="font-mono text-sm">{n.e164_number}</span>
+                  <span className="text-sm capitalize text-muted-foreground">{n.provider}</span>
+                  <StatusChip status={n.status} />
+                </li>
+              </QuickContextMenu>
             ))}
           </ul>
         </div>
@@ -92,9 +114,9 @@ export default function VoiceAgentsPhoneNumbersPage() {
             <h2 className="text-lg font-semibold tracking-tight">
               Rent from Kupe
             </h2>
-            <Badge className="bg-emerald-100 font-normal text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+            <StatusChip status={latestKyc?.status ?? "draft"}>
               {latestKyc ? STATUS_LABEL[latestKyc.status] : "Not started"}
-            </Badge>
+            </StatusChip>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">
             {latestKyc
@@ -113,13 +135,6 @@ export default function VoiceAgentsPhoneNumbersPage() {
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            className="mt-4 text-sm text-sky-600 hover:underline dark:text-sky-400"
-            onClick={() => navigate("/voice-agents/pricing")}
-          >
-            Usage-based pricing · View details
-          </button>
           <Button
             className="mt-6 w-full rounded-full"
             onClick={() => setKycOpen(true)}
@@ -205,7 +220,7 @@ function KycWizard({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent showCloseButton={false} className="gap-0 overflow-hidden p-0 sm:max-w-lg">
         <DialogTitle className="sr-only">KYC verification</DialogTitle>
-        <div className="flex items-center gap-2 bg-foreground px-4 py-3 text-background">
+        <div className="kupe-hero-fill flex items-center gap-2 px-4 py-3 text-white">
           <AsciiIcon kind="phone" tone="coral" size="sm" className="!text-primary" />
           <span className="text-sm font-semibold tracking-tight">kupe</span>
         </div>
@@ -269,7 +284,7 @@ function KycWizard({
                     setStep("verify");
                   }}
                 >
-                  <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-foreground text-background">
+                  <div className="kupe-hero-fill flex size-11 shrink-0 items-center justify-center rounded-lg text-white">
                     <AsciiIcon kind="building" tone="slate" size="sm" className="!text-background" />
                   </div>
                   <div className="min-w-0 flex-1">

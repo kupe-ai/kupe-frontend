@@ -3,19 +3,11 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { api } from "@/lib/api";
 import type { AnalysisResult, Organization, SessionInfo, TranscriptInfo } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusChip } from "@/components/ui/status-chip";
 
 const PAGE_SIZE = 10;
-
-function statusBadge(status: string) {
-  if (status === "active" || status === "completed" || status === "ready" || status === "ended")
-    return "success" as const;
-  if (status === "failed" || status === "error") return "destructive" as const;
-  if (status === "pending" || status === "processing" || status === "starting") return "warning" as const;
-  return "secondary" as const;
-}
 
 export default function HistoryPanel({ org, refreshKey }: { org: Organization; refreshKey: number }) {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
@@ -92,7 +84,7 @@ export default function HistoryPanel({ org, refreshKey }: { org: Organization; r
         {sessions.map((s) => (
           <div key={s.session_id} className="rounded-md border border-border p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={statusBadge(s.status)}>{s.status}</Badge>
+              <StatusChip status={s.status} />
               <span className="font-mono text-xs text-muted-foreground">
                 {new Date(s.created_at).toLocaleString()}
               </span>
@@ -127,8 +119,9 @@ export default function HistoryPanel({ org, refreshKey }: { org: Organization; r
                   )}
                   {results.map((r) => (
                     <div key={r.post_call_analysis_id} className="mb-2 rounded-md border border-border p-2">
-                      <div className="text-sm font-medium">
-                        {r.name} — {r.status}
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <span>{r.name}</span>
+                        <StatusChip status={r.status} />
                       </div>
                       {r.result && (
                         <pre className="mt-1 overflow-auto font-mono text-xs whitespace-pre-wrap">

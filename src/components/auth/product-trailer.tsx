@@ -11,7 +11,7 @@ import { isMac } from "@/lib/platform";
  */
 
 const SCENE_MS = 4200;
-const ACCENT = "#009d88";
+const ACCENT = "#4048ff";
 
 type Scene = {
   id: string;
@@ -349,8 +349,8 @@ function SceneAgent({ hover, clicked }: SceneProps) {
             data-cursor-target="prompt"
             className={cn(
               "rounded-xl bg-[#f6f3ed] px-4 py-3.5 text-[#3f3f3e] transition-all duration-200",
-              hover === "prompt" && "ring-2 bg-[#e0f5f1]",
-              hover === "prompt" && "ring-[#009d88]/35",
+              hover === "prompt" && "ring-2 bg-[#e8eaff]",
+              hover === "prompt" && "ring-[#4048ff]/35",
             )}
           >
             <span className="font-medium" style={{ color: ACCENT }}>@Kupe</span> answer inbound
@@ -413,8 +413,8 @@ function SceneInbound({ hover, clicked }: SceneProps) {
         <span
           data-cursor-target="badge"
           className={cn(
-            "rounded-full bg-[#e0f5f1] px-3 py-1 text-[13px] font-medium transition-all duration-200",
-            hover === "badge" && "scale-110 ring-2 ring-[#009d88]/25",
+            "rounded-full bg-[#e8eaff] px-3 py-1 text-[13px] font-medium transition-all duration-200",
+            hover === "badge" && "scale-110 ring-2 ring-[#4048ff]/25",
           )}
           style={{ color: ACCENT }}
         >
@@ -437,7 +437,7 @@ function SceneInbound({ hover, clicked }: SceneProps) {
             <span
               className={cn(
                 "flex size-7 items-center justify-center rounded-full text-[13px]",
-                r.ok ? "bg-[#e0f5f1]" : "bg-[#fff1e0] text-[#b56a1a]",
+                r.ok ? "bg-[#e8eaff]" : "bg-[#fff1e0] text-[#b56a1a]",
               )}
               style={r.ok ? { color: ACCENT } : undefined}
             >
@@ -485,8 +485,8 @@ function SceneOutbound({ hover, clicked }: SceneProps) {
             data-cursor-target="trigger-0"
             className={cn(
               "flex items-center gap-3 rounded-xl border border-[#eeeae2] px-4 py-3 text-[15px] text-[#3f3f3e] transition-all duration-200",
-              hover === "trigger-0" && "scale-[1.02] border-[#009d88]/50 bg-[#eaf8f5]",
-              hover === "trigger-0" && clicked && "scale-[0.99] border-[#009d88]",
+              hover === "trigger-0" && "scale-[1.02] border-[#4048ff]/50 bg-[#e8eaff]",
+              hover === "trigger-0" && clicked && "scale-[0.99] border-[#4048ff]",
             )}
           >
             <span className="text-[#8a8680]">◷</span>
@@ -496,8 +496,8 @@ function SceneOutbound({ hover, clicked }: SceneProps) {
             data-cursor-target="trigger-1"
             className={cn(
               "flex items-center gap-3 rounded-xl border border-[#eeeae2] px-4 py-3 text-[15px] text-[#3f3f3e] transition-all duration-200",
-              hover === "trigger-1" && "scale-[1.02] border-[#009d88]/50 bg-[#eaf8f5]",
-              hover === "trigger-1" && clicked && "scale-[0.99] border-[#009d88]",
+              hover === "trigger-1" && "scale-[1.02] border-[#4048ff]/50 bg-[#e8eaff]",
+              hover === "trigger-1" && clicked && "scale-[0.99] border-[#4048ff]",
             )}
           >
             <span className="text-[#8a8680]">⟳</span>
@@ -533,7 +533,7 @@ function SceneAnalytics({ hover, clicked }: SceneProps) {
             data-cursor-target="add"
             className={cn(
               "flex size-8 items-center justify-center rounded-full bg-[#1d1d1c] text-[18px] leading-none text-white transition-all duration-200",
-              hover === "add" && "scale-110 bg-[#2e2e2d] ring-2 ring-[#009d88]/40",
+              hover === "add" && "scale-110 bg-[#2e2e2d] ring-2 ring-[#4048ff]/40",
               hover === "add" && clicked && "scale-90",
             )}
             style={hover === "add" && clicked ? { background: ACCENT } : undefined}
@@ -573,8 +573,8 @@ function SceneSlash({ hover, clicked }: SceneProps) {
           data-cursor-target="input"
           className={cn(
             "rounded-xl border border-[#eeeae2] bg-[#faf8f4] px-4 py-3.5 font-mono text-[16px] text-[#1d1d1c] transition-all duration-200",
-            hover === "input" && "border-[#009d88]/50 bg-white ring-2 ring-[#009d88]/20",
-            hover === "input" && clicked && "ring-[#009d88]/40",
+            hover === "input" && "border-[#4048ff]/50 bg-white ring-2 ring-[#4048ff]/20",
+            hover === "input" && clicked && "ring-[#4048ff]/40",
           )}
         >
           <span style={{ color: ACCENT }}>/</span>agents
@@ -594,7 +594,7 @@ function SceneSlash({ hover, clicked }: SceneProps) {
                 "trailer-row flex items-center justify-between px-4 py-3 text-[15px] transition-all duration-200",
                 (hover === `cmd-${i}` || (i === 0 && !hover)) && "bg-[#f6f3ed]",
                 hover === `cmd-${i}` && "scale-[1.01] bg-[#eeeae2]",
-                hover === `cmd-${i}` && clicked && "bg-[#e0f5f1]",
+                hover === `cmd-${i}` && clicked && "bg-[#e8eaff]",
               )}
               style={{ animationDelay: `${i * 60}ms` }}
             >

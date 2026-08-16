@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
+  Copy,
   ExternalLink,
   FileText,
   MoreVertical,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -19,7 +21,10 @@ import {
   VoicePageHeader,
   VoicePagination,
 } from "@/components/voice-agents/shared";
+import { QuickContextMenu } from "@/components/quick-context-menu";
+import { RenameDialog } from "@/components/rename-dialog";
 import { Button } from "@/components/ui/button";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,6 +47,7 @@ import {
   createKnowledgeBase,
   deleteKnowledgeBase,
   listKnowledgeBases,
+  updateKnowledgeBase,
   uploadKnowledgeFile,
 } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceKnowledgeBase } from "@/lib/api/voice/types";
@@ -71,6 +77,7 @@ export default function VoiceAgentsKnowledgePage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [createOpen, setCreateOpen] = useState(false);
+  const [renaming, setRenaming] = useState<VoiceKnowledgeBase | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -168,61 +175,94 @@ export default function VoiceAgentsKnowledgePage() {
             </div>
             <ul className="divide-y divide-border">
               {items.map((kb) => (
-                <li key={kb.id}>
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3">
-                    <Link
-                      to={`/voice-agents/knowledge-base/${kb.id}`}
-                      className="flex min-w-0 items-center gap-3 hover:opacity-90"
-                    >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-                        <AsciiIcon kind="folder" tone="amber" size="sm" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">{kb.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {kb.description || "—"}
-                        </p>
-                      </div>
-                    </Link>
-                    <span className="truncate text-sm text-muted-foreground capitalize">
-                      {kb.status}
-                    </span>
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {new Date(kb.created_at).toLocaleDateString()}
-                    </span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label="Knowledge base options"
-                        >
-                          <MoreVertical className="size-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onSelect={() =>
-                            navigate(`/voice-agents/knowledge-base/${kb.id}`)
-                          }
-                        >
-                          Open
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onSelect={async () => {
-                            await deleteKnowledgeBase(kb.id);
-                            void refresh();
-                            toast.message("Knowledge base deleted");
-                          }}
-                        >
-                          <Trash2 className="size-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </li>
+                <QuickContextMenu
+                  key={kb.id}
+                  title={kb.name}
+                  items={[
+                    {
+                      label: "Open",
+                      icon: ExternalLink,
+                      onSelect: () => navigate(`/voice-agents/knowledge-base/${kb.id}`),
+                    },
+                    { label: "Rename", icon: Pencil, onSelect: () => setRenaming(kb) },
+                    {
+                      label: "Copy name",
+                      icon: Copy,
+                      onSelect: () => {
+                        void navigator.clipboard.writeText(kb.name);
+                        toast.message("Name copied");
+                      },
+                    },
+                    { type: "separator" },
+                    {
+                      label: "Delete",
+                      icon: Trash2,
+                      variant: "destructive",
+                      onSelect: async () => {
+                        await deleteKnowledgeBase(kb.id);
+                        void refresh();
+                        toast.message("Knowledge base deleted");
+                      },
+                    },
+                  ]}
+                >
+                  <li className="cursor-context-menu">
+                    <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                      <Link
+                        to={`/voice-agents/knowledge-base/${kb.id}`}
+                        className="flex min-w-0 items-center gap-3 hover:opacity-90"
+                      >
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+                          <AsciiIcon kind="folder" tone="amber" size="sm" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{kb.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {kb.description || "—"}
+                          </p>
+                        </div>
+                      </Link>
+                      <StatusChip status={kb.status} />
+                      <span className="text-sm text-muted-foreground tabular-nums">
+                        {new Date(kb.created_at).toLocaleDateString()}
+                      </span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label="Knowledge base options"
+                          >
+                            <MoreVertical className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onSelect={() =>
+                              navigate(`/voice-agents/knowledge-base/${kb.id}`)
+                            }
+                          >
+                            Open
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setRenaming(kb)}>
+                            Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onSelect={async () => {
+                              await deleteKnowledgeBase(kb.id);
+                              void refresh();
+                              toast.message("Knowledge base deleted");
+                            }}
+                          >
+                            <Trash2 className="size-3.5" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </li>
+                </QuickContextMenu>
               ))}
             </ul>
             <div className="border-t border-border px-3">
@@ -243,6 +283,21 @@ export default function VoiceAgentsKnowledgePage() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={handleCreated}
+      />
+      <RenameDialog
+        open={Boolean(renaming)}
+        onOpenChange={(next) => {
+          if (!next) setRenaming(null);
+        }}
+        title="Rename knowledge base"
+        initial={renaming?.name ?? ""}
+        onSubmit={async (name) => {
+          if (!renaming) return;
+          await updateKnowledgeBase(renaming.id, { name });
+          setRenaming(null);
+          toast.message("Knowledge base renamed");
+          void refresh();
+        }}
       />
     </div>
   );

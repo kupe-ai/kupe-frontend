@@ -47,3 +47,12 @@ export async function updateInboundDeployment(id: string, data: Partial<VoiceInb
   if (!row) throw new Error("Inbound deployment not found");
   return row;
 }
+
+export async function deleteInboundDeployment(id: string) {
+  writeStore(
+    key(),
+    readStore<VoiceInboundDeployment[]>(key(), []).filter((r) => r.id !== id),
+  );
+  return { success: true };
+}
+

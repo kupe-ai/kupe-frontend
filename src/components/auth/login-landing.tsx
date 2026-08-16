@@ -66,7 +66,7 @@ export function LoginLanding({ children }: { children: React.ReactNode }) {
           </button>
           <Link
             to={signupHref}
-            className="inline-flex items-center rounded-full bg-[#1d1d1c] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#1d1d1c]/90 dark:bg-white dark:text-[#0e0e0e] dark:hover:bg-white/90"
+            className="kupe-hero-fill inline-flex items-center rounded-full px-4 py-2 text-[13px] font-medium text-white transition-[filter] hover:brightness-110"
           >
             Try Kupe
           </Link>

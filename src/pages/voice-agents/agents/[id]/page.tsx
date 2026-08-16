@@ -12,9 +12,8 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PetSprite } from "@/components/pets/pet-sprite";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { BlockEditor } from "@/components/notes/block-editor";
-import { AskAiToolbarButton } from "@/components/ask-ai/ask-ai-toolbar-button";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,11 +23,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { VoiceEditorShimmer } from "@/components/ui/shimmer";
+import { AgentAskKoriPanel } from "@/components/voice-agents/agent-ask-kori-panel";
 import { AgentSettingsPanel } from "@/components/voice-agents/agent-settings-panel";
 import { AgentTestsPanel } from "@/components/voice-agents/agent-tests-panel";
 import { AgentToolsPanel } from "@/components/voice-agents/agent-tools-panel";
 import { AgentVariablesPanel } from "@/components/voice-agents/agent-variables-panel";
 import { TestAgentCallDialog } from "@/components/voice-agents/test-agent-call-dialog";
+import { StatusChip } from "@/components/ui/status-chip";
 import { cn } from "@/lib/utils";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
@@ -149,9 +150,7 @@ export default function VoiceAgentEditorPage() {
               <ChevronLeft className="size-4" />
             </Link>
           </Button>
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
-            <PetSprite seed={seed} size={18} frame="stand" />
-          </div>
+          <AgentAvatar seed={seed} size={28} className="rounded-md" />
           <div className="flex min-w-0 items-center gap-1.5 text-sm">
             <span className="truncate font-semibold">{agent.name}</span>
             <span className="text-muted-foreground">/</span>
@@ -161,7 +160,8 @@ export default function VoiceAgentEditorPage() {
                   type="button"
                   className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  v{agent.current_version} · {agent.status}
+                  v{agent.current_version}
+                  <StatusChip status={agent.status} />
                   <ChevronDown className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
@@ -180,7 +180,6 @@ export default function VoiceAgentEditorPage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <AskAiToolbarButton />
           <Button type="button" size="sm" className="rounded-full" onClick={() => setTestOpen(true)}>
             <Phone className="size-3.5" />
             Test agent
@@ -246,6 +245,14 @@ export default function VoiceAgentEditorPage() {
             <AgentSettingsPanel agentId={id} agent={agent} onAgentUpdated={refresh} />
           )}
           {section === "tests" && <AgentTestsPanel agentId={id} seed={seed} />}
+        </div>
+
+        <div className="hidden h-full min-h-0 w-[320px] shrink-0 md:flex xl:w-[360px]">
+          <AgentAskKoriPanel
+            agentId={id}
+            agentName={agent.name}
+            onAgentChanged={() => void refresh()}
+          />
         </div>
       </div>
 

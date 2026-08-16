@@ -57,10 +57,10 @@
 }
 
 /* ------------------------------------------------------------------ *
- * Kupe brand tokens — teal over neutral grays. Satoshi everywhere.
+ * Kupe brand tokens — hero blue over neutral grays. Satoshi everywhere.
  * Light: canvas #FFFFFF · muted/sidebar #FAFAFA · well #F3F3F3 · ink #0E0E0E
  * Dark:  inverted (#0E0E0E / #161616 / #1C1C1C)
- * Buttons: horizontal #009D88 → #00CAB5
+ * Buttons / hero fills: the brand gradient image (not a CSS color stop).
  * ------------------------------------------------------------------ */
 :root {
   --radius: 0.875rem;
@@ -75,21 +75,22 @@
   --kupe-text: #0e0e0e;
   --kupe-text-secondary: #3d3d3d;
   --kupe-text-muted: #737373;
-  --kupe-teal: #009d88;
-  --kupe-teal-deep: #007e6d;
-  --kupe-teal-hover: #00cab5;
-  --kupe-primary-hover: #007e6d;
-  --kupe-teal-bright: #00cab5;
-  --kupe-teal-soft: #4cae7d;
-  --kupe-teal-glow: #6ba3ff;
-  --kupe-teal-pale: #c8f5ee;
+  --kupe-hero: #4048ff;
+  --kupe-hero-deep: #010799;
+  --kupe-hero-hover: #a8abff;
+  --kupe-primary-hover: #010799;
+  --kupe-hero-bright: #a8abff;
+  --kupe-hero-soft: #7077fb;
+  --kupe-hero-glow: #a8abff;
+  --kupe-hero-pale: #e8eaff;
   --kupe-orange: #f86c1e;
   --kupe-coral: #f96b44;
   --kupe-pink: #faacdb;
-  --kupe-hero-cta: linear-gradient(100deg, #009d88, #00cab5);
+  --kupe-hero-image: url("/brand/hero-gradient.png");
+  --kupe-hero-cta: var(--kupe-hero-image);
   --kupe-marketing-cta: linear-gradient(100deg, #f86c1e, #f96b44, #faacdb);
-  --kupe-dashboard: linear-gradient(100deg, #007e6d, #009d88, #00cab5);
-  --kupe-voice: linear-gradient(100deg, #007e6d, #009d88, #00cab5, #5b8def, #4cae7d);
+  --kupe-dashboard: var(--kupe-hero-image);
+  --kupe-voice: var(--kupe-hero-image);
 
   --elevation: 0 1px 2px rgb(14 14 14 / 0.06);
   --elevation-right: -1px 0 3px rgb(14 14 14 / 0.05);
@@ -119,10 +120,10 @@
   --popover: #ffffff;
   --popover-foreground: #0e0e0e;
 
-  --primary: #009d88;
+  --primary: #4048ff;
   --primary-foreground: #ffffff;
-  --primary-from: #009d88;
-  --primary-to: #00cab5;
+  --primary-from: #a8abff;
+  --primary-to: #010799;
 
   --secondary: #fafafa;
   --secondary-foreground: #0e0e0e;
@@ -138,17 +139,17 @@
 
   --border: #f6f6f6;
   --input: #f6f6f6;
-  --ring: #009d88;
+  --ring: #4048ff;
 
-  --chart-1: #009d88;
-  --chart-2: #5b8def;
+  --chart-1: #4048ff;
+  --chart-2: #a8abff;
   --chart-3: #737373;
-  --chart-4: #4cae7d;
-  --chart-5: #00cab5;
+  --chart-4: #010799;
+  --chart-5: #7077fb;
 
   --sidebar: #fafafa;
   --sidebar-foreground: var(--foreground);
-  --sidebar-primary: #009d88;
+  --sidebar-primary: #4048ff;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #ffffff;
   --sidebar-accent-foreground: #0e0e0e;
@@ -172,10 +173,10 @@
   --elevation-right: -1px 0 3px rgb(0 0 0 / 0.3);
   --elevation-modal: 0 24px 80px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.3);
 
-  --primary: #009d88;
+  --primary: #4048ff;
   --primary-foreground: #ffffff;
-  --primary-from: #009d88;
-  --primary-to: #00cab5;
+  --primary-from: #a8abff;
+  --primary-to: #010799;
 
   --secondary: #161616;
   --secondary-foreground: #fafafa;
@@ -191,17 +192,17 @@
 
   --border: #1a1a1a;
   --input: #1a1a1a;
-  --ring: #00cab5;
+  --ring: #a8abff;
 
-  --chart-1: #00cab5;
-  --chart-2: #6ba3ff;
+  --chart-1: #a8abff;
+  --chart-2: #7077fb;
   --chart-3: #737373;
-  --chart-4: #5bbf8b;
-  --chart-5: #009d88;
+  --chart-4: #4048ff;
+  --chart-5: #010799;
 
   --sidebar: #161616;
   --sidebar-foreground: var(--foreground);
-  --sidebar-primary: #009d88;
+  --sidebar-primary: #4048ff;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #0e0e0e;
   --sidebar-accent-foreground: #fafafa;
@@ -336,15 +337,90 @@
   .stagger > *:nth-child(6) { animation-delay: 0.22s; }
   .stagger > *:nth-child(7) { animation-delay: 0.26s; }
   .stagger > *:nth-child(8) { animation-delay: 0.3s; }
-  .kupe-voice-gradient {
-    background-image: var(--kupe-voice);
+  .kupe-voice-gradient,
+  .kupe-hero-cta,
+  .kupe-hero-fill,
+  .kupe-chip-active {
+    background-color: #010799;
+    background-image: var(--kupe-hero-image);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
   }
-  .kupe-hero-cta {
-    background-image: var(--kupe-hero-cta);
+  .kupe-chip-active {
+    color: #fff;
   }
 }
 
 @layer components {
+  .kupe-range {
+    --range-empty: color-mix(in srgb, var(--foreground) 12%, transparent);
+    -webkit-appearance: none;
+    appearance: none;
+    width: 9rem;
+    height: 1.125rem;
+    background: transparent;
+    cursor: pointer;
+  }
+  .kupe-range:focus {
+    outline: none;
+  }
+  .kupe-range:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 35%, transparent);
+  }
+  .kupe-range:focus-visible::-moz-range-thumb {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 35%, transparent);
+  }
+  .kupe-range::-webkit-slider-runnable-track {
+    height: 0.5rem;
+    border-radius: 999px;
+    background:
+      linear-gradient(100deg, var(--primary-from), var(--primary-to)) 0 / var(--range-progress, 0%)
+        100% no-repeat,
+      var(--range-empty);
+  }
+  .kupe-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: -0.3125rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid rgb(14 14 14 / 0.1);
+    box-shadow: 0 1px 3px rgb(14 14 14 / 0.16);
+  }
+  .dark .kupe-range::-webkit-slider-thumb {
+    background: #fafafa;
+    border-color: rgb(255 255 255 / 0.18);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  }
+  .kupe-range::-moz-range-track {
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--range-empty);
+    border: none;
+  }
+  .kupe-range::-moz-range-progress {
+    height: 0.5rem;
+    border-radius: 999px;
+    background-image: linear-gradient(100deg, var(--primary-from), var(--primary-to));
+    border: none;
+  }
+  .kupe-range::-moz-range-thumb {
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid rgb(14 14 14 / 0.1);
+    box-shadow: 0 1px 3px rgb(14 14 14 / 0.16);
+  }
+  .dark .kupe-range::-moz-range-thumb {
+    background: #fafafa;
+    border-color: rgb(255 255 255 / 0.18);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  }
+
   .voice-page {
     width: 100%;
     max-width: 64rem;
@@ -494,21 +570,21 @@
  * Login landing — Claude-style split auth + cream product trailer.
  * ------------------------------------------------------------------ */
 .login-landing .login-email-cta {
-  background: #1d1d1c !important;
-  background-image: none !important;
+  background-color: #010799 !important;
+  background-image: var(--kupe-hero-image) !important;
+  background-size: cover !important;
+  background-position: center !important;
   color: #fff !important;
   border: none !important;
 }
 .login-landing .login-email-cta:hover {
-  background: #2e2e2d !important;
-  background-image: none !important;
+  filter: brightness(1.06);
 }
 .dark .login-landing .login-email-cta {
-  background: #f5f2eb !important;
-  color: #0e0e0e !important;
+  color: #fff !important;
 }
 .dark .login-landing .login-email-cta:hover {
-  background: #fff !important;
+  filter: brightness(1.1);
 }
 
 .dark .login-landing .login-google-btn {

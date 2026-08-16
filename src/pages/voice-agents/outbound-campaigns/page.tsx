@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Upload } from "lucide-react";
+import { Copy, Pause, Play, Plus, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
+import { QuickContextMenu } from "@/components/quick-context-menu";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -31,6 +32,7 @@ import { listVoiceAgents } from "@/lib/api/voice/agents";
 import {
   createCampaign,
   listCampaigns,
+  pauseCampaign,
   resumeCampaign,
   uploadCampaignCohort,
   type VoiceCampaign,
@@ -106,10 +108,50 @@ export default function VoiceAgentsOutboundPage() {
           </div>
           <ul className="divide-y divide-border">
             {campaigns.map((c) => (
-              <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3">
-                <span className="truncate text-sm font-medium">{c.name}</span>
-                <Badge className="font-normal capitalize">{c.status}</Badge>
-              </li>
+              <QuickContextMenu
+                key={c.id}
+                title={c.name}
+                items={[
+                  {
+                    label: "Copy name",
+                    icon: Copy,
+                    onSelect: () => {
+                      void navigator.clipboard.writeText(c.name);
+                      toast.message("Name copied");
+                    },
+                  },
+                  c.status === "paused" || c.status === "draft"
+                    ? {
+                        label: "Resume",
+                        icon: Play,
+                        onSelect: () => {
+                          void resumeCampaign(c.id)
+                            .then(() => {
+                              toast.message("Campaign resumed");
+                              refresh();
+                            })
+                            .catch(() => toast.error("Couldn't resume campaign"));
+                        },
+                      }
+                    : {
+                        label: "Pause",
+                        icon: Pause,
+                        onSelect: () => {
+                          void pauseCampaign(c.id)
+                            .then(() => {
+                              toast.message("Campaign paused");
+                              refresh();
+                            })
+                            .catch(() => toast.error("Couldn't pause campaign"));
+                        },
+                      },
+                ]}
+              >
+                <li className="grid cursor-context-menu grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                  <span className="truncate text-sm font-medium">{c.name}</span>
+                  <StatusChip status={c.status} />
+                </li>
+              </QuickContextMenu>
             ))}
           </ul>
         </div>

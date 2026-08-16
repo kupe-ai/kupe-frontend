@@ -9,7 +9,7 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
+        default: "kupe-hero-fill text-primary-foreground [a]:hover:brightness-95",
         secondary:
           "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
         destructive:
@@ -19,8 +19,10 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
-        success: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-        warning: "bg-amber-500/10 text-amber-800 dark:text-amber-200",
+        success: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+        warning: "bg-amber-500/10 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200",
+        info: "bg-sky-500/10 text-sky-800 dark:bg-sky-500/15 dark:text-sky-200",
+        violet: "bg-violet-500/10 text-violet-800 dark:bg-violet-500/15 dark:text-violet-200",
       },
     },
     defaultVariants: {

@@ -1,22 +1,15 @@
 import { useEffect, useState } from "react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusChip } from "@/components/ui/status-chip";
 import { api } from "@/lib/api";
 import type { Recording } from "@/types";
 
 const PAGE_SIZE = 10;
 
 type Props = { orgId: string };
-
-function statusBadge(status: string) {
-  if (status === "complete") return "success" as const;
-  if (status === "failed") return "destructive" as const;
-  if (status === "recording" || status === "uploading" || status === "starting") return "warning" as const;
-  return "secondary" as const;
-}
 
 function formatDuration(seconds: number | null) {
   if (seconds == null) return "—";
@@ -91,7 +84,7 @@ export function RecordingsPanel({ orgId }: Props) {
           {recordings.map((r) => (
             <div key={r.id} className="rounded-md border border-border p-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={statusBadge(r.status)}>{r.status}</Badge>
+                <StatusChip status={r.status} />
                 <span className="font-mono text-xs text-muted-foreground">
                   session {r.session_id.slice(0, 8)}…
                 </span>

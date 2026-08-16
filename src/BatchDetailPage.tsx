@@ -2,11 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Pause, Play, Square, Upload } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
@@ -260,7 +260,7 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
         {batch && (
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <h2 className="truncate text-lg font-semibold">{batch.name}</h2>
-            <Badge variant="outline">{batch.status}</Badge>
+            <StatusChip status={batch.status} />
           </div>
         )}
       </div>
@@ -517,7 +517,7 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
                 {contacts.map((c) => (
                   <li key={c.id} className="flex flex-col gap-1 px-3 py-2 text-sm sm:flex-row sm:items-center sm:gap-3">
                     <span className="font-mono">{c.phone_number}</span>
-                    <Badge variant="outline">{c.status}</Badge>
+                    <StatusChip status={c.status} />
                     {Object.keys(c.variables || {}).length > 0 && (
                       <span className="min-w-0 truncate text-xs text-muted-foreground">
                         {Object.entries(c.variables)

@@ -11,7 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-gradient-to-r from-primary-from to-primary-to text-primary-foreground hover:brightness-[0.97] active:brightness-[0.94]",
+          "border-transparent kupe-hero-fill text-primary-foreground hover:brightness-[0.97] active:brightness-[0.94]",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

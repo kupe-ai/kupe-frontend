@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { StatusChip } from "@/components/ui/status-chip";
 import { api } from "@/lib/api";
 import type { SessionUsage, UsageDailyRow, UsageSummaryRow } from "@/types";
 
@@ -105,7 +106,7 @@ export function UsagePanel({ orgId }: Props) {
             <div key={s.session_id} className="rounded-md border border-border p-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-muted-foreground">{s.session_id.slice(0, 8)}…</span>
-                {s.status && <Badge variant="secondary">{s.status}</Badge>}
+                {s.status && <StatusChip status={s.status} />}
                 {s.transport && <Badge variant="outline">{s.transport}</Badge>}
                 {s.duration_seconds != null && (
                   <span className="text-xs text-muted-foreground">

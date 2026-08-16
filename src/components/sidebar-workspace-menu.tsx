@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import {
   Building2,
@@ -35,6 +34,7 @@ import { getShortcutLabel } from "@/lib/platform";
 import { useAuth } from "@/lib/useAuth";
 import { useWorkspace } from "@/context/workspace-context";
 import { pushRecentActivity } from "@/lib/recent-activity";
+import { useSettingsDialog } from "@/components/settings/settings-dialog-context";
 
 function initials(name: string) {
   const ch = name.trim()[0];
@@ -49,7 +49,7 @@ export function SidebarWorkspaceMenu({
 }) {
   const { session, signOut } = useAuth();
   const workspace = useWorkspace();
-  const navigate = useNavigate();
+  const settings = useSettingsDialog();
   const { theme, setTheme } = useTheme();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -141,7 +141,7 @@ export function SidebarWorkspaceMenu({
         <DropdownMenuItem
           onSelect={() => {
             pushRecentActivity("/voice-agents/settings", "Settings");
-            navigate("/voice-agents/settings");
+            settings.openSettings();
           }}
         >
           <Settings2 className="size-4" />
@@ -233,7 +233,7 @@ export function SidebarWorkspaceMenu({
         <DropdownMenuItem
           onSelect={() => {
             pushRecentActivity("/voice-agents/settings", "New workspace");
-            navigate("/voice-agents/settings");
+            settings.openSettings("workspace");
           }}
         >
           <Plus className="size-4 text-primary" />

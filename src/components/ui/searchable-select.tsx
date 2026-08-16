@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +20,48 @@ export type SearchableOption = {
   label: string;
   keywords?: string;
   hint?: string;
+  group?: string;
+  groupLabel?: string;
+  icon?: ReactNode;
 };
+
+type OptionGroup = {
+  key: string;
+  label: string;
+  icon?: ReactNode;
+  items: SearchableOption[];
+};
+
+function groupOptions(options: SearchableOption[]): OptionGroup[] | null {
+  if (!options.some((o) => o.group)) return null;
+  const groups: OptionGroup[] = [];
+  const index = new Map<string, number>();
+  for (const option of options) {
+    const key = option.group ?? "";
+    let i = index.get(key);
+    if (i === undefined) {
+      i = groups.length;
+      index.set(key, i);
+      groups.push({
+        key,
+        label: option.groupLabel ?? option.group ?? "",
+        icon: option.icon,
+        items: [],
+      });
+    }
+    groups[i]!.items.push(option);
+  }
+  return groups;
+}
+
+function OptionRow({ option }: { option: SearchableOption }) {
+  return (
+    <>
+      <span className="min-w-0 flex-1 truncate">{option.label}</span>
+      {option.hint ? <span className="text-xs text-muted-foreground">{option.hint}</span> : null}
+    </>
+  );
+}
 
 export function SearchableSelect({
   value,
@@ -43,6 +84,7 @@ export function SearchableSelect({
 }) {
   const [open, setOpen] = useState(false);
   const selected = options.find((o) => o.value === value);
+  const groups = useMemo(() => groupOptions(options), [options]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -55,8 +97,9 @@ export function SearchableSelect({
           disabled={disabled}
           className={cn("h-9 w-72 justify-between rounded-full font-normal", className)}
         >
-          <span className="truncate text-left">
-            {selected ? selected.label : placeholder}
+          <span className="flex min-w-0 items-center gap-2 text-left">
+            {selected?.icon}
+            <span className="truncate">{selected ? selected.label : placeholder}</span>
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
         </Button>
@@ -66,24 +109,53 @@ export function SearchableSelect({
           <CommandInput placeholder={searchPlaceholder} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={`${option.label} ${option.keywords ?? ""} ${option.value}`}
-                  data-checked={option.value === value}
-                  onSelect={() => {
-                    onChange(option.value);
-                    setOpen(false);
-                  }}
+            {groups ? (
+              groups.map((group) => (
+                <CommandGroup
+                  key={group.key || group.label}
+                  value={group.label || group.key}
+                  heading={
+                    group.label ? (
+                      <span className="flex items-center gap-2">
+                        {group.icon}
+                        {group.label}
+                      </span>
+                    ) : undefined
+                  }
                 >
-                  <span className="min-w-0 flex-1 truncate">{option.label}</span>
-                  {option.hint ? (
-                    <span className="text-xs text-muted-foreground">{option.hint}</span>
-                  ) : null}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+                  {group.items.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      value={`${option.label} ${option.keywords ?? ""} ${option.value}`}
+                      data-checked={option.value === value}
+                      onSelect={() => {
+                        onChange(option.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <OptionRow option={option} />
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))
+            ) : (
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={`${option.label} ${option.keywords ?? ""} ${option.value}`}
+                    data-checked={option.value === value}
+                    onSelect={() => {
+                      onChange(option.value);
+                      setOpen(false);
+                    }}
+                  >
+                    {option.icon}
+                    <OptionRow option={option} />
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

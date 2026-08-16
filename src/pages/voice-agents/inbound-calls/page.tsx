@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Copy, Pause, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
+import { QuickContextMenu } from "@/components/quick-context-menu";
+import { RenameDialog } from "@/components/rename-dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,7 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
-import { createInboundDeployment, listInboundDeployments, type VoiceInboundDeployment } from "@/lib/api/voice/inbound";
+import { createInboundDeployment, deleteInboundDeployment, listInboundDeployments, updateInboundDeployment, type VoiceInboundDeployment } from "@/lib/api/voice/inbound";
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
@@ -36,6 +38,7 @@ const STEPS = ["Agent", "Availability", "Review & Deploy"] as const;
 export default function VoiceAgentsInboundPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [renaming, setRenaming] = useState<VoiceInboundDeployment | null>(null);
   const [deployments, setDeployments] = useState<VoiceInboundDeployment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,17 +103,75 @@ export default function VoiceAgentsInboundPage() {
           </div>
           <ul className="divide-y divide-border">
             {deployments.map((d) => (
-              <li key={d.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-3">
-                <span className="truncate text-sm font-medium">{d.name}</span>
-                <Badge className="font-normal capitalize">{d.status}</Badge>
-                <span />
-              </li>
+              <QuickContextMenu
+                key={d.id}
+                title={d.name}
+                items={[
+                  {
+                    label: "Copy name",
+                    icon: Copy,
+                    onSelect: () => {
+                      void navigator.clipboard.writeText(d.name);
+                      toast.message("Name copied");
+                    },
+                  },
+                  { label: "Rename", icon: Pencil, onSelect: () => setRenaming(d) },
+                  d.status === "paused" || d.status === "draft"
+                    ? {
+                        label: "Activate",
+                        icon: Play,
+                        onSelect: () => {
+                          void updateInboundDeployment(d.id, { status: "active" }).then(refresh);
+                        },
+                      }
+                    : {
+                        label: "Pause",
+                        icon: Pause,
+                        onSelect: () => {
+                          void updateInboundDeployment(d.id, { status: "paused" }).then(refresh);
+                        },
+                      },
+                  { type: "separator" },
+                  {
+                    label: "Delete",
+                    icon: Trash2,
+                    variant: "destructive",
+                    onSelect: () => {
+                      void deleteInboundDeployment(d.id).then(() => {
+                        toast.message("Inbound deleted");
+                        refresh();
+                      });
+                    },
+                  },
+                ]}
+              >
+                <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                  <span className="truncate text-sm font-medium">{d.name}</span>
+                  <StatusChip status={d.status} />
+                  <span />
+                </li>
+              </QuickContextMenu>
             ))}
           </ul>
         </div>
       )}
 
       <CreateInboundDialog open={open} onOpenChange={setOpen} onCreated={refresh} />
+      <RenameDialog
+        open={Boolean(renaming)}
+        onOpenChange={(next) => {
+          if (!next) setRenaming(null);
+        }}
+        title="Rename inbound"
+        initial={renaming?.name ?? ""}
+        onSubmit={async (name) => {
+          if (!renaming) return;
+          await updateInboundDeployment(renaming.id, { name });
+          setRenaming(null);
+          toast.message("Inbound renamed");
+          refresh();
+        }}
+      />
     </div>
   );
 }

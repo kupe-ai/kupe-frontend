@@ -1,5 +1,65 @@
 import { cn } from "@/lib/utils";
-import { AudioLines } from "lucide-react";
+
+const LIGHT_SRC = "/brand/kupe-light.png";
+const DARK_SRC = "/brand/kupe-dark.png";
+const MARK_SRC = "/brand/kupe-mark.png";
+
+/** iOS-style squircle mark — used as favicon and collapsed sidebar logo. */
+export function BrandMark({
+  size = 28,
+  className,
+}: {
+  size?: number;
+  className?: string;
+}) {
+  return (
+    <img
+      src={MARK_SRC}
+      alt="kupe"
+      width={size}
+      height={size}
+      className={cn("shrink-0", className)}
+      style={{ width: size, height: size }}
+      draggable={false}
+    />
+  );
+}
+
+function KupeLogoImg({
+  height,
+  className,
+}: {
+  height: number;
+  className?: string;
+}) {
+  const width = Math.round(height * (382 / 157));
+  return (
+    <span
+      className={cn("logo-in relative inline-flex shrink-0 items-center", className)}
+      style={{ height }}
+    >
+      <img
+        src={LIGHT_SRC}
+        alt="kupe"
+        height={height}
+        width={width}
+        className="block w-auto max-w-none object-contain object-left dark:hidden"
+        style={{ height, width }}
+        draggable={false}
+      />
+      <img
+        src={DARK_SRC}
+        alt=""
+        height={height}
+        width={width}
+        className="hidden w-auto max-w-none object-contain object-left dark:block"
+        style={{ height, width }}
+        draggable={false}
+        aria-hidden
+      />
+    </span>
+  );
+}
 
 /** Compact mark used where a wordmark used to sit. */
 export function Wordmark({
@@ -9,20 +69,12 @@ export function Wordmark({
   className?: string;
   height?: number;
 }) {
-  return (
-    <span className={cn("logo-in inline-flex shrink-0 items-center", className)}>
-      <span
-        className="flex items-center justify-center rounded-xl bg-gradient-to-br from-primary-from to-primary-to text-primary-foreground shadow-sm"
-        style={{ width: height, height }}
-      >
-        <AudioLines style={{ width: height * 0.5, height: height * 0.5 }} />
-      </span>
-    </span>
-  );
+  return <KupeLogoImg height={height} className={className} />;
 }
 
 /**
- * Sidebar brand: mark alone when collapsed; mark + word when expanded.
+ * Sidebar / header brand: the kupe wordmark image.
+ * Light (image 2) and dark (image 3) swap with the theme class.
  */
 export function BrandLockup({
   className,
@@ -33,13 +85,8 @@ export function BrandLockup({
   collapsed?: boolean;
   height?: number;
 }) {
-  const size = collapsed ? height + 6 : height + 4;
-  return (
-    <span className={cn("logo-in inline-flex min-w-0 items-center gap-2", className)}>
-      <Wordmark height={size} />
-      {!collapsed && (
-        <span className="truncate text-[15px] font-semibold tracking-tight">Kupe</span>
-      )}
-    </span>
-  );
+  if (collapsed) {
+    return <BrandMark size={28} className={className} />;
+  }
+  return <KupeLogoImg height={height + 6} className={className} />;
 }

@@ -83,26 +83,27 @@ export function SidebarQuickCreate({
     </DropdownMenu>
   );
 
-  const searchBtn = onOpenSearch ? (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onOpenSearch}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Search"
-        >
-          <Search className="size-3.5" strokeWidth={2.25} />
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side={collapsed ? "right" : "bottom"} sideOffset={collapsed ? 8 : 6}>
-        Search
-        <kbd className="ml-1.5 rounded border border-border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
-          {getShortcutLabel("⌘K")}
-        </kbd>
-      </TooltipContent>
-    </Tooltip>
-  ) : null;
+  const searchBtn =
+    collapsed && onOpenSearch ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Search"
+          >
+            <Search className="size-3.5" strokeWidth={2.25} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          Search
+          <kbd className="ml-1.5 rounded border border-border bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {getShortcutLabel("⌘K")}
+          </kbd>
+        </TooltipContent>
+      </Tooltip>
+    ) : null;
 
   return (
     <div className={cn("flex shrink-0 items-center gap-0.5", collapsed && "flex-col gap-1")}>

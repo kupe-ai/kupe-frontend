@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { ArrowRight, ListTodo, Plus, Search } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusChip } from "@/components/ui/status-chip";
 import { api } from "@/lib/api";
-import type { Batch, BatchStatus } from "@/types";
+import type { Batch } from "@/types";
 
 type Props = {
   orgId: string;
@@ -16,21 +16,6 @@ type Props = {
 };
 
 const PAGE_SIZE = 20;
-
-function statusVariant(status: BatchStatus): "default" | "secondary" | "success" | "warning" | "destructive" | "outline" {
-  switch (status) {
-    case "running":
-      return "success";
-    case "paused":
-      return "warning";
-    case "completed":
-      return "secondary";
-    case "cancelled":
-      return "destructive";
-    default:
-      return "outline";
-  }
-}
 
 export function BatchesPanel({ orgId, projectId, onCreate, onOpen }: Props) {
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -114,7 +99,7 @@ export function BatchesPanel({ orgId, projectId, onCreate, onOpen }: Props) {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-medium text-foreground">{batch.name}</span>
-                  <Badge variant={statusVariant(batch.status)}>{batch.status}</Badge>
+                  <StatusChip status={batch.status} />
                 </div>
                 <div className="mt-0.5 truncate text-xs text-muted-foreground">
                   max {batch.max_concurrent_calls} concurrent · created {new Date(batch.created_at).toLocaleString()}

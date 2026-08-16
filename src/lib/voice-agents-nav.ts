@@ -8,7 +8,6 @@ import {
   Code2,
   BarChart3,
   Settings,
-  Tag,
   type LucideIcon,
 } from "lucide-react";
 
@@ -105,12 +104,6 @@ export const VOICE_AGENTS_FOOTER_NAV: VoiceAgentsNavItem[] = [
     label: "Settings",
     href: "/voice-agents/settings",
     icon: Settings,
-  },
-  {
-    id: "pricing",
-    label: "Pricing",
-    href: "/voice-agents/pricing",
-    icon: Tag,
   },
   {
     id: "docs",

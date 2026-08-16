@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, Pause, Play } from "lucide-react";
+import { ChevronsUpDown, Pause, Play } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { AudioPreviewProvider, useAudioPreview } from "@/lib/hooks/use-audio-preview";
@@ -73,12 +73,12 @@ function KupeVoicePickerInner({
           role="combobox"
           aria-expanded={isOpen}
           disabled={disabled}
-          className={cn("w-full justify-between font-normal", className)}
+          className={cn("h-9 w-72 justify-between rounded-full font-normal", className)}
         >
           {selectedVoice ? (
-            <span className="flex items-center gap-2 overflow-hidden">
+            <span className="flex min-w-0 items-center gap-2">
               <VoiceOrb active={false} />
-              <span className="truncate">{selectedVoice.voice_name}</span>
+              <span className="truncate">{selectedVoice.voice_name || selectedVoice.voice_id}</span>
             </span>
           ) : (
             <span className="text-muted-foreground">{placeholder}</span>
@@ -86,7 +86,7 @@ function KupeVoicePickerInner({
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent align="end" className="w-80 p-0">
         <Command>
           <CommandInput placeholder="Search voices…" />
           <CommandList>
@@ -155,8 +155,9 @@ function VoicePickerItem({
 
   return (
     <CommandItem
-      value={voice.voice_id}
+      value={`${voice.voice_name} ${voice.voice_id}`}
       keywords={[voice.voice_name, voice.gender ?? "", ...voice.supported_languages].filter(Boolean)}
+      data-checked={isSelected}
       onSelect={onSelect}
       className="flex items-center gap-3"
     >
@@ -178,8 +179,10 @@ function VoicePickerItem({
         )}
       </span>
 
-      <span className="flex flex-1 flex-col gap-0.5 overflow-hidden">
-        <span className="truncate font-medium">{voice.voice_name}</span>
+      <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="truncate font-medium text-foreground">
+          {voice.voice_name || voice.voice_id}
+        </span>
         {meta.length > 0 && (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {meta.map((m, i) => (
@@ -191,8 +194,6 @@ function VoicePickerItem({
           </span>
         )}
       </span>
-
-      <Check className={cn("ml-auto size-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
     </CommandItem>
   );
 }

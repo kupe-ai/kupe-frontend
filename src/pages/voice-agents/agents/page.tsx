@@ -125,7 +125,7 @@ export default function VoiceAgentsAgentsPage() {
 
       <section className="mt-10">
         <h2 className="mb-1 text-base font-semibold tracking-tight">Recents</h2>
-        <RecentAgentsTable agents={recentAgents} />
+        <RecentAgentsTable agents={recentAgents} onChanged={refreshRecents} />
       </section>
 
       <div className="mt-8 pb-8">

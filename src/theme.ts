@@ -23,15 +23,13 @@ export const kupe = {
     onDark: "#FAFAFA",
   },
 
-  teal: {
-    deep: "#007E6D",
-    primary: "#009D88",
-    hover: "#00CAB5",
-    primaryHover: "#007E6D",
-    bright: "#00CAB5",
-    soft: "#4CAE7D",
-    glow: "#6BA3FF",
-    pale: "#C8F5EE",
+  hero: {
+    pale: "#A8ABFF",
+    mid: "#7077FB",
+    primary: "#4048FF",
+    deep: "#010799",
+    glow: "#A8ABFF",
+    wash: "#E8EAFF",
   },
 
   warm: {
@@ -44,11 +42,12 @@ export const kupe = {
     amber: "#F1B06A",
   },
 
-  gradients: {
-    heroCta: "linear-gradient(100deg, #009D88, #00CAB5)",
-    marketingCta: "linear-gradient(100deg, #F86C1E, #F96B44, #FAACDB)",
-    dashboard: "linear-gradient(100deg, #007E6D, #009D88, #00CAB5)",
-    voice: "linear-gradient(100deg, #007E6D, #009D88, #00CAB5, #5B8DEF, #4CAE7D)",
+  /** Hero fills use the brand PNG, not CSS color stops. */
+  assets: {
+    heroGradient: "/brand/hero-gradient.png",
+    logoLight: "/brand/kupe-light.png",
+    logoDark: "/brand/kupe-dark.png",
+    logoMark: "/brand/kupe-mark.png",
   },
 } as const;
 

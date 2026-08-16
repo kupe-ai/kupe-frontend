@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Copy,
   Download,
+  ExternalLink,
   MoreHorizontal,
   Plus,
   RefreshCw,
@@ -21,8 +22,9 @@ import { toast } from "sonner";
 import { AsciiEmptyState, AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { CallLogDetailDialog } from "@/components/voice-agents/call-log-detail-dialog";
 import { VoicePagination } from "@/components/voice-agents/shared";
+import { QuickContextMenu } from "@/components/quick-context-menu";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusChip } from "@/components/ui/status-chip";
 import {
   Dialog,
   DialogContent,
@@ -485,7 +487,7 @@ function GoalsTab({ data, onUpload }: { data: Awaited<ReturnType<typeof getAnaly
       <ul className="divide-y divide-border">
         {Object.entries(data!.goal_status).map(([status, count]) => (
           <li key={status} className="flex items-center justify-between px-4 py-3 text-sm">
-            <span className="capitalize">{status.replace("_", " ")}</span>
+            <StatusChip status={status} />
             <span className="tabular-nums">{count}</span>
           </li>
         ))}
@@ -525,10 +527,10 @@ function GroupByTab({ rows }: { rows: Array<Record<string, number | string>> }) 
               ) : (
                 rows.map((row) => (
                   <tr key={String(row.key)} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2.5">
-                      <button type="button" className="inline-flex items-center gap-1 font-medium" onClick={() => copyText(String(row.key))}>
-                        {String(row.key).slice(0, 12)}
-                        <Copy className="size-3 text-muted-foreground" />
+                    <td className="max-w-[12rem] px-3 py-2.5">
+                      <button type="button" className="inline-flex w-[11rem] max-w-[11rem] min-w-0 items-center gap-1" title={String(row.key)} onClick={() => copyText(String(row.key))}>
+                        <span className="min-w-0 truncate font-mono text-xs">{String(row.key)}</span>
+                        <Copy className="size-3 shrink-0 text-muted-foreground" />
                       </button>
                     </td>
                     <td className="px-3 py-2.5 tabular-nums">{row.connected ?? 0}</td>
@@ -579,7 +581,7 @@ function CallLogsTab({
             onClick={() => onFilter(f)}
             className={cn(
               "rounded-full px-3 py-1 text-xs font-medium capitalize",
-              filter === f ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground",
+              filter === f ? "kupe-chip-active" : "bg-muted text-muted-foreground hover:text-foreground",
             )}
           >
             {f === "all" ? "All" : "Connected"}
@@ -630,14 +632,36 @@ function CallLogsTab({
                 </tr>
               ) : (
                 calls.map((call) => (
-                  <tr key={call.id} className="cursor-pointer border-b border-border hover:bg-muted/30" onClick={() => onOpen(call)}>
-                    <td className="px-3 py-2.5">
+                  <QuickContextMenu
+                    key={call.id}
+                    title="Call"
+                    items={[
+                      { label: "Open", icon: ExternalLink, onSelect: () => onOpen(call) },
+                      {
+                        label: "Copy call ID",
+                        icon: Copy,
+                        onSelect: () => copyText(call.id),
+                      },
+                      {
+                        label: "Copy user identifier",
+                        icon: Copy,
+                        disabled: !call.user_identifier,
+                        onSelect: () => {
+                          if (call.user_identifier) copyText(call.user_identifier);
+                        },
+                      },
+                    ]}
+                  >
+                    <tr className="cursor-context-menu border-b border-border hover:bg-muted/30" onClick={() => onOpen(call)}>
+                    <td className="max-w-[12rem] px-3 py-2.5">
                       <CopyCell text={call.id} truncate />
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="max-w-[12rem] px-3 py-2.5">
                       <CopyCell text={call.user_identifier ?? "—"} truncate />
                     </td>
-                    <td className="px-3 py-2.5">{call.connectivity ?? "—"}</td>
+                    <td className="px-3 py-2.5">
+                      <StatusChip status={call.connectivity} />
+                    </td>
                     <td className="px-3 py-2.5">{call.failure_reason ?? "—"}</td>
                     <td className="px-3 py-2.5">{call.ended_by ?? "—"}</td>
                     <td className="px-3 py-2.5 tabular-nums">{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</td>
@@ -646,14 +670,15 @@ function CallLogsTab({
                     <td className="px-3 py-2.5 tabular-nums">{call.message_count}</td>
                     <td className="px-3 py-2.5 tabular-nums">{call.avg_agent_latency_ms != null ? `${call.avg_agent_latency_ms}ms` : "—"}</td>
                     <td className="px-3 py-2.5 tabular-nums">{call.avg_user_latency_ms != null ? `${call.avg_user_latency_ms}ms` : "—"}</td>
-                    <td className="px-3 py-2.5">{call.direction}</td>
+                    <td className="px-3 py-2.5">
+                      <StatusChip status={call.direction} />
+                    </td>
                     <td className="px-3 py-2.5 tabular-nums">{call.attempt_number}</td>
                     <td className="px-3 py-2.5">
-                      <Badge variant="secondary" className="font-normal capitalize">
-                        {call.goal_status ?? "not_evaluated"}
-                      </Badge>
+                      <StatusChip status={call.goal_status ?? "not_evaluated"} />
                     </td>
                   </tr>
+                  </QuickContextMenu>
                 ))
               )}
             </tbody>
@@ -668,17 +693,20 @@ function CallLogsTab({
 }
 
 function CopyCell({ text, truncate }: { text: string; truncate?: boolean }) {
+  const empty = !text || text === "—";
   return (
     <button
       type="button"
-      className="inline-flex max-w-[12rem] items-center gap-1"
+      title={empty ? undefined : text}
+      disabled={empty}
+      className="inline-flex w-[11rem] max-w-[11rem] min-w-0 items-center gap-1 disabled:cursor-default"
       onClick={(e) => {
         e.stopPropagation();
-        copyText(text);
+        if (!empty) copyText(text);
       }}
     >
-      <span className={cn(truncate && "truncate")}>{text}</span>
-      <Copy className="size-3 shrink-0 text-muted-foreground" />
+      <span className={cn("min-w-0 font-mono text-xs", truncate && "truncate")}>{text}</span>
+      {!empty ? <Copy className="size-3 shrink-0 text-muted-foreground" /> : null}
     </button>
   );
 }

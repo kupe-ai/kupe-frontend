@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, PhoneOff } from "lucide-react";
 import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { toast } from "sonner";
-import { PetSprite } from "@/components/pets/pet-sprite";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
@@ -142,8 +142,8 @@ export function TestAgentCallDialog({
       <DialogContent className="gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
         <DialogTitle className="sr-only">Test call with {agentName}</DialogTitle>
         <div className="flex flex-col items-center gap-5 px-6 pt-10 pb-5 text-center">
-          <div className="relative flex size-16 items-center justify-center rounded-2xl bg-muted">
-            <PetSprite seed={seed} size={36} frame="stand" />
+          <div className="relative size-16">
+            <AgentAvatar seed={seed} size={64} className="size-full rounded-2xl" />
             {status === "connecting" && (
               <span className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-background shadow-sm">
                 <Matrix rows={7} cols={7} frames={loader} fps={12} size={1.4} gap={0.4} palette={{ on: "var(--primary)", off: "transparent" }} ariaLabel="Connecting" />

@@ -33,7 +33,6 @@ const VoiceAgentsDeployRecipePage = lazyWithRetry(
 );
 const VoiceAgentsAnalyticsPage = lazyWithRetry(() => import("@/pages/voice-agents/analytics/page"));
 const VoiceAgentsSettingsPage = lazyWithRetry(() => import("@/pages/voice-agents/settings/page"));
-const VoiceAgentsPricingPage = lazyWithRetry(() => import("@/pages/voice-agents/pricing/page"));
 const VoiceAgentsDocsPage = lazyWithRetry(() => import("@/pages/voice-agents/documentation/page"));
 
 function PageFallback() {
@@ -84,7 +83,6 @@ export default function AppRoutes() {
             />
             <Route path="/voice-agents/analytics" element={<VoiceAgentsAnalyticsPage />} />
             <Route path="/voice-agents/settings" element={<VoiceAgentsSettingsPage />} />
-            <Route path="/voice-agents/pricing" element={<VoiceAgentsPricingPage />} />
             <Route path="/voice-agents/documentation" element={<VoiceAgentsDocsPage />} />
           </Route>
         </Route>

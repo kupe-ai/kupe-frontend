@@ -1,6 +1,6 @@
 "use client";
 
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState, type ComponentType } from "react";
 import {
   Menu,
@@ -13,16 +13,25 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { BrandLockup } from "@/components/brand/wordmark";
-import { CommandPalette } from "@/components/layout/CommandPalette";
+import { CommandPalette, SidebarSearchBar } from "@/components/layout/CommandPalette";
 import { SidebarQuickCreate } from "@/components/sidebar-quick-create";
 import { SidebarWorkspaceMenu } from "@/components/sidebar-workspace-menu";
 import { SidebarCollapseProvider } from "@/components/sidebar-collapse";
+import {
+  SettingsDialogProvider,
+  useSettingsDialog,
+  useSettingsDialogOptional,
+  type SettingsSectionId,
+} from "@/components/settings/settings-dialog-context";
+import { SettingsDialog } from "@/components/settings/settings-dialog";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
   isVoiceAgentsNavActive,
 } from "@/lib/voice-agents-nav";
 import { pushRecentActivity } from "@/lib/recent-activity";
+
+const SETTINGS_HREF = "/voice-agents/settings";
 
 const COLLAPSE_KEY = "kupe:sidebar-collapsed";
 
@@ -37,6 +46,8 @@ function NavLinks({
   onNavigate?: () => void;
   groups?: { id: string; label?: string; items: typeof VOICE_AGENTS_FOOTER_NAV }[];
 }) {
+  const navigate = useNavigate();
+  const settings = useSettingsDialogOptional();
   let idx = 0;
 
   return (
@@ -49,40 +60,45 @@ function NavLinks({
             </div>
           )}
           {group.items.map((item) => {
-            const active = isVoiceAgentsNavActive(pathname, item.href);
+            const isSettings = item.href === SETTINGS_HREF;
+            const active = isSettings
+              ? Boolean(settings?.open)
+              : isVoiceAgentsNavActive(pathname, item.href);
             const Icon = item.icon as ComponentType<{ className?: string }>;
             const delay = idx++ * 30;
+
+            function openItem() {
+              pushRecentActivity(item.href, item.label);
+              onNavigate?.();
+              if (isSettings) {
+                if (settings?.openSettings()) return;
+                navigate(item.href);
+                return;
+              }
+              navigate(item.href);
+            }
+
             const className = cn(
               "animate-fade-in-up flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-all duration-150",
               collapsed && "size-8 justify-center px-0",
+              isSettings && "w-full text-left",
               active
                 ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground ring-1 ring-border/40"
                 : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground hover:ring-1 hover:ring-border/35",
             );
-            return collapsed ? (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>
-                  <span className="flex w-full justify-center">
-                    <Link
-                      to={item.href}
-                      onClick={() => {
-                        pushRecentActivity(item.href, item.label);
-                        onNavigate?.();
-                      }}
-                      style={{ animationDelay: `${delay}ms` }}
-                      className={className}
-                    >
-                      <Icon className="size-4 shrink-0" />
-                    </Link>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={8}>
-                  {item.label}
-                </TooltipContent>
-              </Tooltip>
+
+            const link = isSettings ? (
+              <button
+                type="button"
+                onClick={openItem}
+                style={{ animationDelay: `${delay}ms` }}
+                className={className}
+              >
+                <Icon className="size-4 shrink-0" />
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </button>
             ) : (
               <Link
-                key={item.href}
                 to={item.href}
                 onClick={() => {
                   pushRecentActivity(item.href, item.label);
@@ -92,8 +108,21 @@ function NavLinks({
                 className={className}
               >
                 <Icon className="size-4 shrink-0" />
-                <span className="truncate">{item.label}</span>
+                {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
+            );
+
+            return collapsed ? (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>
+                  <span className="flex w-full justify-center">{link}</span>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8}>
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div key={item.href}>{link}</div>
             );
           })}
         </div>
@@ -102,9 +131,47 @@ function NavLinks({
   );
 }
 
+function SettingsDeepLink() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { openSettings } = useSettingsDialog();
+
+  useEffect(() => {
+    const legacy = searchParams.get("settings");
+    const section = searchParams.get("openSettings");
+    if (legacy == null && section == null) return;
+
+    const allowed = new Set<SettingsSectionId>([
+      "appearance",
+      "account",
+      "workspace",
+      "keys",
+    ]);
+    if (section && allowed.has(section as SettingsSectionId)) {
+      openSettings(section as SettingsSectionId);
+    } else {
+      openSettings();
+    }
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("settings");
+    next.delete("openSettings");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, openSettings, setSearchParams]);
+
+  return null;
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <SettingsDialogProvider enabled>
+      <AppShellInner>{children}</AppShellInner>
+      <SettingsDialog />
+    </SettingsDialogProvider>
+  );
+}
+
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -125,11 +192,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k" && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         setSearchOpen((v) => !v);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === "," && !e.shiftKey) {
-        e.preventDefault();
-        navigate("/voice-agents/settings");
         return;
       }
       if (e.key?.toLowerCase() === "f" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
@@ -156,7 +218,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate]);
+  }, []);
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -175,6 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarCollapseProvider collapsed={collapsed} toggleCollapsed={toggleCollapsed}>
       <div className="flex h-dvh w-full gap-3 overflow-hidden bg-background p-3 print:block print:h-auto print:gap-0 print:overflow-visible print:bg-white print:p-0">
+        <SettingsDeepLink />
         <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
 
         {/* Desktop floating sidebar — canvas peeks top/bottom/left */}
@@ -201,7 +264,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 to="/voice-agents"
                 className={cn(
                   "flex min-w-0 items-center outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  collapsed && "justify-center rounded-md p-0.5 hover:bg-sidebar-accent",
+                  collapsed && "justify-center",
                 )}
                 aria-label="Kupe home"
               >
@@ -237,6 +300,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               collapsed ? "items-center px-1" : "px-2.5",
             )}
           >
+            {!collapsed && (
+              <div className="mb-5 mt-1.5 shrink-0">
+                <SidebarSearchBar onClick={() => setSearchOpen(true)} />
+              </div>
+            )}
             <div className={cn("shrink-0", collapsed && "flex w-full flex-col items-center")}>
               <NavLinks pathname={pathname} collapsed={collapsed} />
             </div>

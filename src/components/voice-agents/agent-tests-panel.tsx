@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckSquare, Loader2, MoreHorizontal, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import { PetSprite } from "@/components/pets/pet-sprite";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusChip } from "@/components/ui/status-chip";
 import {
   Dialog,
   DialogContent,
@@ -204,7 +205,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
           <div className="overflow-hidden rounded-xl border border-border">
             <div className="flex items-center justify-between border-b border-border bg-muted/20 px-4 py-2.5 text-sm">
               <span className="font-medium">{activeRun.run_name || "Run"}</span>
-              <span className="capitalize text-muted-foreground">{activeRun.status}</span>
+              <StatusChip status={activeRun.status} />
             </div>
             {activeRun.status === "running" || activeRun.status === "queued" ? (
               <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
@@ -219,9 +220,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
                       <span className="text-sm font-medium">
                         {tests.find((t) => t.id === r.test_case_id)?.name ?? "Test"}
                       </span>
-                      <span className={cn("text-xs font-medium", r.passed ? "text-emerald-600" : "text-destructive")}>
-                        {r.passed ? "Passed" : "Failed"}
-                      </span>
+                      <StatusChip status={r.passed ? "passed" : "failed"} />
                     </div>
                     <ul className="mt-1.5 space-y-1">
                       {r.behavior_results.map((b, j) => (
@@ -258,9 +257,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
                   className="flex min-w-0 items-center gap-3 text-left"
                   onClick={() => setEditId(t.id)}
                 >
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted">
-                    <PetSprite seed={`${seed}-${t.id}`} size={18} frame="stand" />
-                  </div>
+                  <AgentAvatar seed={`${seed}-${t.id}`} size={32} />
                   <span className="truncate text-sm font-medium">{t.name}</span>
                 </button>
                 <span className="text-sm text-muted-foreground">—</span>
