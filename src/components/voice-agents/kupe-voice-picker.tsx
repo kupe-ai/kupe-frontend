@@ -120,7 +120,7 @@ function VoiceOrb({ seed }: { seed: string }) {
         pattern={pattern}
         size={2.2}
         gap={0.55}
-        spinGradientOnHover
+        scrambleOnHover
         palette={{ on: "var(--primary)", off: "transparent" }}
         ariaLabel=""
       />

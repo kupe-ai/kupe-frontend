@@ -283,7 +283,7 @@ function VoiceCard({
           pattern={pattern}
           size={4.2}
           gap={1.1}
-          spinGradientOnHover
+          scrambleOnHover
           className="flex size-full items-center justify-center"
           palette={{ on: "var(--primary)", off: "transparent" }}
           ariaLabel=""

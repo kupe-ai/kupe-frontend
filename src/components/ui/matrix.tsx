@@ -32,8 +32,8 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   onFrame?: (index: number) => void
   mode?: MatrixMode
   levels?: number[]
-  /** Keep dots still; spin the brand-gradient fill on hover. */
-  spinGradientOnHover?: boolean
+  /** Shuffle dots on hover, then settle back to the original pattern (700ms). */
+  scrambleOnHover?: boolean
 }
 
 function clamp(value: number): number {
@@ -132,6 +132,35 @@ function setPixel(frame: Frame, row: number, col: number, value: number): void {
   if (row >= 0 && row < frame.length && col >= 0 && col < frame[0].length) {
     frame[row][col] = value
   }
+}
+
+const SCRAMBLE_MS = 400
+const SETTLE_MS = 300
+const SCRAMBLE_SWAP_MS = 80
+
+function shuffleFrame(source: Frame): Frame {
+  const rows = source.length
+  const cols = source[0]?.length ?? 0
+  const cells: number[] = []
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      cells.push(source[r]![c] ?? 0)
+    }
+  }
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = cells[i]!
+    cells[i] = cells[j]!
+    cells[j] = tmp
+  }
+  const next = emptyFrame(rows, cols)
+  let i = 0
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      next[r]![c] = cells[i++]!
+    }
+  }
+  return next
 }
 
 /** Stable identicon-style matrix from a seed. Not animated. Default 5×5. */
@@ -474,7 +503,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       onFrame,
       mode = "default",
       levels,
-      spinGradientOnHover = false,
+      scrambleOnHover = false,
       className,
       ...props
     },
@@ -487,9 +516,25 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       onFrame,
     })
 
+    const [hoverFrame, setHoverFrame] = useState<Frame | null>(null)
+    const scrambleRafRef = useRef<number | undefined>(undefined)
+    const scrambleTokenRef = useRef(0)
+
+    useEffect(() => {
+      return () => {
+        if (scrambleRafRef.current) {
+          cancelAnimationFrame(scrambleRafRef.current)
+        }
+      }
+    }, [])
+
     const currentFrame = useMemo(() => {
       if (mode === "vu" && levels && levels.length > 0) {
         return ensureFrameSize(vu(cols, levels), rows, cols)
+      }
+
+      if (hoverFrame) {
+        return ensureFrameSize(hoverFrame, rows, cols)
       }
 
       if (pattern) {
@@ -501,7 +546,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       }
 
       return ensureFrameSize([], rows, cols)
-    }, [pattern, frames, frameIndex, rows, cols, mode, levels])
+    }, [hoverFrame, pattern, frames, frameIndex, rows, cols, mode, levels])
 
     const cellPositions = useMemo(() => {
       const positions: CellPosition[][] = []
@@ -532,7 +577,36 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
     const onFillId = `matrix-on-${gradientId}`
     const offFillId = `matrix-off-${gradientId}`
     const glowId = `matrix-glow-${gradientId}`
-    const [gradientSpinning, setGradientSpinning] = useState(false)
+    const scrambling = hoverFrame !== null
+
+    const startScramble = () => {
+      if (!scrambleOnHover || !pattern) return
+      if (scrambleRafRef.current) {
+        cancelAnimationFrame(scrambleRafRef.current)
+      }
+      const token = ++scrambleTokenRef.current
+      const origin = ensureFrameSize(pattern, rows, cols)
+      const start = performance.now()
+      let lastSwap = -Infinity
+
+      const tick = (now: number) => {
+        if (token !== scrambleTokenRef.current) return
+        const elapsed = now - start
+        if (elapsed >= SCRAMBLE_MS) {
+          setHoverFrame(null)
+          scrambleRafRef.current = undefined
+          return
+        }
+        if (now - lastSwap >= SCRAMBLE_SWAP_MS) {
+          lastSwap = now
+          setHoverFrame(shuffleFrame(origin))
+        }
+        scrambleRafRef.current = requestAnimationFrame(tick)
+      }
+
+      setHoverFrame(shuffleFrame(origin))
+      scrambleRafRef.current = requestAnimationFrame(tick)
+    }
 
     return (
       <div
@@ -541,6 +615,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
         aria-label={ariaLabel ?? "matrix display"}
         aria-live={isAnimating ? "polite" : undefined}
         className={cn("relative inline-block", className)}
+        data-scrambling={scrambling ? "" : undefined}
         style={
           {
             "--matrix-on": palette.on,
@@ -551,13 +626,10 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
         }
         {...props}
         onMouseEnter={(e) => {
-          if (spinGradientOnHover) setGradientSpinning(true)
+          startScramble()
           props.onMouseEnter?.(e)
         }}
-        onMouseLeave={(e) => {
-          if (spinGradientOnHover) setGradientSpinning(false)
-          props.onMouseLeave?.(e)
-        }}
+        onMouseLeave={props.onMouseLeave}
       >
         <svg
           width={svgDimensions.width}
@@ -579,16 +651,6 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
               <stop offset="0%" stopColor="var(--primary-from)" />
               <stop offset="50%" stopColor="var(--primary)" />
               <stop offset="100%" stopColor="var(--primary-to)" />
-              {spinGradientOnHover && gradientSpinning ? (
-                <animateTransform
-                  attributeName="gradientTransform"
-                  type="rotate"
-                  from="0 0.5 0.5"
-                  to="360 0.5 0.5"
-                  dur="2.2s"
-                  repeatCount="indefinite"
-                />
-              ) : null}
             </linearGradient>
 
             <radialGradient id={offFillId} cx="50%" cy="50%" r="50%">
@@ -619,9 +681,12 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
           <style>
             {`
               .matrix-pixel {
-                transition: opacity 300ms ease-out, transform 150ms ease-out;
+                transition: opacity ${SETTLE_MS}ms ease-out, transform 150ms ease-out;
                 transform-origin: center;
                 transform-box: fill-box;
+              }
+              [data-scrambling] .matrix-pixel {
+                transition: opacity 70ms linear, transform 70ms linear;
               }
               .matrix-pixel-active {
                 filter: url(#${glowId});
@@ -637,10 +702,14 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
               const opacity = clamp(brightness * value)
               const isActive = opacity > 0.5
               const isOn = opacity > 0.05
-              if (!isOn && (palette.off === "transparent" || palette.off === "none")) {
+              const hideOff =
+                !scrambleOnHover &&
+                (palette.off === "transparent" || palette.off === "none")
+              if (!isOn && hideOff) {
                 return null
               }
-              const fill = isOn ? `url(#${onFillId})` : `url(#${offFillId})`
+              const fill =
+                isOn || scrambleOnHover ? `url(#${onFillId})` : `url(#${offFillId})`
 
               const scale = isActive ? 1.1 : 1
               const radius = (size / 2) * 0.9
@@ -651,13 +720,13 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
                   className={cn(
                     "matrix-pixel",
                     isActive && "matrix-pixel-active",
-                    !isOn && "opacity-20 dark:opacity-[0.1]"
+                    !isOn && !scrambleOnHover && "opacity-20 dark:opacity-[0.1]"
                   )}
                   cx={pos.x + size / 2}
                   cy={pos.y + size / 2}
                   r={radius}
                   fill={fill}
-                  opacity={isOn ? opacity : 0.1}
+                  opacity={isOn ? opacity : scrambleOnHover ? 0 : 0.1}
                   style={{
                     transform: `scale(${scale})`,
                   }}

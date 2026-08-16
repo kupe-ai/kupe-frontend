@@ -208,13 +208,15 @@ export default function VoiceAgentsHomePage() {
         </ChartContainer>
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-base font-semibold tracking-tight">Recents</h2>
-        <RecentAgentsTable
-          agents={recentAgents}
-          onChanged={() => void agentsQuery.refetch()}
-        />
-      </section>
+      {recentAgents.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="mb-3 text-base font-semibold tracking-tight">Recents</h2>
+          <RecentAgentsTable
+            agents={recentAgents}
+            onChanged={() => void agentsQuery.refetch()}
+          />
+        </section>
+      ) : null}
 
       <section className="mt-8 pb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

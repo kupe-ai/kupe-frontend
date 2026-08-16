@@ -10,7 +10,7 @@ import {
   VoicePageHeader,
 } from "@/components/voice-agents/shared";
 import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
-import { AiStar } from "@/components/brand/ai-star";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
@@ -102,10 +102,8 @@ export default function VoiceAgentsAgentsPage() {
       />
 
       <section className="mt-10 flex flex-col items-center text-center">
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10">
-          <AiStar size={28} />
-        </span>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">
+        <AgentAvatar muted size={64} alt="" />
+        <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
           What should your voice agent do?
         </h1>
         <div className="group/nav mt-5 flex w-full max-w-2xl items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
@@ -143,10 +141,12 @@ export default function VoiceAgentsAgentsPage() {
         </div>
       </section>
 
-      <section className="mt-10">
-        <h2 className="mb-1 text-base font-semibold tracking-tight">Recents</h2>
-        <RecentAgentsTable agents={recentAgents} onChanged={refreshRecents} />
-      </section>
+      {recentAgents.length > 0 ? (
+        <section className="mt-10">
+          <h2 className="mb-1 text-base font-semibold tracking-tight">Recents</h2>
+          <RecentAgentsTable agents={recentAgents} onChanged={refreshRecents} />
+        </section>
+      ) : null}
 
       <div className="mt-8 pb-8">
         <AgentTemplatesSection />

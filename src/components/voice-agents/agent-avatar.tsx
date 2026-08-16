@@ -3,15 +3,18 @@ import { cn } from "@/lib/utils";
 import { avatarGradientForSeed } from "@/lib/agent-avatars";
 
 export function AgentAvatar({
-  seed,
+  seed = "kupe",
   size = 32,
   className,
   alt = "",
+  muted = false,
 }: {
-  seed: string;
+  seed?: string;
   size?: number;
   className?: string;
   alt?: string;
+  /** Theme-aware sage mark with a transparent base — for hero / empty states. */
+  muted?: boolean;
 }) {
   const uid = useId().replace(/:/g, "");
   const { from, to } = avatarGradientForSeed(seed);
@@ -20,7 +23,11 @@ export function AgentAvatar({
 
   return (
     <span
-      className={cn("icon-distort", className)}
+      className={cn(
+        "icon-distort",
+        muted && "text-[#6f8f84] dark:text-[#a8c4bb]",
+        className,
+      )}
       style={{ width: size, height: size }}
     >
       <svg
@@ -32,10 +39,21 @@ export function AgentAvatar({
         aria-label={alt || undefined}
       >
         <defs>
-          <linearGradient id={gid} x1="32" y1="6" x2="32" y2="62" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor={from} stopOpacity="0.95" />
-            <stop offset="52%" stopColor={to} stopOpacity="0.7" />
-            <stop offset="100%" stopColor={to} stopOpacity="0" />
+          <linearGradient id={gid} x1="32" y1="6" x2="32" y2="64" gradientUnits="userSpaceOnUse">
+            {muted ? (
+              <>
+                <stop offset="0%" stopColor="currentColor" stopOpacity="0.9" />
+                <stop offset="46%" stopColor="currentColor" stopOpacity="0.55" />
+                <stop offset="78%" stopColor="currentColor" stopOpacity="0.14" />
+                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+              </>
+            ) : (
+              <>
+                <stop offset="0%" stopColor={from} stopOpacity="0.95" />
+                <stop offset="52%" stopColor={to} stopOpacity="0.7" />
+                <stop offset="100%" stopColor={to} stopOpacity="0" />
+              </>
+            )}
           </linearGradient>
           <mask id={mid} maskUnits="userSpaceOnUse">
             <rect width="64" height="64" fill="black" />
