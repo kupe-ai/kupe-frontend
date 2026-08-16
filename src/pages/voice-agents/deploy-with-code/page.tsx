@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Check, ChevronDown, Copy, KeyRound, Sparkles } from "lucide-react";
+import { BookOpen, Check, ChevronDown, Copy, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
+import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -117,7 +118,7 @@ export default function VoiceAgentsDeployCodePage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <Button className="rounded-full" onClick={() => void generateKey()} loading={generating}>
-            {!generating && <Sparkles className="size-3.5" />}
+            {!generating && <AiStar size={14} />}
             Generate API key
           </Button>
         </div>

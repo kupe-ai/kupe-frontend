@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Phone, Pencil, Sparkles, XIcon } from "lucide-react";
+import { Phone, Pencil, XIcon } from "lucide-react";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
+import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
 import { BarVisualizer } from "@/components/ui/bar-visualizer";
 import { TestAgentCallDialog } from "@/components/voice-agents/test-agent-call-dialog";
 import { cn } from "@/lib/utils";
+import { vibgyorChipStyle } from "@/lib/prompt-variables";
 import { toast } from "sonner";
 import { createVoiceAgent } from "@/lib/api/voice/agents";
 import type { VoiceAgentTemplate } from "@/lib/voice-agents-data";
@@ -21,18 +23,20 @@ import type { ReactNode } from "react";
 function Chip({
   children,
   tone = "muted",
+  colorIndex = 0,
 }: {
   children: ReactNode;
   tone?: "muted" | "tools" | "vars";
+  colorIndex?: number;
 }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
-        tone === "muted" && "bg-muted text-foreground",
+        tone === "muted" && "bg-muted text-muted-foreground",
         tone === "tools" && "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-100",
-        tone === "vars" && "bg-primary/10 text-primary",
       )}
+      style={tone === "vars" ? vibgyorChipStyle(colorIndex) : undefined}
     >
       {children}
     </span>
@@ -174,7 +178,7 @@ export function TemplateAgentDialog({
                   });
                 }}
               >
-                <Sparkles className="size-3.5" />
+                <AiStar size={14} />
                 Customise with AI
               </Button>
             </div>
@@ -238,8 +242,8 @@ export function TemplateAgentDialog({
                   <section>
                     <h3 className="mb-2 text-sm font-semibold">Variables</h3>
                     <div className="flex flex-wrap gap-1.5">
-                      {template.variables.map((variable) => (
-                        <Chip key={variable} tone="vars">
+                      {template.variables.map((variable, index) => (
+                        <Chip key={variable} tone="vars" colorIndex={index}>
                           {variable}
                         </Chip>
                       ))}

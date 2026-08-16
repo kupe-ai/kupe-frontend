@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
-import { BlockEditor } from "@/components/notes/block-editor";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -24,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VoiceEditorShimmer } from "@/components/ui/shimmer";
 import { AgentAskKoriPanel } from "@/components/voice-agents/agent-ask-kori-panel";
+import { SystemPromptSection } from "@/components/voice-agents/system-prompt-section";
 import { AgentSettingsPanel } from "@/components/voice-agents/agent-settings-panel";
 import { AgentTestsPanel } from "@/components/voice-agents/agent-tests-panel";
 import { AgentToolsPanel } from "@/components/voice-agents/agent-tools-panel";
@@ -51,7 +51,6 @@ export default function VoiceAgentEditorPage() {
   const [testOpen, setTestOpen] = useState(false);
   const [instructionsSeed, setInstructionsSeed] = useState(0);
   const [savingPrompt, setSavingPrompt] = useState(false);
-  const instructionsReady = useRef(false);
 
   const agentQuery = useKoriQuery({
     queryKey: ["voice-agent", id],
@@ -63,7 +62,6 @@ export default function VoiceAgentEditorPage() {
 
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["voice-agent", id] });
-    instructionsReady.current = false;
     setInstructionsSeed((n) => n + 1);
   }, [queryClient, id]);
 
@@ -71,18 +69,21 @@ export default function VoiceAgentEditorPage() {
     if (agent?.name) document.title = `${agent.name} · Voice Agents · Kupe`;
   }, [agent?.name]);
 
-  async function saveInstructions(value: string) {
-    if (!instructionsReady.current) {
-      instructionsReady.current = true;
+  async function savePromptField(patch: Partial<VoiceAgent>) {
+    if (!agent) return;
+    if (patch.system_prompt != null && patch.system_prompt === agent.system_prompt) return;
+    if (
+      patch.first_message !== undefined &&
+      (patch.first_message ?? "") === (agent.first_message ?? "")
+    ) {
       return;
     }
-    if (!agent || value === agent.system_prompt) return;
     setSavingPrompt(true);
     try {
-      await updateVoiceAgent(id, { system_prompt: value } as Partial<VoiceAgent>);
+      await updateVoiceAgent(id, patch);
       await queryClient.invalidateQueries({ queryKey: ["voice-agent", id] });
     } catch (err) {
-      toast.error(friendlyVoiceError(err, "Couldn't save instructions"));
+      toast.error(friendlyVoiceError(err, "Couldn't save prompt"));
     } finally {
       setSavingPrompt(false);
     }
@@ -211,8 +212,8 @@ export default function VoiceAgentEditorPage() {
                 className={cn(
                   "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                   section === item.id
-                    ? "bg-muted font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                    ? "bg-sidebar-accent font-medium text-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
                 <Icon className="size-4 shrink-0 opacity-80" />
@@ -224,21 +225,13 @@ export default function VoiceAgentEditorPage() {
 
         <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           {section === "instructions" && (
-            <div className="w-full px-6 py-6 md:px-10 lg:px-12">
-              <div className="mb-3 flex h-6 items-center">
-                <p className="text-caption uppercase tracking-[0.06em]">
-                  Instructions
-                </p>
-              </div>
-              <div className="min-h-[calc(100vh-10rem)] rounded-2xl border border-border/60 bg-background px-2 py-3 shadow-sm sm:px-4">
-                <BlockEditor
-                  key={`${id}-${instructionsSeed}`}
-                  initialValue={agent.system_prompt}
-                  onChange={saveInstructions}
-                  placeholder="Write agent instructions… Type / for blocks"
-                />
-              </div>
-            </div>
+            <SystemPromptSection
+              key={`${id}-${instructionsSeed}`}
+              systemPrompt={agent.system_prompt}
+              firstMessage={agent.first_message ?? ""}
+              onSystemPromptChange={(value) => void savePromptField({ system_prompt: value })}
+              onFirstMessageChange={(value) => void savePromptField({ first_message: value })}
+            />
           )}
           {section === "variables" && <AgentVariablesPanel agentId={id} />}
           {section === "tools" && <AgentToolsPanel agentId={id} />}

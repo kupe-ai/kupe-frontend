@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff, Plus, Sparkles } from "lucide-react";
+import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff, Plus } from "lucide-react";
 import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { toast } from "sonner";
 import { AiStar } from "@/components/brand/ai-star";
@@ -303,7 +303,7 @@ export function AgentAskKoriPanel({
             <div key={m.id} className="animate-pop-in-up space-y-3">
               <div className="flex items-start gap-2">
                 <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Sparkles className="size-3.5 text-primary" />
+                  <AiStar size={14} />
                 </span>
                 <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
               </div>

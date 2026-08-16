@@ -4,14 +4,14 @@ export const kupe = {
   black: "#0E0E0E",
   white: "#FFFFFF",
   offWhite: "#F3F3F3",
-  secondaryBg: "#FAFAFA",
+  secondaryBg: "#FBFBFB",
   darkBg: "#0E0E0E",
   darkAlt: "#161616",
   darkWell: "#1C1C1C",
 
   card: "#FFFFFF",
   cardSecondary: "#F3F3F3",
-  border: "#F6F6F6",
+  border: "#EFEFEF",
   radius: 14,
   radiusLarge: 20,
   shadow: "0 1px 2px rgb(14 14 14 / 0.06)",
@@ -19,7 +19,7 @@ export const kupe = {
   text: {
     primary: "#0E0E0E",
     secondary: "#3D3D3D",
-    muted: "#737373",
+    muted: "#707070",
     onDark: "#FAFAFA",
   },
 

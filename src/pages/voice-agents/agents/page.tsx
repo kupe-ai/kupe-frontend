@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUp, Bot, Loader2, Plus } from "lucide-react";
+import { ArrowUp, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   AgentTemplatesSection,
   RecentAgentsTable,
   VoicePageHeader,
 } from "@/components/voice-agents/shared";
+import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
 import { createVoiceAgent, listVoiceAgents } from "@/lib/api/voice/agents";
@@ -93,27 +93,27 @@ export default function VoiceAgentsAgentsPage() {
       />
 
       <section className="mt-10 flex flex-col items-center text-center">
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-          <Bot className="size-7" />
+        <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10">
+          <AiStar size={28} />
         </span>
         <h1 className="mt-4 text-2xl font-semibold tracking-tight md:text-3xl">
           What should your voice agent do?
         </h1>
-        <div className="relative mt-5 w-full max-w-2xl">
-          <Input
+        <div className="mt-5 flex w-full max-w-2xl items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+          <input
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void submitPrompt();
             }}
-            className="h-12 rounded-full pr-14 text-sm shadow-sm md:h-14 md:text-base"
+            className="h-12 min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-sm outline-none md:h-14 md:text-base"
             aria-label="Describe your voice agent"
             disabled={creating}
           />
           <Button
             type="button"
             size="icon"
-            className="absolute top-1/2 right-1.5 size-9 -translate-y-1/2 rounded-full"
+            className="mr-1.5 size-9 shrink-0 rounded-full"
             onClick={() => void submitPrompt()}
             aria-label="Create agent from prompt"
             disabled={creating}

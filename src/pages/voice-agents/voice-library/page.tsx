@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Loader2, MoreHorizontal, Pause, Play, Plus, Search, Sparkles } from "lucide-react";
+import { Download, Loader2, MoreHorizontal, Pause, Play, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
+import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Matrix, pulse } from "@/components/ui/matrix";
+import { Matrix, seededPattern } from "@/components/ui/matrix";
 import { AudioPreviewProvider, useAudioPreview } from "@/lib/hooks/use-audio-preview";
 import { useAuth } from "@/lib/useAuth";
 import {
@@ -222,32 +223,21 @@ function VoiceCard({
     }
   }
 
+  const pattern = useMemo(() => seededPattern(voice.id), [voice.id]);
+
   return (
-    <div className="animate-pop-in-up flex items-start gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <button
-        type="button"
-        onClick={() => void togglePreview()}
-        className="press-pop relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary"
-        aria-label={isPlaying ? "Pause preview" : "Play preview"}
-      >
-        {previewing ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <Matrix
-            rows={7}
-            cols={7}
-            frames={pulse}
-            fps={isPlaying ? 16 : 4}
-            size={3}
-            gap={0.8}
-            palette={{ on: "var(--primary)", off: "transparent" }}
-            ariaLabel=""
-          />
-        )}
-        <span className="absolute inset-0 flex items-center justify-center bg-background/0 opacity-0 transition-opacity hover:bg-background/40 hover:opacity-100">
-          {isPlaying ? <Pause className="size-4" /> : <Play className="size-4" />}
-        </span>
-      </button>
+    <div className="animate-pop-in-up flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 text-primary">
+        <Matrix
+          rows={7}
+          cols={7}
+          pattern={pattern}
+          size={3}
+          gap={0.8}
+          palette={{ on: "var(--primary)", off: "transparent" }}
+          ariaLabel=""
+        />
+      </span>
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -278,6 +268,24 @@ function VoiceCard({
           )}
         </div>
       </div>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="shrink-0 rounded-full"
+        onClick={() => void togglePreview()}
+        aria-label={isPlaying ? "Pause preview" : "Play preview"}
+        disabled={previewing}
+      >
+        {previewing ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : isPlaying ? (
+          <Pause className="size-4" />
+        ) : (
+          <Play className="size-4" />
+        )}
+      </Button>
 
       {isOwner && voice.source === "cloned" && (
         <VoiceCardMenu voice={voice} onChanged={onChanged} />
@@ -483,7 +491,7 @@ function TtsPlayground({ voices }: { voices: CatalogVoice[] }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center gap-2">
-        <Sparkles className="size-4 text-primary" />
+        <AiStar size={16} />
         <p className="text-sm font-semibold">Try text-to-speech</p>
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">

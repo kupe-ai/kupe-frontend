@@ -171,14 +171,14 @@ export function SettingsDialog() {
                           className={cn(
                             "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                             active
-                              ? "bg-primary/10 font-semibold text-primary ring-1 ring-primary/20"
-                              : "text-muted-foreground hover:bg-sidebar-accent/70 hover:text-foreground",
+                              ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                              : "text-muted-foreground hover:bg-muted hover:text-foreground",
                           )}
                         >
                           <Icon
                             className={cn(
                               "size-4 shrink-0",
-                              active ? "text-primary" : "text-muted-foreground",
+                              active ? "text-foreground" : "text-muted-foreground",
                             )}
                           />
                           <span className="min-w-0 flex-1 truncate">{item.label}</span>

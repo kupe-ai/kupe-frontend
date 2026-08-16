@@ -132,6 +132,33 @@ function setPixel(frame: Frame, row: number, col: number, value: number): void {
   }
 }
 
+/** Stable identicon-style matrix from a seed. Not animated. */
+export function seededPattern(seed: string, rows = 7, cols = 7): Frame {
+  let h = 2166136261
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  const rand = () => {
+    h = Math.imul(h ^ (h >>> 16), 2246822519)
+    h = Math.imul(h ^ (h >>> 13), 3266489917)
+    h ^= h >>> 16
+    return (h >>> 0) / 4294967296
+  }
+
+  const frame = emptyFrame(rows, cols)
+  const half = Math.ceil(cols / 2)
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < half; c++) {
+      const on = rand() > 0.52
+      const value = on ? 0.5 + rand() * 0.5 : 0
+      frame[r][c] = value
+      frame[r][cols - 1 - c] = value
+    }
+  }
+  return frame
+}
+
 export const digits: Frame[] = [
   [
     [0, 1, 1, 1, 0],

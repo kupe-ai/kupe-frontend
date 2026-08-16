@@ -55,7 +55,7 @@ function NavLinks({
       {groups.map((group) => (
         <div key={group.id} className={cn("flex flex-col", collapsed ? "gap-1" : "gap-0.5")}>
           {!collapsed && "label" in group && group.label && (
-            <div className="px-2 pb-1 pt-1 text-[11px] font-medium text-muted-foreground">
+            <div className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               {group.label}
             </div>
           )}
@@ -83,8 +83,8 @@ function NavLinks({
               collapsed && "size-8 justify-center px-0",
               isSettings && "w-full text-left",
               active
-                ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground ring-1 ring-border/40"
-                : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground hover:ring-1 hover:ring-border/35",
+                ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             );
 
             const link = isSettings ? (

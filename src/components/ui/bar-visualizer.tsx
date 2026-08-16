@@ -488,8 +488,6 @@ const BarVisualizerComponent = forwardRef<HTMLDivElement, BarVisualizerProps>(
               heightPct={heightPct}
               isHighlighted={isHighlighted}
               state={state}
-              index={index}
-              barCount={barCount}
             />
           )
         })}
@@ -503,11 +501,8 @@ const Bar = memo<{
   heightPct: number
   isHighlighted: boolean
   state?: AgentState
-  index: number
-  barCount: number
-}>(({ heightPct, isHighlighted, state, index, barCount }) => {
+}>(({ heightPct, isHighlighted, state }) => {
   const active = isHighlighted || state === "speaking"
-  const span = Math.max(1, barCount - 1)
 
   return (
     <div
@@ -521,13 +516,6 @@ const Bar = memo<{
       style={{
         height: `${heightPct}%`,
         animationDuration: state === "thinking" ? "300ms" : undefined,
-        ...(active
-          ? {
-              backgroundRepeat: "no-repeat",
-              backgroundSize: `${barCount * 100}% 100%`,
-              backgroundPosition: `${(index / span) * 100}% 50%`,
-            }
-          : undefined),
       }}
     />
   )

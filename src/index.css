@@ -111,7 +111,7 @@
 
 /* ------------------------------------------------------------------ *
  * Kupe brand tokens — hero blue over neutral grays. Satoshi everywhere.
- * Light: canvas #FFFFFF · muted/sidebar #FAFAFA · well #F3F3F3 · ink #0E0E0E
+ * Light: canvas #FFFFFF · muted/sidebar #FBFBFB · well #F3F3F3 · ink #0E0E0E
  * Dark:  inverted (#0E0E0E / #161616 / #1C1C1C)
  * Buttons / hero fills: the brand gradient image (not a CSS color stop).
  * ------------------------------------------------------------------ */
@@ -121,13 +121,13 @@
   --kupe-black: #0e0e0e;
   --kupe-white: #ffffff;
   --kupe-off-white: #f3f3f3;
-  --kupe-secondary-bg: #fafafa;
+  --kupe-secondary-bg: #fbfbfb;
   --kupe-dark-alt: #161616;
   --kupe-dark-well: #1c1c1c;
-  --kupe-border: #f6f6f6;
+  --kupe-border: #efefef;
   --kupe-text: #0e0e0e;
   --kupe-text-secondary: #3d3d3d;
-  --kupe-text-muted: #737373;
+  --kupe-text-muted: #707070;
   --kupe-hero: #4048ff;
   --kupe-hero-deep: #010799;
   --kupe-hero-hover: #a8abff;
@@ -145,7 +145,12 @@
   --kupe-dashboard: var(--kupe-hero-image);
   --kupe-voice: var(--kupe-hero-image);
   /* CSS color-stop gradient for charts / visualizers — not the hero PNG. */
-  --kupe-theme-gradient: linear-gradient(100deg, var(--primary-from), var(--primary), var(--primary-to));
+  --kupe-theme-gradient: linear-gradient(
+    to bottom,
+    var(--primary-from) 0%,
+    var(--primary) 42%,
+    var(--primary-to) 100%
+  );
 
   --elevation: 0 1px 2px rgb(14 14 14 / 0.06);
   --elevation-right: -1px 0 3px rgb(14 14 14 / 0.05);
@@ -183,17 +188,17 @@
   --secondary: #fafafa;
   --secondary-foreground: #0e0e0e;
 
-  --muted: #fafafa;
-  --muted-foreground: #737373;
+  --muted: #fbfbfb;
+  --muted-foreground: #707070;
   --well: #f3f3f3;
 
-  --accent: #fafafa;
+  --accent: #fbfbfb;
   --accent-foreground: #0e0e0e;
 
   --destructive: #e5484d;
 
-  --border: #f6f6f6;
-  --input: #f6f6f6;
+  --border: #efefef;
+  --input: #efefef;
   --ring: #4048ff;
 
   --chart-1: #4048ff;
@@ -202,13 +207,13 @@
   --chart-4: #010799;
   --chart-5: #7077fb;
 
-  --sidebar: #fafafa;
+  --sidebar: #fbfbfb;
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: #4048ff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ffffff;
+  --sidebar-accent: #efefef;
   --sidebar-accent-foreground: #0e0e0e;
-  --sidebar-border: #f6f6f6;
+  --sidebar-border: #efefef;
   --sidebar-ring: var(--ring);
 }
 
@@ -237,7 +242,7 @@
   --secondary-foreground: #fafafa;
 
   --muted: #161616;
-  --muted-foreground: #737373;
+  --muted-foreground: #909090;
   --well: #1c1c1c;
 
   --accent: #161616;
@@ -259,7 +264,7 @@
   --sidebar-foreground: var(--foreground);
   --sidebar-primary: #4048ff;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #0e0e0e;
+  --sidebar-accent: #1c1c1c;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #1a1a1a;
   --sidebar-ring: var(--ring);
@@ -427,8 +432,6 @@
     background-repeat: no-repeat;
   }
   [data-slot="button"][data-variant="default"] {
-    position: relative;
-    overflow: hidden;
     box-shadow:
       0 1px 2px rgb(1 7 153 / 0.22),
       0 6px 18px rgb(64 72 255 / 0.38);
@@ -584,7 +587,6 @@
   .nav-item:hover {
     background: var(--muted);
     color: var(--foreground);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 35%, transparent);
   }
   .nav-item:active {
     transform: scale(0.97);
@@ -592,11 +594,73 @@
   .nav-item.is-active {
     background: var(--sidebar-accent);
     color: var(--sidebar-accent-foreground);
-    font-weight: 600;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--border) 40%, transparent);
+    font-weight: 500;
   }
   .nav-item:focus-visible {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 40%, transparent);
+  }
+
+  /* Prompt cards: 2px muted border, primary when focused */
+  .field-focus-container {
+    border-width: 2px;
+    border-style: solid;
+    border-color: var(--input);
+    transition: border-color 150ms ease;
+  }
+  .field-focus-container:focus-within {
+    border-color: var(--primary);
+  }
+  .field-focus-container-static:focus-within {
+    border-color: var(--input);
+  }
+  .field-focus-container textarea:focus-visible,
+  .field-focus-container input:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+
+  .prompt-variable-token {
+    display: inline;
+    line-height: inherit;
+    padding: 0 3px;
+    border-radius: 4px;
+    font-weight: 550;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .prompt-editor-pre,
+  .prompt-editor-textarea {
+    font-family: inherit;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    letter-spacing: normal;
+    margin: 0;
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .prompt-editor-pre {
+    pointer-events: none;
+    position: relative;
+    z-index: 0;
+    color: var(--foreground);
+  }
+  .prompt-editor-textarea {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--foreground);
+    resize: none;
+    border: none;
+    outline: none;
+  }
+  .prompt-editor-textarea::placeholder {
+    color: var(--muted-foreground);
   }
 }
 

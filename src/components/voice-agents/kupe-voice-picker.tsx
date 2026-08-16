@@ -14,7 +14,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Matrix, pulse } from "@/components/ui/matrix";
+import { Matrix, seededPattern } from "@/components/ui/matrix";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { CatalogVoice } from "@/types";
 
@@ -22,7 +22,7 @@ import type { CatalogVoice } from "@/types";
  * Voice Picker, ported from the ElevenLabs UI registry's `voice-picker` to
  * work with Kupe's own multi-provider `CatalogVoice` catalog instead of the
  * ElevenLabs SDK's `ElevenLabs.Voice` type. Also swaps the registry's
- * three.js-based `Orb` for the lightweight Matrix `pulse` preset, and its
+ * three.js-based `Orb` for a seeded static Matrix identicon, and its
  * full-featured `audio-player` for a small shared preview-only player —
  * keeps this searchable, preview-able picker without pulling in a WebGL
  * renderer or a scrubber/volume UI just for a play button.
@@ -77,7 +77,7 @@ function KupeVoicePickerInner({
         >
           {selectedVoice ? (
             <span className="flex min-w-0 items-center gap-2">
-              <VoiceOrb active={false} />
+              <VoiceOrb seed={selectedVoice.id} />
               <span className="truncate">{selectedVoice.voice_name || selectedVoice.voice_id}</span>
             </span>
           ) : (
@@ -108,14 +108,14 @@ function KupeVoicePickerInner({
   );
 }
 
-function VoiceOrb({ active }: { active: boolean }) {
+function VoiceOrb({ seed }: { seed: string }) {
+  const pattern = React.useMemo(() => seededPattern(seed), [seed]);
   return (
     <span className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10">
       <Matrix
         rows={7}
         cols={7}
-        frames={pulse}
-        fps={active ? 16 : 6}
+        pattern={pattern}
         size={2.4}
         gap={0.6}
         palette={{ on: "var(--primary)", off: "transparent" }}
@@ -167,7 +167,7 @@ function VoicePickerItem({
         onMouseLeave={() => setIsHovered(false)}
         onClick={handlePreview}
       >
-        <VoiceOrb active={isPlaying} />
+        <VoiceOrb seed={voice.id} />
         {preview && isHovered && (
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
             {isPlaying ? (
