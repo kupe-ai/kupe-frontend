@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CallTransferCard } from "@/CallTransferCard";
 import { api } from "@/lib/api";
 import { listVoiceTtsVoices } from "@/lib/api/voice/providers";
+import { formatProviderModel } from "@/lib/voice/provider-brand";
 import type {
   Agent,
   AgentAnalysis,
@@ -569,7 +570,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                       <SelectContent>
                         {providers?.model_providers.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.provider_name} / {p.model_name}
+                            {formatProviderModel(p.provider_name, p.model_name)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -583,7 +584,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                       <SelectContent>
                         {providers?.transcriber_providers.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.provider_name} / {p.model_name}
+                            {formatProviderModel(p.provider_name, p.model_name)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -600,7 +601,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                       <SelectContent>
                         {providers?.tts_providers.map((p) => (
                           <SelectItem key={p.id} value={p.id}>
-                            {p.provider_name} / {p.model_name}
+                            {formatProviderModel(p.provider_name, p.model_name)}
                           </SelectItem>
                         ))}
                       </SelectContent>

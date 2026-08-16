@@ -10,6 +10,9 @@ export type CatalogVoice = {
   preview_url?: string | null;
   /** Only meaningful for source="cloned" — visible org-wide vs. owner-only. */
   is_public?: boolean;
+  /** Present when the library joins catalog rows onto each voice. */
+  provider_name?: string;
+  model_name?: string;
 };
 
 export type ProviderVoice = {
@@ -109,6 +112,8 @@ export type UsageSummaryRow = {
   provider_name: string;
   model_name: string;
   total_quantity: number;
+  currency: string | null;
+  cost_minor_units: number;
 };
 
 export type SessionUsageMetric = {
@@ -151,6 +156,19 @@ export type UsageDailyRow = {
   output_audio_tokens: number;
   cache_read_input_audio_tokens: number;
   total_tokens: number;
+  currency: string | null;
+  cost_minor_units: number;
+};
+
+export type CurrencyCostTotal = {
+  currency: string;
+  cost: number;
+  audio_seconds: number;
+};
+
+export type UsageCostSummary = {
+  totals: CurrencyCostTotal[];
+  minutes_consumed: number;
 };
 
 export type Recording = {

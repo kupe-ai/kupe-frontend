@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getShortcutLabel } from "@/lib/platform";
+import { ModernIcon } from "@/components/icons/modern-icon";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
@@ -183,16 +184,15 @@ export function CommandPalette({
             {filteredPages.length > 0 && (
               <CommandGroup heading="Pages">
                 {filteredPages.map((item) => {
-                  const Icon = item.icon;
                   const active = isVoiceAgentsNavActive(pathname, item.href);
                   return (
                     <CommandItem
                       key={item.id}
                       value={`${item.label} ${item.href} page navigate`}
                       onSelect={() => go(item.href, item.label)}
-                      className={cn("gap-2.5", active && "font-semibold")}
+                      className={cn("group/nav gap-2.5", active && "font-semibold")}
                     >
-                      <Icon className="size-4 text-muted-foreground" />
+                      <ModernIcon icon={item.icon} className="size-4 text-muted-foreground" />
                       <span className="flex-1">{item.label}</span>
                       {active && (
                         <span className="text-xs text-muted-foreground">Current</span>

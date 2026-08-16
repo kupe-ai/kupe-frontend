@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUp, Loader2, Plus } from "lucide-react";
+import { ArrowUp, Phone, Plus } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   AgentTemplatesSection,
   RecentAgentsTable,
   VoicePageHeader,
 } from "@/components/voice-agents/shared";
+import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
 import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
@@ -18,10 +19,9 @@ import type { RecentVoiceAgent } from "@/lib/voice-agents-data";
 
 export default function VoiceAgentsAgentsPage() {
   const navigate = useNavigate();
-  const [prompt, setPrompt] = useState(
-    "Create a voice agent to answer calls and confirm appointments",
-  );
-  const [creating, setCreating] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [focused, setFocused] = useState(false);
+  const [creating, setCreating] = useState<"prompt" | "scratch" | null>(null);
 
   const agentsQuery = useKoriQuery({
     queryKey: ["voice-agents", "list"],
@@ -45,13 +45,16 @@ export default function VoiceAgentsAgentsPage() {
     void agentsQuery.refetch();
   }, [agentsQuery]);
 
+  const busy = creating !== null;
+  const canSubmit = prompt.trim().length > 0 && !busy;
+
   async function submitPrompt() {
     const text = prompt.trim();
     if (!text) {
       toast.message("Describe what your agent should do");
       return;
     }
-    setCreating(true);
+    setCreating("prompt");
     try {
       const agent = await createVoiceAgent({ prompt: text });
       refreshRecents();
@@ -59,12 +62,12 @@ export default function VoiceAgentsAgentsPage() {
     } catch {
       toast.error("Couldn't create agent");
     } finally {
-      setCreating(false);
+      setCreating(null);
     }
   }
 
   async function createFromScratch() {
-    setCreating(true);
+    setCreating("scratch");
     try {
       const agent = await createVoiceAgent({ name: "New agent" });
       refreshRecents();
@@ -72,7 +75,7 @@ export default function VoiceAgentsAgentsPage() {
     } catch {
       toast.error("Couldn't create agent");
     } finally {
-      setCreating(false);
+      setCreating(null);
     }
   }
 
@@ -85,8 +88,13 @@ export default function VoiceAgentsAgentsPage() {
       <VoicePageHeader
         title="Agents"
         actions={
-          <Button className="rounded-full" onClick={() => void createFromScratch()} disabled={creating}>
-            {creating ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+          <Button
+            className="rounded-full"
+            onClick={() => void createFromScratch()}
+            loading={creating === "scratch"}
+            disabled={busy}
+          >
+            <Plus className="size-4" weight="bold" />
             Create from scratch
           </Button>
         }
@@ -100,25 +108,37 @@ export default function VoiceAgentsAgentsPage() {
           What should your voice agent do?
         </h1>
         <div className="mt-5 flex w-full max-w-2xl items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-          <input
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void submitPrompt();
-            }}
-            className="h-12 min-w-0 flex-1 rounded-full border-0 bg-transparent px-5 text-sm outline-none md:h-14 md:text-base"
-            aria-label="Describe your voice agent"
-            disabled={creating}
+          <Phone
+            weight="duotone"
+            className="ml-4 size-4 shrink-0 text-muted-foreground"
+            aria-hidden
           />
+          <div className="relative min-w-0 flex-1">
+            <input
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void submitPrompt();
+              }}
+              className="h-12 w-full min-w-0 rounded-full border-0 bg-transparent px-3 text-left text-sm outline-none placeholder:text-muted-foreground md:h-14 md:text-base"
+              placeholder={focused && !prompt ? "Create a voice agent…" : undefined}
+              aria-label="Describe your voice agent"
+              disabled={busy}
+            />
+            {!prompt && !focused ? <CyclingPromptPlaceholder paused={busy} /> : null}
+          </div>
           <Button
             type="button"
             size="icon"
             className="mr-1.5 size-9 shrink-0 rounded-full"
             onClick={() => void submitPrompt()}
             aria-label="Create agent from prompt"
-            disabled={creating}
+            loading={creating === "prompt"}
+            disabled={!canSubmit && creating !== "prompt"}
           >
-            {creating ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
+            <ArrowUp className="size-4" weight="bold" />
           </Button>
         </div>
       </section>

@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { AsciiEmptyState, AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { CallLogDetailDialog } from "@/components/voice-agents/call-log-detail-dialog";
+import { PipelineFunnel } from "@/components/voice-agents/pipeline-funnel";
 import { VoicePagination } from "@/components/voice-agents/shared";
 import { QuickContextMenu } from "@/components/quick-context-menu";
 import { Button } from "@/components/ui/button";
@@ -379,25 +380,13 @@ function EngagementTab({ data }: { data: Awaited<ReturnType<typeof getAnalyticsE
       <div className="rounded-xl border border-border bg-card p-4">
         <p className="text-sm font-semibold">Full Pipeline Funnel</p>
         <p className="text-xs text-muted-foreground">Step-wise conversion from attempted calls through engaged conversations.</p>
-        <div className="mt-6 flex items-end justify-center gap-0">
-          {(
-            [
-              ["Attempted", data.funnel.attempted],
-              ["Connected", data.funnel.connected],
-              ["Engaged", data.funnel.engaged],
-            ] as const
-          ).map(([label, value], i) => (
-            <div key={label} className="flex flex-col items-center">
-              <div
-                className="flex h-28 w-24 items-center justify-center bg-primary/80 text-sm font-semibold text-white"
-                style={{ opacity: 1 - i * 0.15 }}
-              >
-                {value}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">{label}</p>
-            </div>
-          ))}
-        </div>
+        <PipelineFunnel
+          stages={[
+            { label: "Attempted", value: data.funnel.attempted },
+            { label: "Connected", value: data.funnel.connected },
+            { label: "Engaged", value: data.funnel.engaged },
+          ]}
+        />
       </div>
       <TableCard title="Engagement by language" className="mt-4">
         <table className="w-full text-left text-sm">

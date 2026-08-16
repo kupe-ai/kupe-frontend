@@ -121,6 +121,16 @@ export default function VoiceAgentsHomePage() {
   }, [analyticsQuery.data]);
 
   const totalLiveCalls = analyticsQuery.data?.total_calls ?? 0;
+  const connectedCalls = analyticsQuery.data?.connected_calls ?? 0;
+  const connectRate = analyticsQuery.data?.connectivity_rate ?? 0;
+  const agentCount = recentAgents.length;
+
+  const homeStats = [
+    { id: "calls", label: "Total calls", value: analyticsQuery.isLoading ? "—" : String(totalLiveCalls) },
+    { id: "connected", label: "Connected", value: analyticsQuery.isLoading ? "—" : String(connectedCalls) },
+    { id: "rate", label: "Connect rate", value: analyticsQuery.isLoading ? "—" : `${(connectRate * 100).toFixed(0)}%` },
+    { id: "agents", label: "Agents", value: String(agentCount) },
+  ];
 
   // Last 12 hours of real call volume, normalized to 0-1, for the Matrix VU accent.
   const vuLevels = useMemo(() => {
@@ -153,11 +163,15 @@ export default function VoiceAgentsHomePage() {
 
       <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">Total calls</p>
-            <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums">
-              {analyticsQuery.isLoading ? "—" : totalLiveCalls}
-            </p>
+          <div className="grid min-w-0 flex-1 grid-cols-2 gap-4 sm:grid-cols-4">
+            {homeStats.map((s) => (
+              <div key={s.id}>
+                <p className="text-sm text-muted-foreground">{s.label}</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums md:text-3xl">
+                  {s.value}
+                </p>
+              </div>
+            ))}
           </div>
           <div className="flex items-center gap-2">
             <p className="text-xs text-muted-foreground">Volume · Hour of day</p>

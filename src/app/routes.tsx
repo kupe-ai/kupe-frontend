@@ -33,6 +33,7 @@ const VoiceAgentsDeployRecipePage = lazyWithRetry(
   () => import("@/pages/voice-agents/deploy-with-code/recipes/[slug]/page"),
 );
 const VoiceAgentsAnalyticsPage = lazyWithRetry(() => import("@/pages/voice-agents/analytics/page"));
+const VoiceAgentsUsagePage = lazyWithRetry(() => import("@/pages/voice-agents/usage/page"));
 const VoiceAgentsSettingsPage = lazyWithRetry(() => import("@/pages/voice-agents/settings/page"));
 const VoiceAgentsDocsPage = lazyWithRetry(() => import("@/pages/voice-agents/documentation/page"));
 
@@ -87,6 +88,7 @@ export default function AppRoutes() {
             <Route path="/deploy-with-code/apis/:slug" element={<VoiceAgentsDeployApiPage />} />
             <Route path="/deploy-with-code/recipes/:slug" element={<VoiceAgentsDeployRecipePage />} />
             <Route path="/analytics" element={<VoiceAgentsAnalyticsPage />} />
+            <Route path="/usage" element={<VoiceAgentsUsagePage />} />
             <Route path="/settings" element={<VoiceAgentsSettingsPage />} />
             <Route path="/documentation" element={<VoiceAgentsDocsPage />} />
             <Route path="/voice-agents" element={<Navigate to="/" replace />} />

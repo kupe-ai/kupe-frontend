@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState } from "react";
 import {
   Menu,
   PanelLeftClose,
@@ -9,6 +9,7 @@ import {
   Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ModernIcon } from "@/components/icons/modern-icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -64,7 +65,6 @@ function NavLinks({
             const active = isSettings
               ? Boolean(settings?.open)
               : isVoiceAgentsNavActive(pathname, item.href);
-            const Icon = item.icon as ComponentType<{ className?: string }>;
             const delay = idx++ * 30;
 
             function openItem() {
@@ -79,13 +79,15 @@ function NavLinks({
             }
 
             const className = cn(
-              "animate-fade-in-up flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-all duration-150",
+              "group/nav animate-fade-in-up flex items-center gap-2.5 rounded-md px-2 py-1.5 text-[13px] transition-all duration-150",
               collapsed && "size-8 justify-center px-0",
               isSettings && "w-full text-left",
               active
                 ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
                 : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             );
+
+            const icon = <ModernIcon icon={item.icon} className="size-4" />;
 
             const link = isSettings ? (
               <button
@@ -94,7 +96,7 @@ function NavLinks({
                 style={{ animationDelay: `${delay}ms` }}
                 className={className}
               >
-                <Icon className="size-4 shrink-0" />
+                {icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </button>
             ) : (
@@ -107,7 +109,7 @@ function NavLinks({
                 style={{ animationDelay: `${delay}ms` }}
                 className={className}
               >
-                <Icon className="size-4 shrink-0" />
+                {icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </Link>
             );
@@ -236,6 +238,14 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarCollapseProvider collapsed={collapsed} toggleCollapsed={toggleCollapsed}>
+      <svg className="pointer-events-none absolute h-0 w-0 overflow-hidden" aria-hidden>
+        <defs>
+          <filter id="kupe-icon-warp" x="-40%" y="-40%" width="180%" height="180%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="2" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="4" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
       <div className="flex h-dvh w-full gap-3 overflow-hidden bg-background p-3 print:block print:h-auto print:gap-0 print:overflow-visible print:bg-white print:p-0">
         <SettingsDeepLink />
         <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
@@ -374,17 +384,16 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           {primary.map((item) => {
             if (!item) return null;
             const active = isVoiceAgentsNavActive(pathname, item.href);
-            const Icon = item.icon;
             return (
               <Link
                 key={item.href}
                 to={item.href}
                 className={cn(
-                  "press-pop flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
+                  "group/nav press-pop flex flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors",
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <Icon className="size-5" />
+                <ModernIcon icon={item.icon} className="size-5" />
                 {item.label}
               </Link>
             );

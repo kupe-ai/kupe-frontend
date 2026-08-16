@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Check, ChevronDown, Copy, KeyRound } from "lucide-react";
+import { BookOpenText, CaretDown, Check, Copy, Key } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
+import { ModernIcon } from "@/components/icons/modern-icon";
 import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import {
@@ -59,24 +60,24 @@ export default function VoiceAgentsDeployCodePage() {
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
-              className="rounded-full"
+              className="group/nav rounded-full"
               onClick={() => {
                 if (!settings?.openSettings("keys")) {
                   navigate("/settings");
                 }
               }}
             >
-              <KeyRound className="size-3.5" />
+              <ModernIcon icon={Key} className="size-3.5" />
               API keys
             </Button>
             <Button
               variant="outline"
-              className="rounded-full"
+              className="group/nav rounded-full"
               onClick={() =>
                 navigate("/deploy-with-code/recipes/moengage")
               }
             >
-              <BookOpen className="size-3.5" />
+              <ModernIcon icon={BookOpenText} className="size-3.5" />
               Read docs
             </Button>
           </div>
@@ -90,9 +91,9 @@ export default function VoiceAgentsDeployCodePage() {
         <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="rounded-full">
+              <Button variant="outline" className="group/nav rounded-full">
                 Set up for AI coding tool
-                <ChevronDown className="size-3.5" />
+                <CaretDown className="size-3.5" weight="bold" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="center">
@@ -131,7 +132,7 @@ export default function VoiceAgentsDeployCodePage() {
             <Link
               key={card.slug}
               to={`/deploy-with-code/apis/${card.slug}`}
-              className="pressable rounded-2xl border border-border bg-card p-5 shadow-elevated hover:bg-muted/20"
+              className="group/nav pressable rounded-2xl border border-border bg-card p-5 shadow-elevated hover:bg-muted/20"
             >
               <AsciiIcon kind={card.kind} tone={card.tone} size="md" />
               <h3 className="mt-3 text-sm font-semibold">{card.title}</h3>
@@ -171,7 +172,7 @@ export default function VoiceAgentsDeployCodePage() {
                     {r.summary}
                   </p>
                 </div>
-                <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground opacity-0" />
+                <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground opacity-0" weight="bold" />
               </Link>
             </li>
           ))}
@@ -179,23 +180,25 @@ export default function VoiceAgentsDeployCodePage() {
       </section>
 
       <Dialog open={!!revealedKey} onOpenChange={(o) => !o && setRevealedKey(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Your API key</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">This key is shown once. Copy it now and store it securely.</p>
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-            <code className="min-w-0 flex-1 truncate font-mono text-xs">{revealedKey}</code>
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+            <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-border bg-muted/30 px-3 py-2 font-mono text-xs break-all">
+              {revealedKey}
+            </code>
             <Button
               variant="outline"
               size="sm"
-              className="shrink-0 rounded-full"
+              className="shrink-0 self-end rounded-full sm:self-auto"
               onClick={() => {
                 if (revealedKey) void navigator.clipboard.writeText(revealedKey);
                 toast.message("Copied");
               }}
             >
-              <Copy className="size-3.5" />
+              <Copy className="size-3.5" weight="duotone" />
               Copy
             </Button>
           </div>

@@ -32,6 +32,8 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   onFrame?: (index: number) => void
   mode?: MatrixMode
   levels?: number[]
+  /** Keep dots still; spin the brand-gradient fill on hover. */
+  spinGradientOnHover?: boolean
 }
 
 function clamp(value: number): number {
@@ -132,8 +134,8 @@ function setPixel(frame: Frame, row: number, col: number, value: number): void {
   }
 }
 
-/** Stable identicon-style matrix from a seed. Not animated. */
-export function seededPattern(seed: string, rows = 7, cols = 7): Frame {
+/** Stable identicon-style matrix from a seed. Not animated. Default 5×5. */
+export function seededPattern(seed: string, rows = 5, cols = 5): Frame {
   let h = 2166136261
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i)
@@ -147,13 +149,21 @@ export function seededPattern(seed: string, rows = 7, cols = 7): Frame {
   }
 
   const frame = emptyFrame(rows, cols)
-  const half = Math.ceil(cols / 2)
+  let onCount = 0
   for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < half; c++) {
-      const on = rand() > 0.52
-      const value = on ? 0.5 + rand() * 0.5 : 0
-      frame[r][c] = value
-      frame[r][cols - 1 - c] = value
+    for (let c = 0; c < cols; c++) {
+      const on = rand() > 0.48
+      frame[r][c] = on ? 0.55 + rand() * 0.45 : 0
+      if (on) onCount++
+    }
+  }
+  const minOn = Math.max(5, Math.floor(rows * cols * 0.28))
+  while (onCount < minOn) {
+    const r = Math.floor(rand() * rows)
+    const c = Math.floor(rand() * cols)
+    if (frame[r]![c] === 0) {
+      frame[r]![c] = 0.7 + rand() * 0.3
+      onCount++
     }
   }
   return frame
@@ -464,6 +474,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       onFrame,
       mode = "default",
       levels,
+      spinGradientOnHover = false,
       className,
       ...props
     },
@@ -521,6 +532,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
     const onFillId = `matrix-on-${gradientId}`
     const offFillId = `matrix-off-${gradientId}`
     const glowId = `matrix-glow-${gradientId}`
+    const [gradientSpinning, setGradientSpinning] = useState(false)
 
     return (
       <div
@@ -538,6 +550,14 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
           } as React.CSSProperties
         }
         {...props}
+        onMouseEnter={(e) => {
+          if (spinGradientOnHover) setGradientSpinning(true)
+          props.onMouseEnter?.(e)
+        }}
+        onMouseLeave={(e) => {
+          if (spinGradientOnHover) setGradientSpinning(false)
+          props.onMouseLeave?.(e)
+        }}
       >
         <svg
           width={svgDimensions.width}
@@ -550,15 +570,25 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
           <defs>
             <linearGradient
               id={onFillId}
-              gradientUnits="userSpaceOnUse"
+              gradientUnits="objectBoundingBox"
               x1="0"
               y1="0"
-              x2={svgDimensions.width}
-              y2={svgDimensions.height * 0.18}
+              x2="1"
+              y2="1"
             >
               <stop offset="0%" stopColor="var(--primary-from)" />
               <stop offset="50%" stopColor="var(--primary)" />
               <stop offset="100%" stopColor="var(--primary-to)" />
+              {spinGradientOnHover && gradientSpinning ? (
+                <animateTransform
+                  attributeName="gradientTransform"
+                  type="rotate"
+                  from="0 0.5 0.5"
+                  to="360 0.5 0.5"
+                  dur="2.2s"
+                  repeatCount="indefinite"
+                />
+              ) : null}
             </linearGradient>
 
             <radialGradient id={offFillId} cx="50%" cy="50%" r="50%">
@@ -607,6 +637,9 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
               const opacity = clamp(brightness * value)
               const isActive = opacity > 0.5
               const isOn = opacity > 0.05
+              if (!isOn && (palette.off === "transparent" || palette.off === "none")) {
+                return null
+              }
               const fill = isOn ? `url(#${onFillId})` : `url(#${offFillId})`
 
               const scale = isActive ? 1.1 : 1

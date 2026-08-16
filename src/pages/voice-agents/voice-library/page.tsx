@@ -23,18 +23,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Matrix, seededPattern } from "@/components/ui/matrix";
 import { AudioPreviewProvider, useAudioPreview } from "@/lib/hooks/use-audio-preview";
 import { useAuth } from "@/lib/useAuth";
 import {
   cloneVoice,
   deleteVoice,
-  getKupeVoiceProvider,
+  listVoiceTtsProviders,
   listVoiceTtsVoices,
   speakVoicePreview,
   updateVoice,
+  type VoiceTtsProvider,
 } from "@/lib/api/voice/providers";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { formatProviderModel } from "@/lib/voice/provider-brand";
+import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 import type { CatalogVoice } from "@/types";
 
 export default function VoiceLibraryPage() {
@@ -50,21 +60,29 @@ function VoiceLibraryPageInner() {
   const userId = session?.user?.id ?? null;
 
   const [providerId, setProviderId] = useState<string | null>(null);
+  const [providers, setProviders] = useState<VoiceTtsProvider[]>([]);
   const [voices, setVoices] = useState<CatalogVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [cloneOpen, setCloneOpen] = useState(false);
+  const providerIdRef = useRef<string | null>(null);
+  providerIdRef.current = providerId;
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (selectedId?: string | null) => {
     setLoading(true);
     try {
-      const provider = await getKupeVoiceProvider();
-      if (!provider) {
-        setVoices([]);
-        return;
-      }
-      setProviderId(provider.id);
-      setVoices(await listVoiceTtsVoices(provider.id));
+      const tts = await listVoiceTtsProviders();
+      setProviders(tts);
+      const kupe = tts.find((p) => p.provider_name.toLowerCase() === "kupe");
+      const preferred = selectedId ?? providerIdRef.current;
+      const nextId =
+        (preferred && tts.some((p) => p.id === preferred) ? preferred : null) ??
+        kupe?.id ??
+        tts.find((p) => p.is_default)?.id ??
+        tts[0]?.id ??
+        null;
+      setProviderId(nextId);
+      setVoices(nextId ? await listVoiceTtsVoices(nextId) : []);
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't load the voice library"));
     } finally {
@@ -77,9 +95,18 @@ function VoiceLibraryPageInner() {
   }, [refresh]);
 
   const q = search.trim().toLowerCase();
-  const filtered = voices.filter((v) => !q || v.voice_name.toLowerCase().includes(q));
+  const filtered = voices.filter((v) => {
+    if (!q) return true;
+    const model = formatProviderModel(v.provider_name ?? "", v.model_name ?? "").toLowerCase();
+    return (
+      v.voice_name.toLowerCase().includes(q) ||
+      model.includes(q) ||
+      (v.provider_name ?? "").toLowerCase().includes(q)
+    );
+  });
   const myVoices = filtered.filter((v) => v.source === "cloned" && v.user_id === userId);
   const otherVoices = filtered.filter((v) => !(v.source === "cloned" && v.user_id === userId));
+  const canClone = providers.some((p) => p.provider_name.toLowerCase() === "kupe");
 
   return (
     <div className="voice-page voice-page-wide">
@@ -87,11 +114,27 @@ function VoiceLibraryPageInner() {
         <div>
           <h1 className="text-title">Voice Library</h1>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Explore every voice available to your agents, try text-to-speech, and clone your own —
-            keep clones private to you or share them with your whole workspace.
+            Voices for the TTS provider you pick — try text-to-speech, and clone your own.
+            Keep clones private to you or share them with your whole workspace.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Select
+            value={providerId ?? undefined}
+            onValueChange={(id) => void refresh(id)}
+            disabled={!providers.length}
+          >
+            <SelectTrigger className="h-9 w-52 rounded-full">
+              <SelectValue placeholder="Select provider" />
+            </SelectTrigger>
+            <SelectContent>
+              {providers.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {formatProviderModel(p.provider_name, p.model_name)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -101,7 +144,7 @@ function VoiceLibraryPageInner() {
               className="h-9 w-48 rounded-full pl-8"
             />
           </div>
-          <Button type="button" className="rounded-full" onClick={() => setCloneOpen(true)}>
+          <Button type="button" className="rounded-full" disabled={!canClone} onClick={() => setCloneOpen(true)}>
             <Plus className="size-4" />
             Clone voice
           </Button>
@@ -123,7 +166,7 @@ function VoiceLibraryPageInner() {
         />
         <VoiceSection
           title="All voices"
-          description="Built-in Kupe voices, plus workspace voices others have made public."
+          description="Catalog voices for this provider, plus workspace voices others have made public."
           voices={otherVoices}
           loading={loading}
           onChanged={refresh}
@@ -139,7 +182,7 @@ function VoiceLibraryPageInner() {
         }}
       />
 
-      {!loading && !providerId && (
+      {!loading && !canClone && (
         <p className="mt-4 text-sm text-muted-foreground">
           Voice cloning isn't set up on this workspace yet — ask an admin to add a platform API key.
         </p>
@@ -223,17 +266,24 @@ function VoiceCard({
     }
   }
 
-  const pattern = useMemo(() => seededPattern(voice.id), [voice.id]);
+  const pattern = useMemo(() => seededPattern(voice.id, 5, 5), [voice.id]);
+  const providerKey = voice.provider_name ?? "";
+  const modelLine =
+    voice.provider_name || voice.model_name
+      ? formatProviderModel(voice.provider_name ?? "", voice.model_name ?? "")
+      : null;
 
   return (
     <div className="animate-pop-in-up flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 text-primary">
+      <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-border dark:bg-white">
         <Matrix
-          rows={7}
-          cols={7}
+          rows={5}
+          cols={5}
           pattern={pattern}
-          size={3}
-          gap={0.8}
+          size={4.2}
+          gap={1.1}
+          spinGradientOnHover
+          className="flex size-full items-center justify-center"
           palette={{ on: "var(--primary)", off: "transparent" }}
           ariaLabel=""
         />
@@ -248,6 +298,12 @@ function VoiceCard({
             </span>
           )}
         </div>
+        {modelLine ? (
+          <div className="mt-1 flex min-w-0 items-center gap-1.5">
+            {providerKey ? <ProviderLogo provider={providerKey} size="sm" /> : null}
+            <p className="truncate text-xs text-muted-foreground">{modelLine}</p>
+          </div>
+        ) : null}
         <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
           {voice.gender && <span className="capitalize">{voice.gender}</span>}
           {voice.supported_languages.slice(0, 2).map((l) => (

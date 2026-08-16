@@ -28,13 +28,15 @@ function OptionRow({ option }: { option: SearchableOption }) {
     <>
       {option.icon}
       <span className="min-w-0 flex-1 truncate">{option.label}</span>
-      {option.hint ? <span className="text-xs text-muted-foreground">{option.hint}</span> : null}
+      {option.hint ? (
+        <span className="shrink-0 text-xs text-muted-foreground">{option.hint}</span>
+      ) : null}
     </>
   );
 }
 
 const itemClassName =
-  "bg-transparent data-selected:bg-transparent data-[selected=true]:bg-transparent hover:bg-muted data-[selected=true]:hover:bg-muted";
+  "min-w-0 overflow-hidden bg-transparent data-selected:bg-transparent data-[selected=true]:bg-transparent hover:bg-muted data-[selected=true]:hover:bg-muted";
 
 export function SearchableSelect({
   value,
@@ -67,11 +69,11 @@ export function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           disabled={disabled}
-          className={cn("h-9 w-72 justify-between rounded-full font-normal", className)}
+          className={cn("h-9 w-72 min-w-0 justify-between overflow-hidden rounded-full font-normal", className)}
         >
           <span className="flex min-w-0 items-center gap-2 text-left">
             {selected?.icon}
-            <span className="truncate">{selected ? selected.label : placeholder}</span>
+            <span className="min-w-0 truncate">{selected ? selected.label : placeholder}</span>
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 opacity-50" />
         </Button>

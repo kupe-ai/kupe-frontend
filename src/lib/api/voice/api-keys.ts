@@ -5,7 +5,9 @@ import type { VoiceApiKey } from "./types";
 export async function listVoiceApiKeys(): Promise<VoiceApiKey[]> {
   const { projectId } = requireScope();
   const page = await api.listApiKeys(projectId, { limit: 100 });
-  return page.items.map((k) => ({
+  return page.items
+    .filter((k) => !k.revoked_at)
+    .map((k) => ({
     id: k.id,
     name: k.name,
     key_prefix: k.key_prefix,

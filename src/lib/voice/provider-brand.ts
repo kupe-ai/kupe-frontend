@@ -3,7 +3,7 @@
 const BRANDS: Record<string, { label: string; logo: string; mono?: boolean }> = {
   openai: { label: "OpenAI", logo: "/providers/openai.svg", mono: true },
   groq: { label: "Groq", logo: "/providers/groq.svg", mono: true },
-  krutrim: { label: "Krutrim", logo: "/providers/krutrim.png" },
+  krutrim: { label: "Kupe", logo: "/brand/kupe-mark.png" },
   eleven_labs: { label: "ElevenLabs", logo: "/providers/elevenlabs.svg", mono: true },
   elevenlabs: { label: "ElevenLabs", logo: "/providers/elevenlabs.svg", mono: true },
   cartesia: { label: "Cartesia", logo: "/providers/cartesia.png" },
@@ -54,6 +54,8 @@ const MODEL_ACRONYMS = new Set([
 export function displayModelName(name: string): string {
   let raw = name.trim();
   if (!raw) return raw;
+  if (/^k-STT$/i.test(raw)) return "k-STT";
+  if (/^k-TTS$/i.test(raw)) return "k-TTS";
   const slash = raw.lastIndexOf("/");
   if (slash >= 0) raw = raw.slice(slash + 1);
   raw = raw.replace(/[vV](\d+)_(\d+)/g, "v$1.$2");
@@ -78,6 +80,15 @@ function formatModelToken(token: string): string {
   const lower = token.toLowerCase();
   if (MODEL_ACRONYMS.has(lower)) return token.toUpperCase();
   return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
+}
+
+/** `ElevenLabs / Multilingual v2` — provider display name, then humanized model. */
+export function formatProviderModel(provider: string, model: string): string {
+  const p = displayProviderName(provider);
+  const m = displayModelName(model);
+  if (!p) return m;
+  if (!m) return p;
+  return `${p} / ${m}`;
 }
 
 export function providerLogoSrc(name: string): string | null {

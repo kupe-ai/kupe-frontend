@@ -345,6 +345,13 @@
   .animate-slide-up {
     animation: kori-slide-up 0.5s var(--ease-pop) both;
   }
+  .animate-icon-distort {
+    animation: kupe-icon-distort 0.55s var(--ease-pop);
+    filter: url(#kupe-icon-warp);
+  }
+  .animate-prompt-cycle {
+    animation: kupe-prompt-cycle 2.8s var(--ease-out-soft) both;
+  }
   .animate-shimmer-sweep {
     animation: kori-shimmer-sweep 1.4s ease-in-out infinite;
   }
@@ -524,6 +531,43 @@
     box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
   }
 
+  /* True iOS pill + circular thumb. Global `corner-shape: squircle` would
+     otherwise turn rounded-full into a rounded square. */
+  [data-slot="switch"] {
+    border-radius: 999px;
+    corner-shape: round;
+    background-color: var(--input);
+    transition:
+      background 0.28s var(--ease-spring),
+      box-shadow 0.28s var(--ease-spring);
+  }
+  [data-slot="switch"][data-checked],
+  [data-slot="switch"][data-state="checked"] {
+    background-color: var(--primary);
+    background-image: linear-gradient(
+      100deg,
+      var(--primary-from) 0%,
+      var(--primary) 42%,
+      var(--primary-to) 100%
+    );
+    box-shadow:
+      0 1px 2px rgb(1 7 153 / 0.22),
+      0 4px 10px rgb(64 72 255 / 0.28);
+  }
+  [data-slot="switch-thumb"] {
+    border-radius: 999px;
+    corner-shape: round;
+    background: #fff;
+    border: 1px solid rgb(14 14 14 / 0.08);
+    box-shadow: 0 1px 3px rgb(14 14 14 / 0.18);
+    transition: transform 0.32s var(--ease-spring);
+  }
+  .dark [data-slot="switch-thumb"] {
+    background: #fafafa;
+    border-color: rgb(255 255 255 / 0.18);
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  }
+
   .voice-page {
     width: 100%;
     max-width: 64rem;
@@ -684,6 +728,19 @@
   from { opacity: 0; transform: translateY(28px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes kupe-icon-distort {
+  0% { transform: scale(1) rotate(0deg) skewX(0deg); }
+  28% { transform: scale(1.22, 0.78) rotate(-9deg) skewX(10deg); }
+  52% { transform: scale(0.84, 1.18) rotate(8deg) skewX(-8deg); }
+  76% { transform: scale(1.1, 0.92) rotate(-3deg) skewX(3deg); }
+  100% { transform: scale(1) rotate(0deg) skewX(0deg); }
+}
+@keyframes kupe-prompt-cycle {
+  0% { transform: translateY(110%); opacity: 0; }
+  14% { transform: translateY(0); opacity: 1; }
+  78% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-110%); opacity: 0; }
+}
 @keyframes kori-shimmer-sweep {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
@@ -707,6 +764,8 @@
   .animate-pop-in,
   .animate-pop-in-up,
   .animate-slide-up,
+  .animate-icon-distort,
+  .animate-prompt-cycle,
   .stagger > *,
   .animate-kori-wordmark,
   .animate-in,

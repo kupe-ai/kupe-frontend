@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/command";
 import { Matrix, seededPattern } from "@/components/ui/matrix";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ProviderLogo } from "@/components/voice-agents/provider-logo";
+import { formatProviderModel } from "@/lib/voice/provider-brand";
 import type { CatalogVoice } from "@/types";
 
 /**
@@ -109,15 +111,16 @@ function KupeVoicePickerInner({
 }
 
 function VoiceOrb({ seed }: { seed: string }) {
-  const pattern = React.useMemo(() => seededPattern(seed), [seed]);
+  const pattern = React.useMemo(() => seededPattern(seed, 5, 5), [seed]);
   return (
-    <span className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10">
+    <span className="relative inline-flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white ring-1 ring-border dark:bg-white">
       <Matrix
-        rows={7}
-        cols={7}
+        rows={5}
+        cols={5}
         pattern={pattern}
-        size={2.4}
-        gap={0.6}
+        size={2.2}
+        gap={0.55}
+        spinGradientOnHover
         palette={{ on: "var(--primary)", off: "transparent" }}
         ariaLabel=""
       />
@@ -152,24 +155,34 @@ function VoicePickerItem({
   );
 
   const meta = [voice.gender, ...voice.supported_languages.slice(0, 2)].filter(Boolean);
+  const modelLine =
+    voice.provider_name || voice.model_name
+      ? formatProviderModel(voice.provider_name ?? "", voice.model_name ?? "")
+      : null;
 
   return (
     <CommandItem
-      value={`${voice.voice_name} ${voice.voice_id}`}
-      keywords={[voice.voice_name, voice.gender ?? "", ...voice.supported_languages].filter(Boolean)}
+      value={`${voice.voice_name} ${voice.voice_id} ${modelLine ?? ""}`}
+      keywords={[
+        voice.voice_name,
+        voice.gender ?? "",
+        modelLine ?? "",
+        voice.provider_name ?? "",
+        ...voice.supported_languages,
+      ].filter(Boolean)}
       data-checked={isSelected}
       onSelect={onSelect}
       className="flex items-center gap-3"
     >
       <span
-        className="relative z-10 flex size-8 shrink-0 cursor-pointer items-center justify-center"
+        className="relative z-10 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md bg-white dark:bg-white"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={handlePreview}
       >
         <VoiceOrb seed={voice.id} />
         {preview && isHovered && (
-          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-black/40 backdrop-blur-sm">
             {isPlaying ? (
               <Pause className="size-3 text-white" />
             ) : (
@@ -183,7 +196,12 @@ function VoicePickerItem({
         <span className="truncate font-medium text-foreground">
           {voice.voice_name || voice.voice_id}
         </span>
-        {meta.length > 0 && (
+        {modelLine ? (
+          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            {voice.provider_name ? <ProviderLogo provider={voice.provider_name} size="sm" /> : null}
+            <span className="truncate">{modelLine}</span>
+          </span>
+        ) : meta.length > 0 ? (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             {meta.map((m, i) => (
               <React.Fragment key={m}>
@@ -192,7 +210,7 @@ function VoicePickerItem({
               </React.Fragment>
             ))}
           </span>
-        )}
+        ) : null}
       </span>
     </CommandItem>
   );

@@ -1,28 +1,29 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { Icon } from "@phosphor-icons/react";
 import {
-  Ban,
-  BarChart3,
-  BookOpen,
-  Bot,
-  Building2,
-  Code2,
+  BookOpenText,
+  BracketsCurly,
+  Buildings,
+  ChartBar,
   FolderOpen,
-  KeyRound,
-  Layers,
+  Key,
+  MagnifyingGlassMinus,
   Phone,
   PhoneIncoming,
   PhoneOutgoing,
-  SearchX,
-  Upload,
-  UserRound,
-  type LucideIcon,
-} from "lucide-react";
+  Prohibit,
+  Robot,
+  Stack,
+  UploadSimple,
+  User,
+} from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { ModernIcon } from "@/components/icons/modern-icon";
 
 /**
- * Lucide icon map for Voice Agents empty states and feature cards.
+ * Icon map for Voice Agents empty states and feature cards.
  * Kept under the historical `AsciiIcon` name so call sites stay stable.
  */
 export type AsciiIconKind =
@@ -77,28 +78,28 @@ const TONE_BG: Record<AsciiIconTone, string> = {
   rose: "bg-rose-500/10",
 };
 
-const ICONS: Record<AsciiIconKind, LucideIcon> = {
+const ICONS: Record<AsciiIconKind, Icon> = {
   folder: FolderOpen,
   phone: Phone,
   incoming: PhoneIncoming,
-  campaign: BarChart3,
-  robot: Bot,
-  pricing: Layers,
-  docs: BookOpen,
-  person: UserRound,
-  building: Building2,
-  notfound: SearchX,
-  code: Code2,
-  upload: Upload,
+  campaign: ChartBar,
+  robot: Robot,
+  pricing: Stack,
+  docs: BookOpenText,
+  person: User,
+  building: Buildings,
+  notfound: MagnifyingGlassMinus,
+  code: BracketsCurly,
+  upload: UploadSimple,
   outbound: PhoneOutgoing,
-  batch: Layers,
-  chart: BarChart3,
-  forbidden: Ban,
-  key: KeyRound,
-  planStarter: Layers,
-  planBusiness: Layers,
-  planScale: Layers,
-  planEnterprise: Layers,
+  batch: Stack,
+  chart: ChartBar,
+  forbidden: Prohibit,
+  key: Key,
+  planStarter: Stack,
+  planBusiness: Stack,
+  planScale: Stack,
+  planEnterprise: Stack,
 };
 
 const SIZE_CLASS = {
@@ -128,20 +129,19 @@ export function AsciiIcon({
   className?: string;
   title?: string;
 }) {
-  const Icon = ICONS[kind];
   return (
     <span
       role={title ? "img" : "presentation"}
       aria-label={title}
       className={cn(
-        "inline-flex items-center justify-center rounded-xl",
+        "group/nav inline-flex items-center justify-center rounded-xl",
         BOX_SIZE[size],
         TONE_BG[tone],
         TONE_CLASS[tone],
         className,
       )}
     >
-      <Icon className={SIZE_CLASS[size]} />
+      <ModernIcon icon={ICONS[kind]} className={SIZE_CLASS[size]} />
     </span>
   );
 }

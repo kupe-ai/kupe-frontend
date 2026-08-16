@@ -35,7 +35,7 @@ import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
-import { displayModelName, displayProviderName } from "@/lib/voice/provider-brand";
+import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
 
 function SettingRow({
   title,
@@ -100,7 +100,7 @@ function providerOptions(
   rows: { id: string; provider_name: string; model_name: string; is_default?: boolean }[],
 ): SearchableOption[] {
   return rows.map((p) => {
-    const label = displayModelName(p.model_name);
+    const label = formatProviderModel(p.provider_name, p.model_name);
     return {
       value: p.id,
       label,
@@ -346,7 +346,7 @@ export function AgentSettingsPanel({
           {providersError}
         </p>
       ) : null}
-      <SettingRow title="LLM" description="Model used for replies on calls. Default is Krutrim gemma-4-31b-it.">
+      <SettingRow title="LLM" description="Model used for replies on calls. Default is Kupe / Gemma 4 31B IT.">
         <SearchableSelect
           value={llmId}
           onChange={setLlmId}
@@ -356,7 +356,7 @@ export function AgentSettingsPanel({
           options={providerOptions(llmProviders)}
         />
       </SettingRow>
-      <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Kupe tts-rt-v2.">
+      <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Kupe / k-TTS.">
         <SearchableSelect
           value={ttsId}
           onChange={(v) => {
@@ -378,7 +378,7 @@ export function AgentSettingsPanel({
           placeholder={voices.length ? "Select voice" : "No voices for this TTS"}
         />
       </SettingRow>
-      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Kupe stt-rt-v5.">
+      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Kupe / k-STT.">
         <SearchableSelect
           value={sttId}
           onChange={setSttId}

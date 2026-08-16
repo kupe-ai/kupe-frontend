@@ -1,22 +1,23 @@
+import type { Icon } from "@phosphor-icons/react";
 import {
-  Home,
-  Bot,
-  BookOpen,
+  BookOpenText,
+  ChartBar,
+  ChartLine,
+  Code,
+  GearSix,
+  House,
+  Megaphone,
   Phone,
   PhoneIncoming,
-  Megaphone,
-  Code2,
-  BarChart3,
-  Settings,
-  AudioLines,
-  type LucideIcon,
-} from "lucide-react";
+  Robot,
+  Waveform,
+} from "@phosphor-icons/react";
 
 export interface VoiceAgentsNavItem {
   id: string;
   label: string;
   href: string;
-  icon: LucideIcon;
+  icon: Icon;
 }
 
 export interface VoiceAgentsNavSection {
@@ -33,7 +34,7 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "home",
         label: "Home",
         href: "/",
-        icon: Home,
+        icon: House,
       },
     ],
   },
@@ -45,19 +46,19 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "agents",
         label: "Agents",
         href: "/agents",
-        icon: Bot,
+        icon: Robot,
       },
       {
         id: "knowledge",
         label: "Knowledge base",
         href: "/knowledge-base",
-        icon: BookOpen,
+        icon: BookOpenText,
       },
       {
         id: "voice-library",
         label: "Voice Library",
         href: "/voice-library",
-        icon: AudioLines,
+        icon: Waveform,
       },
     ],
   },
@@ -87,7 +88,7 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "deploy-code",
         label: "Deploy with code",
         href: "/deploy-with-code",
-        icon: Code2,
+        icon: Code,
       },
     ],
   },
@@ -99,7 +100,13 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         id: "analytics",
         label: "Agent analytics",
         href: "/analytics",
-        icon: BarChart3,
+        icon: ChartBar,
+      },
+      {
+        id: "usage",
+        label: "Usage",
+        href: "/usage",
+        icon: ChartLine,
       },
     ],
   },
@@ -110,13 +117,13 @@ export const VOICE_AGENTS_FOOTER_NAV: VoiceAgentsNavItem[] = [
     id: "settings",
     label: "Settings",
     href: "/settings",
-    icon: Settings,
+    icon: GearSix,
   },
   {
     id: "docs",
     label: "Documentation",
     href: "/documentation",
-    icon: BookOpen,
+    icon: BookOpenText,
   },
 ];
 

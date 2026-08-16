@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -38,8 +37,9 @@ export function ApiKeysSection() {
   const [toDelete, setToDelete] = useState<VoiceApiKey | null>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
+  const [deleting, setDeleting] = useState(false);
+  const [loadingKeys, setLoadingKeys] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [loadingKeys, setLoadingKeys] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoadingKeys(true);
@@ -73,6 +73,22 @@ export function ApiKeysSection() {
       toast.error("Couldn't create API key");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!toDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await revokeVoiceApiKey(toDelete.id);
+      setKeys((prev) => prev.filter((k) => k.id !== toDelete.id));
+      setToDelete(null);
+      toast.message("API key deleted");
+      void refresh();
+    } catch {
+      toast.error("Couldn't delete API key");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -189,7 +205,7 @@ export function ApiKeysSection() {
           if (!open) setRevealedKey(null);
         }}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {revealedKey ? "Copy your API key" : "Create API key"}
@@ -197,18 +213,18 @@ export function ApiKeysSection() {
           </DialogHeader>
 
           {revealedKey ? (
-            <div className="space-y-3">
+            <>
               <p className="text-sm text-muted-foreground">
                 This key is shown once. Copy it now and store it securely.
               </p>
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <code className="min-w-0 flex-1 truncate font-mono text-xs">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                <code className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-border bg-muted/30 px-3 py-2 font-mono text-xs break-all">
                   {revealedKey}
                 </code>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="shrink-0 rounded-full"
+                  className="shrink-0 self-end rounded-full sm:self-auto"
                   onClick={() => {
                     void navigator.clipboard.writeText(revealedKey);
                     toast.message("API key copied");
@@ -229,9 +245,9 @@ export function ApiKeysSection() {
                   Done
                 </Button>
               </DialogFooter>
-            </div>
+            </>
           ) : (
-            <div className="space-y-4">
+            <>
               <div className="space-y-1.5">
                 <Label htmlFor="api-key-name">Name</Label>
                 <Input
@@ -253,7 +269,7 @@ export function ApiKeysSection() {
                   {creating ? "Creating…" : "Create"}
                 </Button>
               </DialogFooter>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -261,7 +277,7 @@ export function ApiKeysSection() {
       <AlertDialog
         open={!!toDelete}
         onOpenChange={(open) => {
-          if (!open) setToDelete(null);
+          if (!open && !deleting) setToDelete(null);
         }}
       >
         <AlertDialogContent>
@@ -274,19 +290,16 @@ export function ApiKeysSection() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={async () => {
-                if (!toDelete) return;
-                await revokeVoiceApiKey(toDelete.id);
-                setToDelete(null);
-                void refresh();
-                toast.message("API key deleted");
-              }}
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              className="rounded-full"
+              disabled={deleting}
+              onClick={() => void confirmDelete()}
             >
-              Delete
-            </AlertDialogAction>
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

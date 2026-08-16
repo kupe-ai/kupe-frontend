@@ -32,6 +32,7 @@ import type {
   TelephonyAccount,
   TelephonyAccountBody,
   TranscriptInfo,
+  UsageCostSummary,
   UsageDailyRow,
   UsageSummaryRow,
 } from "../types";
@@ -82,8 +83,15 @@ async function authedJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listVoices: (providerId: string) =>
-    authedJson<{ items: CatalogVoice[] }>(`/v1/voices?provider_id=${encodeURIComponent(providerId)}`),
+  listVoices: (provider: string) => {
+    const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      provider,
+    );
+    const q = looksLikeId
+      ? `provider_id=${encodeURIComponent(provider)}`
+      : `provider=${encodeURIComponent(provider)}`;
+    return authedJson<{ items: CatalogVoice[] }>(`/v1/voices?${q}`);
+  },
   cloneVoice: (data: { name: string; isPublic: boolean; sample: File }) => {
     const form = new FormData();
     form.set("name", data.name);
@@ -147,6 +155,13 @@ export const api = {
 
   usageSummary: (orgId: string, params?: ListParams) =>
     authedJson<Page<UsageSummaryRow>>(`/v1/orgs/${orgId}/usage${qs(params)}`),
+  usageCostSummary: (orgId: string, params?: { startDate?: string; endDate?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.startDate) sp.set("start_date", params.startDate);
+    if (params?.endDate) sp.set("end_date", params.endDate);
+    const q = sp.toString();
+    return authedJson<UsageCostSummary>(`/v1/orgs/${orgId}/usage/cost-summary${q ? `?${q}` : ""}`);
+  },
   listSessionUsage: (orgId: string, params?: ListParams) =>
     authedJson<Page<SessionUsage>>(`/v1/orgs/${orgId}/usage/sessions${qs(params)}`),
   getSessionUsage: (sessionId: string) => authedJson<SessionUsage>(`/v1/sessions/${sessionId}/usage`),

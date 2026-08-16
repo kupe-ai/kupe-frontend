@@ -84,10 +84,47 @@ export async function listVoiceTtsProviders(): Promise<VoiceTtsProvider[]> {
   return (await loadVoiceProvidersCatalog()).tts;
 }
 
-export async function listVoiceTtsVoices(providerId?: string): Promise<VoiceTtsVoice[]> {
-  if (!providerId) return [];
-  const { items } = await api.listVoices(providerId);
-  return items;
+/** Voices for one TTS catalog UUID, or a public provider name (`kupe`, `elevenlabs`). */
+export async function listVoiceTtsVoices(provider?: string): Promise<VoiceTtsVoice[]> {
+  if (!provider) return [];
+  const { items } = await api.listVoices(provider);
+  if (items.some((v) => v.provider_name)) return items;
+  const { tts } = await loadVoiceProvidersCatalog();
+  const needle = provider.trim().toLowerCase();
+  const p = tts.find(
+    (x) => x.id === provider || x.provider_name.toLowerCase() === needle,
+  );
+  if (!p) return items;
+  return items.map((v) => ({
+    ...v,
+    provider_name: p.provider_name,
+    model_name: p.model_name,
+  }));
+}
+
+/** Every enabled TTS catalog, each voice tagged with provider + model. */
+export async function listAllTtsVoices(): Promise<CatalogVoice[]> {
+  const { tts } = await loadVoiceProvidersCatalog();
+  const batches = await Promise.all(
+    tts.map(async (p) => {
+      try {
+        const voices = await listVoiceTtsVoices(p.id);
+        return voices.map((v) => ({
+          ...v,
+          provider_name: p.provider_name,
+          model_name: p.model_name,
+        }));
+      } catch {
+        return [] as CatalogVoice[];
+      }
+    }),
+  );
+  const seen = new Set<string>();
+  return batches.flat().filter((v) => {
+    if (seen.has(v.id)) return false;
+    seen.add(v.id);
+    return true;
+  });
 }
 
 export async function listVoiceSttProviders(): Promise<VoiceSttProvider[]> {

@@ -313,7 +313,7 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
       "Upload a clean audio sample to clone a voice. The cloned voice is stored in your voice library with source=\"cloned\" and behaves exactly like a catalog voice everywhere an agent picks a tts_voice_id — you can make it public (visible to your whole org's voice library) or keep it private to your account. All Kupe voices — catalog and cloned — are served under a single provider so your integration code never needs to change providers.",
     endpoints: [
       { method: "GET", path: "/v1/providers", summary: "List LLM / STT / TTS providers and their default voices." },
-      { method: "GET", path: "/v1/voices", summary: "List voices for a provider (catalog + your cloned voices)." },
+      { method: "GET", path: "/v1/voices", summary: "List voices for a TTS provider — pass provider=kupe (name) or provider_id (UUID)." },
       { method: "POST", path: "/v1/voices/clone", summary: "Clone a voice from an uploaded audio sample." },
       { method: "PATCH", path: "/v1/voices/{voice_id}", summary: "Rename a cloned voice or change public/private." },
       { method: "DELETE", path: "/v1/voices/{voice_id}", summary: "Delete a cloned voice you own." },
@@ -331,7 +331,7 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
       {
         id: "list-voices",
         label: "list-voices",
-        code: `curl "${API_BASE_URL}/v1/voices?provider_id=<tts_provider_id>" \\
+        code: `curl "${API_BASE_URL}/v1/voices?provider=kupe" \\
   -H "Authorization: Bearer $KUPE_API_KEY"`,
       },
     ],

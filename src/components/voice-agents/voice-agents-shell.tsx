@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, type ComponentType, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ModernIcon } from "@/components/icons/modern-icon";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
@@ -14,13 +15,13 @@ import {
 function NavLinkRow({
   href,
   label,
-  icon: Icon,
+  icon,
   active,
   collapsed,
 }: {
   href: string;
   label: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: (typeof VOICE_AGENTS_FOOTER_NAV)[number]["icon"];
   active: boolean;
   collapsed?: boolean;
 }) {
@@ -29,14 +30,14 @@ function NavLinkRow({
       to={href}
       title={collapsed ? label : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
+        "group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
         collapsed && "justify-center px-2",
         active
           ? "bg-muted font-medium text-foreground"
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
-      <Icon className="size-4 shrink-0" />
+      <ModernIcon icon={icon} className="size-4" />
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
   );

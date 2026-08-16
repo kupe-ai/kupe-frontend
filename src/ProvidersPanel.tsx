@@ -4,7 +4,7 @@ import type { ProviderSelection, ProvidersResponse } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { displayModelName, displayProviderName } from "@/lib/voice/provider-brand";
+import { formatProviderModel } from "@/lib/voice/provider-brand";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 
 type Props = {
@@ -60,12 +60,12 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
         searchPlaceholder={`Search ${label}…`}
         className="w-full"
         options={items.map((item) => {
-          const label = displayModelName(item.model_name);
+          const optionLabel = formatProviderModel(item.provider_name, item.model_name);
           return {
             value: item.id,
-            label,
+            label: optionLabel,
             icon: <ProviderLogo provider={item.provider_name} size="sm" />,
-            keywords: `${item.provider_name} ${displayProviderName(item.provider_name)} ${item.model_name} ${label}`,
+            keywords: `${item.provider_name} ${item.model_name} ${optionLabel}`,
             hint: item.is_default ? "default" : undefined,
           };
         })}
