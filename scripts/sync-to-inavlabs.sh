@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Reverse-sync: kupe-ai/kupe-frontend → iNavLabsResearch/kupe-frontend
+# Bidirectional sync: kupe-ai/kupe-frontend ↔ iNavLabsResearch/kupe-frontend
 #
-# Typical fork sync is original → fork. This does the opposite:
-# take whatever is on kupe-ai and push it to the original iNavLabsResearch repo.
+# Pulls both remotes, merges them locally, then pushes the result to both.
 #
 # Usage (from repo root):
 #   ./scripts/sync-to-inavlabs.sh              # sync main
@@ -32,6 +31,12 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "error: working tree is dirty. Commit or stash local changes first." >&2
+  git status --short
+  exit 1
+fi
+
 ensure_remote() {
   local name="$1" url="$2"
   if git remote get-url "$name" >/dev/null 2>&1; then
@@ -55,27 +60,43 @@ if ! git rev-parse --verify "origin/${BRANCH}" >/dev/null 2>&1; then
   exit 1
 fi
 
-echo
-echo "Will push origin/${BRANCH} → upstream/${BRANCH}"
-echo "  from: ${ORIGIN_URL}"
-echo "  to:   ${UPSTREAM_URL}"
-echo
-
-if git rev-parse --verify "upstream/${BRANCH}" >/dev/null 2>&1; then
-  AHEAD="$(git rev-list --count "upstream/${BRANCH}..origin/${BRANCH}" 2>/dev/null || echo 0)"
-  BEHIND="$(git rev-list --count "origin/${BRANCH}..upstream/${BRANCH}" 2>/dev/null || echo 0)"
-  echo "origin/${BRANCH} is ${AHEAD} commit(s) ahead of upstream/${BRANCH}, ${BEHIND} behind."
-  if [[ "${AHEAD}" != "0" ]]; then
-    echo "Commits to push:"
-    git log --oneline "upstream/${BRANCH}..origin/${BRANCH}"
-  fi
-  echo
+if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
+  git checkout "$BRANCH"
 else
-  echo "upstream/${BRANCH} does not exist yet — it will be created."
-  echo
+  git checkout -b "$BRANCH" "origin/${BRANCH}"
 fi
 
-PUSH_ARGS=(upstream "refs/remotes/origin/${BRANCH}:refs/heads/${BRANCH}")
+echo
+echo "Pulling origin/${BRANCH}..."
+git merge --ff-only "origin/${BRANCH}" || git merge --no-edit "origin/${BRANCH}"
+
+if git rev-parse --verify "upstream/${BRANCH}" >/dev/null 2>&1; then
+  AHEAD="$(git rev-list --count "upstream/${BRANCH}..HEAD" 2>/dev/null || echo 0)"
+  BEHIND="$(git rev-list --count "HEAD..upstream/${BRANCH}" 2>/dev/null || echo 0)"
+  echo
+  echo "local ${BRANCH} is ${AHEAD} commit(s) ahead of upstream/${BRANCH}, ${BEHIND} behind."
+
+  if [[ "${BEHIND}" != "0" ]]; then
+    echo "Pulling upstream/${BRANCH}..."
+    git merge --no-edit "upstream/${BRANCH}"
+  fi
+
+  if [[ "${AHEAD}" != "0" ]]; then
+    echo "Commits from origin not yet on upstream:"
+    git log --oneline "upstream/${BRANCH}..origin/${BRANCH}" || true
+  fi
+else
+  echo
+  echo "upstream/${BRANCH} does not exist yet — it will be created."
+fi
+
+echo
+echo "Pushing ${BRANCH} → origin (${ORIGIN_URL})"
+git push origin "$BRANCH"
+
+echo
+echo "Pushing ${BRANCH} → upstream (${UPSTREAM_URL})"
+PUSH_ARGS=(upstream "$BRANCH")
 if [[ "$FORCE" -eq 1 ]]; then
   echo "Force-pushing with --force-with-lease..."
   git push --force-with-lease "${PUSH_ARGS[@]}"
@@ -84,4 +105,4 @@ else
 fi
 
 echo
-echo "Done. iNavLabsResearch/${BRANCH} now matches kupe-ai/${BRANCH}."
+echo "Done. kupe-ai/${BRANCH} and iNavLabsResearch/${BRANCH} now match."

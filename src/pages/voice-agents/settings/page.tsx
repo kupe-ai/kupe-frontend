@@ -8,6 +8,7 @@ import { VoicePageHeader, VoicePagination } from "@/components/voice-agents/shar
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import {
   Dialog,
   DialogContent,
@@ -45,12 +46,16 @@ export default function VoiceAgentsSettingsPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [creating, setCreating] = useState(false);
+  const [loadingKeys, setLoadingKeys] = useState(true);
 
   const refresh = useCallback(async () => {
+    setLoadingKeys(true);
     try {
       setKeys(await listVoiceApiKeys());
     } catch {
       toast.error("Couldn't load API keys");
+    } finally {
+      setLoadingKeys(false);
     }
   }, []);
 
@@ -123,7 +128,11 @@ export default function VoiceAgentsSettingsPage() {
         </div>
       )}
 
-      {tab === "keys" && keys.length === 0 ? (
+      {tab === "keys" && loadingKeys ? (
+        <div className="mt-6">
+          <VoiceTableShimmer rows={4} />
+        </div>
+      ) : tab === "keys" && keys.length === 0 ? (
         <AsciiEmptyState
           kind="key"
           tone="coral"

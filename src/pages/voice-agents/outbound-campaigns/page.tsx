@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import { useSession } from "@/context/session-context";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
 import {
@@ -43,9 +44,14 @@ export default function VoiceAgentsOutboundPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
-    listCampaigns().then(setCampaigns).catch(() => setCampaigns([]));
+    setLoading(true);
+    listCampaigns()
+      .then(setCampaigns)
+      .catch(() => setCampaigns([]))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -67,7 +73,9 @@ export default function VoiceAgentsOutboundPage() {
         }
       />
 
-      {campaigns.length === 0 ? (
+      {loading ? (
+        <VoiceTableShimmer rows={4} />
+      ) : campaigns.length === 0 ? (
         <AsciiEmptyState
           kind="campaign"
           tone="coral"

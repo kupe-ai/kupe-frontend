@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import {
   listKycApplications,
   listPhoneNumbers,
@@ -36,10 +37,14 @@ export default function VoiceAgentsPhoneNumbersPage() {
   const [kycOpen, setKycOpen] = useState(false);
   const [applications, setApplications] = useState<VoiceKycApplication[]>([]);
   const [numbers, setNumbers] = useState<VoicePhoneNumber[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
-    listKycApplications().then(setApplications).catch(() => setApplications([]));
-    listPhoneNumbers().then(setNumbers).catch(() => setNumbers([]));
+    setLoading(true);
+    Promise.allSettled([
+      listKycApplications().then(setApplications).catch(() => setApplications([])),
+      listPhoneNumbers().then(setNumbers).catch(() => setNumbers([])),
+    ]).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -55,7 +60,11 @@ export default function VoiceAgentsPhoneNumbersPage() {
         Take your agent live.
       </h1>
 
-      {numbers.length > 0 && (
+      {loading ? (
+        <div className="mx-auto mt-8 max-w-2xl">
+          <VoiceTableShimmer rows={3} />
+        </div>
+      ) : numbers.length > 0 && (
         <div className="mx-auto mt-8 max-w-2xl overflow-hidden rounded-xl border border-border">
           <div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
             <span>Number</span>

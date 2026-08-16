@@ -292,8 +292,8 @@ function AddToolDialog({
           <Button type="button" variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" className="rounded-full" onClick={() => void save()} disabled={saving}>
-            {saving ? "Adding…" : "Add tool"}
+          <Button type="button" className="rounded-full" onClick={() => void save()} loading={saving}>
+            Add tool
           </Button>
         </DialogFooter>
       </DialogContent>

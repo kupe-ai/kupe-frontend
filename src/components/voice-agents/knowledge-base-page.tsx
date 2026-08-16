@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Matrix, loader } from "@/components/ui/matrix";
 import {
   Dialog,
   DialogContent,
@@ -361,20 +362,33 @@ function CreateKnowledgeBaseDialog({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{f.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatBytes(f.size)}
+                      {submitting ? "Uploading…" : formatBytes(f.size)}
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Remove file"
-                    onClick={() =>
-                      setFiles((prev) => prev.filter((_, idx) => idx !== i))
-                    }
-                  >
-                    <Trash2 className="size-3.5" />
-                  </Button>
+                  {submitting ? (
+                    <Matrix
+                      rows={7}
+                      cols={7}
+                      frames={loader}
+                      fps={12}
+                      size={1.6}
+                      gap={0.5}
+                      palette={{ on: "var(--primary)", off: "transparent" }}
+                      ariaLabel="Uploading"
+                    />
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Remove file"
+                      onClick={() =>
+                        setFiles((prev) => prev.filter((_, idx) => idx !== i))
+                      }
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -416,8 +430,8 @@ function CreateKnowledgeBaseDialog({
           >
             Cancel
           </Button>
-          <Button type="button" className="rounded-full" onClick={create} disabled={submitting}>
-            {submitting ? "Creating…" : "Create"}
+          <Button type="button" className="rounded-full" onClick={create} loading={submitting}>
+            Create
           </Button>
         </DialogFooter>
       </DialogContent>

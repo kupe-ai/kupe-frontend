@@ -25,6 +25,7 @@ import {
 } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceKnowledgeBase, VoiceKnowledgeFile } from "@/lib/api/voice/types";
 import { cn } from "@/lib/utils";
+import { VoiceTableShimmer } from "@/components/ui/shimmer";
 
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -42,9 +43,11 @@ export default function VoiceAgentsKnowledgeDetailPage() {
   const [question, setQuestion] = useState("");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Array<{ content: string; similarity: number }> | null>(null);
+  const [loading, setLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
     try {
       const [kbRes, filesRes] = await Promise.all([
         getKnowledgeBase(id),
@@ -56,6 +59,8 @@ export default function VoiceAgentsKnowledgeDetailPage() {
       document.title = `${kbRes.name} · Knowledge base · Kupe`;
     } catch {
       setKb(null);
+    } finally {
+      setLoading(false);
     }
   }, [id, page, perPage]);
 
@@ -87,6 +92,23 @@ export default function VoiceAgentsKnowledgeDetailPage() {
     } finally {
       setSearching(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="voice-page">
+        <Link
+          to="/voice-agents/knowledge-base"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ChevronLeft className="size-4" />
+          Knowledge base
+        </Link>
+        <div className="mt-8">
+          <VoiceTableShimmer rows={5} />
+        </div>
+      </div>
+    );
   }
 
   if (!kb) {

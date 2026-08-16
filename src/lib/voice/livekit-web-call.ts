@@ -17,6 +17,10 @@ export interface WebCallCallbacks {
   /** Fired with a live 0-1 amplitude reading of the agent's audio, for a
    * waveform in the Test Agent modal. */
   onAgentAudioLevel?: (level: number) => void;
+  /** Fired once with the agent's raw audio track when it's subscribed, so
+   * callers can build their own MediaStream (e.g. for BarVisualizer's
+   * frequency-band analysis) without this module owning that concern. */
+  onAgentTrack?: (track: MediaStreamTrack) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -41,6 +45,8 @@ export async function startWebCall(agentId: string, callbacks: WebCallCallbacks 
       el.autoplay = true;
       document.body.appendChild(el);
       attached.push(el);
+
+      callbacks.onAgentTrack?.(track.mediaStreamTrack);
 
       if (callbacks.onAgentAudioLevel) {
         audioCtx = new AudioContext();

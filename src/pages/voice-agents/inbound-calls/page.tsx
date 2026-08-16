@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
 import { createInboundDeployment, listInboundDeployments, type VoiceInboundDeployment } from "@/lib/api/voice/inbound";
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
@@ -36,9 +37,14 @@ export default function VoiceAgentsInboundPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [deployments, setDeployments] = useState<VoiceInboundDeployment[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(() => {
-    listInboundDeployments().then(setDeployments).catch(() => setDeployments([]));
+    setLoading(true);
+    listInboundDeployments()
+      .then(setDeployments)
+      .catch(() => setDeployments([]))
+      .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -60,7 +66,9 @@ export default function VoiceAgentsInboundPage() {
         }
       />
 
-      {deployments.length === 0 ? (
+      {loading ? (
+        <VoiceTableShimmer rows={4} />
+      ) : deployments.length === 0 ? (
         <AsciiEmptyState
           kind="incoming"
           tone="emerald"

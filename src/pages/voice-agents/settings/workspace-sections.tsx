@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -47,6 +48,7 @@ export function KupeWorkspaceSettings() {
   const [projectName, setProjectName] = useState("");
   const [country, setCountry] = useState(org?.country ?? "US");
   const [members, setMembers] = useState<Member[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<(typeof ROLES)[number]>("member");
   const [inviteProjects, setInviteProjects] = useState<string[]>([]);
@@ -54,10 +56,12 @@ export function KupeWorkspaceSettings() {
   useEffect(() => {
     if (!org) return;
     setCountry(org.country ?? "US");
+    setLoadingMembers(true);
     api
       .listMembers(org.id, { limit: 100 })
       .then((page) => setMembers(page.items))
-      .catch((e) => toast.error(e.message));
+      .catch((e) => toast.error(e.message))
+      .finally(() => setLoadingMembers(false));
   }, [org?.id, org?.country]);
 
   if (!org) {
@@ -281,16 +285,24 @@ export function KupeWorkspaceSettings() {
               Add member
             </Button>
           </div>
-          <ul className="mt-4 divide-y divide-border rounded-xl border border-border">
-            {members.map((m) => (
-              <li key={m.user_id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{m.email}</p>
-                  <p className="text-xs text-muted-foreground">{m.role}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {loadingMembers ? (
+            <div className="mt-4 space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : (
+            <ul className="mt-4 divide-y divide-border rounded-xl border border-border">
+              {members.map((m) => (
+                <li key={m.user_id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{m.email}</p>
+                    <p className="text-xs text-muted-foreground">{m.role}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 

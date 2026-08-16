@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ChartContainer,
   ChartTooltip,
@@ -295,7 +296,18 @@ function ConnectivityTab({
   overview: Awaited<ReturnType<typeof getAnalyticsOverview>> | null;
   data: Awaited<ReturnType<typeof getAnalyticsConnectivity>> | null;
 }) {
-  if (!overview || !data) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (!overview || !data) {
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-[72px] w-full rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-[220px] w-full rounded-xl" />
+      </div>
+    );
+  }
 
   const items = [
     { id: "connected", label: "Connected", value: String(overview.connected_calls) },
@@ -345,7 +357,14 @@ function ConnectivityTab({
 }
 
 function EngagementTab({ data }: { data: Awaited<ReturnType<typeof getAnalyticsEngagement>> | null }) {
-  if (!data) return <p className="text-sm text-muted-foreground">Loading…</p>;
+  if (!data) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   const totalLangCalls = Object.values(data.by_language).reduce((a, b) => a + b, 0);
 
@@ -431,7 +450,17 @@ function ToolsTab() {
 }
 
 function GoalsTab({ data, onUpload }: { data: Awaited<ReturnType<typeof getAnalyticsGoals>> | null; onUpload: () => void }) {
-  const hasGoalData = data && Object.values(data.goal_status).some((v) => v > 0 && Object.keys(data.goal_status).length > 1);
+  if (data === null) {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-11 w-full rounded-lg" />
+        ))}
+      </div>
+    );
+  }
+
+  const hasGoalData = Object.values(data.goal_status).some((v) => v > 0 && Object.keys(data.goal_status).length > 1);
 
   if (!hasGoalData) {
     return (

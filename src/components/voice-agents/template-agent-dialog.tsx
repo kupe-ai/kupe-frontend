@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Phone, Pencil, Sparkles, XIcon } from "lucide-react";
 import { PetSprite } from "@/components/pets/pet-sprite";
@@ -10,43 +10,13 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BarVisualizer } from "@/components/ui/bar-visualizer";
 import { TestAgentCallDialog } from "@/components/voice-agents/test-agent-call-dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createVoiceAgent } from "@/lib/api/voice/agents";
 import type { VoiceAgentTemplate } from "@/lib/voice-agents-data";
 import type { ReactNode } from "react";
-function IdleWaveform({ className }: { className?: string }) {
-  const bars = useMemo(
-    () =>
-      Array.from({ length: 28 }, (_, i) => {
-        const mid = 14;
-        const dist = Math.abs(i - mid);
-        const base = Math.max(18, 92 - dist * 5.5);
-        const wobble = ((i * 17) % 23) - 11;
-        return Math.min(100, Math.max(14, base + wobble));
-      }),
-    [],
-  );
-
-  return (
-    <div
-      className={cn("flex h-28 items-end justify-center gap-[3px]", className)}
-      aria-hidden
-    >
-      {bars.map((h, i) => (
-        <span
-          key={i}
-          className="w-1.5 rounded-sm bg-primary/80"
-          style={{
-            height: `${h}%`,
-            opacity: 0.45 + (i % 5) * 0.1,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function Chip({
   children,
@@ -129,7 +99,12 @@ export function TemplateAgentDialog({
           <div className="flex flex-col bg-muted/40 p-5 md:border-r md:border-border">
             <p className="text-sm font-medium text-foreground">Test Agent</p>
             <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8">
-              <IdleWaveform className="w-full max-w-[220px] text-primary" />
+              <BarVisualizer
+                demo
+                state="listening"
+                barCount={15}
+                className="w-full max-w-[220px] bg-transparent p-0"
+              />
               <p className="text-sm text-muted-foreground">
                 Start a call to test the agent
               </p>

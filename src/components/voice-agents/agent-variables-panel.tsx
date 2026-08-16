@@ -87,11 +87,14 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
   const filteredOutputs = outputs.filter((v) => !q || v.name.toLowerCase().includes(q));
   const activeGoal = goals[0] ?? null;
 
+  const [savingGoal, setSavingGoal] = useState(false);
+
   async function saveGoal() {
     if (!goalField || !goalValue) {
       toast.message("Pick a variable and value for the call goal");
       return;
     }
+    setSavingGoal(true);
     try {
       if (activeGoal) await deleteCallGoal(agentId, activeGoal.id);
       await createCallGoal(agentId, { output_variable_id: goalField, field_operator: goalOp as CallGoal["field_operator"], value: goalValue });
@@ -100,6 +103,8 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
       toast.success("Call goal saved");
     } catch {
       toast.error("Couldn't save call goal");
+    } finally {
+      setSavingGoal(false);
     }
   }
 
@@ -209,10 +214,10 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
                   Successful when
                 </div>
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setGoalEditing(false)}>
+                  <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setGoalEditing(false)} disabled={savingGoal}>
                     Cancel
                   </Button>
-                  <Button type="button" size="sm" className="rounded-full" onClick={() => void saveGoal()}>
+                  <Button type="button" size="sm" className="rounded-full" onClick={() => void saveGoal()} loading={savingGoal}>
                     Save
                   </Button>
                 </div>
@@ -425,8 +430,8 @@ function VariableEditDialog({
           <Button type="button" variant="outline" className="rounded-full" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" className="rounded-full" onClick={() => void save()} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+          <Button type="button" className="rounded-full" onClick={() => void save()} loading={saving}>
+            Save
           </Button>
         </DialogFooter>
       </DialogContent>

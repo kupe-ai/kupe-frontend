@@ -21,6 +21,7 @@ import { TemplateAgentDialog } from "@/components/voice-agents/template-agent-di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
+import { Matrix } from "@/components/ui/matrix";
 import {
   ChartContainer,
   ChartTooltip,
@@ -136,6 +137,13 @@ export default function VoiceAgentsHomePage() {
 
   const totalLiveCalls = analyticsQuery.data?.total_calls ?? 0;
 
+  // Last 12 hours of real call volume, normalized to 0-1, for the Matrix VU accent.
+  const vuLevels = useMemo(() => {
+    const recent = chartData.slice(-12);
+    const max = Math.max(1, ...recent.map((d) => d.rate));
+    return recent.map((d) => d.rate / max);
+  }, [chartData]);
+
   const filteredRecents = useMemo(() => {
     const q = search.trim().toLowerCase();
     return recentAgents
@@ -187,7 +195,19 @@ export default function VoiceAgentsHomePage() {
               {analyticsQuery.isLoading ? "—" : totalLiveCalls}
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">Volume · Hour of day</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">Volume · Hour of day</p>
+            <Matrix
+              rows={7}
+              cols={12}
+              mode="vu"
+              levels={vuLevels}
+              size={2.5}
+              gap={0.8}
+              palette={{ on: "var(--primary)", off: "var(--border)" }}
+              ariaLabel="Recent call volume"
+            />
+          </div>
         </div>
         <ChartContainer config={chartConfig} className="mt-3 h-[180px] w-full">
           <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }} barCategoryGap="18%">

@@ -1,19 +1,35 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mic, MicOff, PhoneOff } from "lucide-react";
+import { Mic, MicOff, PhoneOff } from "lucide-react";
+import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { toast } from "sonner";
 import { PetSprite } from "@/components/pets/pet-sprite";
-import { AgentVoiceVisualizer } from "@/components/voice-agents/agent-voice-visualizer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
+import { Matrix, loader } from "@/components/ui/matrix";
+import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
+import { Message, MessageContent } from "@/components/ui/message";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+
+interface LiveTurn {
+  id: string;
+  role: "agent" | "user";
+  text: string;
+}
 
 /**
  * Real browser "Test Agent" call — connects the mic to a LiveKit room via
  * POST /v1/calls, plays the agent's synthesized voice back, and shows a
- * live waveform driven by the agent's actual audio amplitude.
+ * live Bar Visualizer driven by the agent's actual audio frequency bands.
+ *
+ * Live transcript: listens for LiveKit's client-side `TranscriptionReceived`
+ * event. Kupe's agent backend doesn't publish transcription segments yet
+ * (no publisher found in kupe-agents), so this panel ships correctly empty
+ * today and will populate automatically the moment the backend starts
+ * emitting them — not a bug, a forward-compatible no-op until then.
  */
 export function TestAgentCallDialog({
   open,
@@ -30,8 +46,10 @@ export function TestAgentCallDialog({
 }) {
   const [status, setStatus] = useState<WebCallStatus>("idle");
   const [level, setLevel] = useState(0);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [turns, setTurns] = useState<LiveTurn[]>([]);
   const handleRef = useRef<WebCallHandle | null>(null);
 
   useEffect(() => {
@@ -40,16 +58,20 @@ export function TestAgentCallDialog({
       handleRef.current = null;
       setStatus("idle");
       setLevel(0);
+      setMediaStream(null);
       setMuted(false);
       setErrorMsg(null);
+      setTurns([]);
       return;
     }
 
     let cancelled = false;
     setErrorMsg(null);
+    setTurns([]);
     void startWebCall(agentId, {
       onStatusChange: (s) => !cancelled && setStatus(s),
       onAgentAudioLevel: (l) => !cancelled && setLevel(l),
+      onAgentTrack: (track) => !cancelled && setMediaStream(new MediaStream([track])),
       onError: (err) => {
         if (cancelled) return;
         const msg = friendlyVoiceError(err, webCallErrorMessage(err));
@@ -62,6 +84,24 @@ export function TestAgentCallDialog({
         return;
       }
       handleRef.current = handle;
+
+      handle.room.on(
+        RoomEvent.TranscriptionReceived,
+        (segments: TranscriptionSegment[], participant) => {
+          if (cancelled) return;
+          const role: LiveTurn["role"] = participant?.isLocal ? "user" : "agent";
+          setTurns((prev) => {
+            const next = [...prev];
+            for (const seg of segments) {
+              if (!seg.final || !seg.text) continue;
+              const idx = next.findIndex((t) => t.id === seg.id);
+              if (idx >= 0) next[idx] = { id: seg.id, role, text: seg.text };
+              else next.push({ id: seg.id, role, text: seg.text });
+            }
+            return next;
+          });
+        },
+      );
     });
 
     return () => {
@@ -88,16 +128,25 @@ export function TestAgentCallDialog({
           ? "Couldn't connect"
           : "Call ended";
 
+  const visualizerState: AgentState | undefined =
+    status === "connecting"
+      ? "connecting"
+      : status === "connected"
+        ? level > 0.04
+          ? "speaking"
+          : "listening"
+        : undefined;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-sm">
+      <DialogContent className="gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
         <DialogTitle className="sr-only">Test call with {agentName}</DialogTitle>
-        <div className="flex flex-col items-center gap-5 px-6 py-10 text-center">
+        <div className="flex flex-col items-center gap-5 px-6 pt-10 pb-5 text-center">
           <div className="relative flex size-16 items-center justify-center rounded-2xl bg-muted">
             <PetSprite seed={seed} size={36} frame="stand" />
             {status === "connecting" && (
               <span className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-background shadow-sm">
-                <Loader2 className="size-3.5 animate-spin text-primary" />
+                <Matrix rows={7} cols={7} frames={loader} fps={12} size={1.4} gap={0.4} palette={{ on: "var(--primary)", off: "transparent" }} ariaLabel="Connecting" />
               </span>
             )}
             {status === "connected" && (
@@ -112,10 +161,12 @@ export function TestAgentCallDialog({
             ) : null}
           </div>
 
-          <AgentVoiceVisualizer
-            level={level}
-            active={status === "connected"}
-            processing={status === "connecting"}
+          <BarVisualizer
+            state={visualizerState}
+            mediaStream={mediaStream}
+            demo={!mediaStream && status === "connecting"}
+            barCount={15}
+            className="w-full"
           />
 
           <div className="flex items-center gap-3">
@@ -141,6 +192,26 @@ export function TestAgentCallDialog({
               <PhoneOff className="size-4" />
             </Button>
           </div>
+        </div>
+
+        <div className="flex h-56 flex-col border-t border-border">
+          <Conversation className="flex-1">
+            <ConversationContent className="p-3">
+              {turns.length === 0 ? (
+                <ConversationEmptyState
+                  title="Transcript"
+                  description={status === "connected" ? "Listening…" : "Starts once the call connects."}
+                  className="h-full"
+                />
+              ) : (
+                turns.map((t) => (
+                  <Message key={t.id} from={t.role === "user" ? "user" : "assistant"}>
+                    <MessageContent variant="contained">{t.text}</MessageContent>
+                  </Message>
+                ))
+              )}
+            </ConversationContent>
+          </Conversation>
         </div>
       </DialogContent>
     </Dialog>

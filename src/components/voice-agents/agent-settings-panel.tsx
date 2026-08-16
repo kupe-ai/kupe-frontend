@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { GripVertical, Loader2, Play, Trash2 } from "lucide-react";
+import { GripVertical, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableMultiSelect, SearchableSelect } from "@/components/ui/searchable-select";
+import { KupeVoicePicker } from "@/components/voice-agents/kupe-voice-picker";
 import { cn } from "@/lib/utils";
 import {
   getAgentSettings,
@@ -315,15 +316,8 @@ export function AgentSettingsPanel({
   return (
     <div className="w-full max-w-4xl space-y-1 px-6 py-6 pb-16 md:px-10 lg:px-12">
       <div className="sticky top-0 z-10 -mx-6 mb-2 flex h-12 items-center justify-end border-b border-border bg-background/95 px-6 backdrop-blur md:-mx-10 md:px-10 lg:-mx-12 lg:px-12">
-        <Button type="button" className="rounded-full" onClick={() => void save()} disabled={saving}>
-          {saving ? (
-            <>
-              <Loader2 className="size-3.5 animate-spin" />
-              Saving…
-            </>
-          ) : (
-            "Save settings"
-          )}
+        <Button type="button" className="rounded-full" onClick={() => void save()} loading={saving}>
+          Save settings
         </Button>
       </div>
 
@@ -366,18 +360,13 @@ export function AgentSettingsPanel({
           }))}
         />
       </SettingRow>
-      <SettingRow title="Voice identity" description="Specific TTS voice for this model.">
-        <SearchableSelect
+      <SettingRow title="Voice identity" description="Specific TTS voice for this model — search, preview, and pick.">
+        <KupeVoicePicker
+          voices={voices}
           value={voiceId}
-          onChange={setVoiceId}
+          onValueChange={setVoiceId}
           disabled={!ttsId || !voices.length}
           placeholder={voices.length ? "Select voice" : "No voices for this TTS"}
-          searchPlaceholder="Search voices…"
-          options={voices.map((v) => ({
-            value: v.voice_id,
-            label: v.voice_name,
-            keywords: `${v.voice_name} ${v.voice_id}`,
-          }))}
         />
       </SettingRow>
       <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Soniox stt-rt-v5.">

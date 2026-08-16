@@ -106,9 +106,9 @@ export default function VoiceAgentsDeployCodePage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button className="rounded-full" onClick={() => void generateKey()} disabled={generating}>
-            <Sparkles className="size-3.5" />
-            {generating ? "Generating…" : "Generate API key"}
+          <Button className="rounded-full" onClick={() => void generateKey()} loading={generating}>
+            {!generating && <Sparkles className="size-3.5" />}
+            Generate API key
           </Button>
         </div>
       </section>

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Matrix, pulse } from "@/components/ui/matrix";
 import { cn } from "@/lib/utils";
 import { copilotTurn } from "@/lib/api/voice/agent-builder";
 import { KoriApiError } from "@/lib/api/kori-errors";
@@ -201,9 +202,18 @@ export function AgentAskKoriPanel({
         )}
         {sending && (
           <div className="ml-9 space-y-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
-              Kupe is thinking…
+            <div className="flex items-center gap-2 text-xs">
+              <Matrix
+                rows={7}
+                cols={7}
+                frames={pulse}
+                fps={16}
+                size={1.6}
+                gap={0.5}
+                palette={{ on: "var(--primary)", off: "transparent" }}
+                ariaLabel=""
+              />
+              <span className="kori-shimmer-text font-medium">Kupe is thinking…</span>
             </div>
             <Skeleton className="h-12 w-full rounded-2xl" />
           </div>

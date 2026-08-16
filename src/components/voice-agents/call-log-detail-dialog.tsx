@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Message, MessageContent } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
 import { getInteraction } from "@/lib/api/voice/calls";
 import type { VoiceCall, VoiceCallTranscriptTurn } from "@/lib/api/voice/types";
@@ -160,30 +161,22 @@ export function CallLogDetailDialog({
               </section>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div>
               {detail.transcript.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">No transcript recorded.</p>
               ) : (
                 detail.transcript.map((turn, i) => {
                   if (turn.role === "system") {
                     return (
-                      <div key={i} className="flex justify-center">
+                      <div key={i} className="flex justify-center py-1.5">
                         <span className="rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground">{turn.text}</span>
                       </div>
                     );
                   }
-                  const isUser = turn.role === "user";
                   return (
-                    <div key={i} className={cn("flex", isUser ? "justify-end" : "justify-start")}>
-                      <div
-                        className={cn(
-                          "max-w-[85%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed",
-                          isUser ? "bg-muted text-foreground" : "border border-border bg-background",
-                        )}
-                      >
-                        {turn.text}
-                      </div>
-                    </div>
+                    <Message key={i} from={turn.role === "user" ? "user" : "assistant"} className="py-1.5">
+                      <MessageContent variant="contained">{turn.text}</MessageContent>
+                    </Message>
                   );
                 })
               )}
