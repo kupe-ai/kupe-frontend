@@ -88,7 +88,7 @@ export async function listVoiceTtsProviders(): Promise<VoiceTtsProvider[]> {
 
 /** Voices for one TTS catalog UUID, or a public provider name (`kupe`, `elevenlabs`). */
 export async function listVoiceTtsVoices(provider?: string): Promise<VoiceTtsVoice[]> {
-  if (!provider) return [];
+  if (!provider) return listAllTtsVoices();
   const { items } = await api.listVoices(provider);
   if (items.some((v) => v.provider_name)) return items;
   const { tts } = await loadVoiceProvidersCatalog();
@@ -106,27 +106,8 @@ export async function listVoiceTtsVoices(provider?: string): Promise<VoiceTtsVoi
 
 /** Every enabled TTS catalog, each voice tagged with provider + model. */
 export async function listAllTtsVoices(): Promise<CatalogVoice[]> {
-  const { tts } = await loadVoiceProvidersCatalog();
-  const batches = await Promise.all(
-    tts.map(async (p) => {
-      try {
-        const voices = await listVoiceTtsVoices(p.id);
-        return voices.map((v) => ({
-          ...v,
-          provider_name: p.provider_name,
-          model_name: p.model_name,
-        }));
-      } catch {
-        return [] as CatalogVoice[];
-      }
-    }),
-  );
-  const seen = new Set<string>();
-  return batches.flat().filter((v) => {
-    if (seen.has(v.id)) return false;
-    seen.add(v.id);
-    return true;
-  });
+  const { items } = await api.listVoices();
+  return items;
 }
 
 export async function listVoiceSttProviders(): Promise<VoiceSttProvider[]> {
@@ -153,6 +134,24 @@ export async function deleteVoice(voiceId: string): Promise<void> {
   return api.deleteVoice(voiceId);
 }
 
-export async function speakVoicePreview(voiceId: string, text: string, language = "en"): Promise<Blob> {
-  return api.speakVoice(voiceId, { text, language });
+export async function speakVoicePreview(
+  voiceId: string,
+  text: string,
+  language = "en",
+  extras?: { orgId: string; speed?: number; pitch?: number },
+): Promise<Blob> {
+  if (!extras?.orgId) throw new Error("Select a workspace first.");
+  return api.speakVoice(voiceId, { text, language, orgId: extras.orgId, speed: extras.speed, pitch: extras.pitch });
+}
+
+const previewObjectUrls = new Map<string, string>();
+
+/** Shared catalog sample — server caches once; browser reuses the object URL. */
+export async function fetchVoicePreview(voiceId: string): Promise<string> {
+  const hit = previewObjectUrls.get(voiceId);
+  if (hit) return hit;
+  const blob = await api.getVoicePreview(voiceId);
+  const url = URL.createObjectURL(blob);
+  previewObjectUrls.set(voiceId, url);
+  return url;
 }

@@ -91,7 +91,8 @@ async function authedJson<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  listVoices: (provider: string) => {
+  listVoices: (provider?: string) => {
+    if (!provider) return authedJson<{ items: CatalogVoice[] }>("/v1/voices");
     const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
       provider,
     );
@@ -115,11 +116,28 @@ export const api = {
   },
   deleteVoice: (voiceId: string) =>
     authedJson<void>(`/v1/voices/${voiceId}`, { method: "DELETE" }),
-  speakVoice: async (voiceId: string, data: { text: string; language?: string }): Promise<Blob> => {
+  speakVoice: async (
+    voiceId: string,
+    data: { text: string; language?: string; orgId: string; speed?: number; pitch?: number },
+  ): Promise<Blob> => {
     const res = await authedFetch(`/v1/voices/${voiceId}/speak`, {
       method: "POST",
-      body: JSON.stringify({ text: data.text, language: data.language ?? "en" }),
+      body: JSON.stringify({
+        text: data.text,
+        language: data.language ?? "en",
+        org_id: data.orgId,
+        speed: data.speed,
+        pitch: data.pitch,
+      }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Backend returned ${res.status}`);
+    }
+    return res.blob();
+  },
+  getVoicePreview: async (voiceId: string): Promise<Blob> => {
+    const res = await authedFetch(`/v1/voices/${voiceId}/preview`);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `Backend returned ${res.status}`);

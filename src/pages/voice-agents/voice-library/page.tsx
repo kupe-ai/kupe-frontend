@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Loader2, MoreHorizontal, Pause, Play, Search } from "lucide-react";
+import { Loader2, MoreHorizontal, Pause, Play, Search } from "lucide-react";
 import { toast } from "sonner";
-import { AiStar } from "@/components/brand/ai-star";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -24,29 +22,27 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Matrix, seededPattern } from "@/components/ui/matrix";
 import { AudioPreviewProvider, useAudioPreview } from "@/lib/hooks/use-audio-preview";
 import { useAuth } from "@/lib/useAuth";
 import {
   cloneVoice,
   deleteVoice,
+  fetchVoicePreview,
+  listAllTtsVoices,
   listVoiceTtsProviders,
-  listVoiceTtsVoices,
-  speakVoicePreview,
   updateVoice,
   type VoiceTtsProvider,
 } from "@/lib/api/voice/providers";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
-import { formatProviderModel } from "@/lib/voice/provider-brand";
+import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 import type { CatalogVoice } from "@/types";
+import { TtsStudio } from "./tts-studio";
+
+const ALL_PROVIDERS = "__all__";
 
 export default function VoiceLibraryPage() {
   return (
@@ -56,34 +52,38 @@ export default function VoiceLibraryPage() {
   );
 }
 
+function providerFilterOptions(rows: VoiceTtsProvider[]): SearchableOption[] {
+  return [
+    { value: ALL_PROVIDERS, label: "All providers" },
+    ...rows.map((p) => {
+      const label = formatProviderModel(p.provider_name, p.model_name);
+      return {
+        value: p.id,
+        label,
+        icon: <ProviderLogo provider={p.provider_name} size="sm" />,
+        keywords: `${p.provider_name} ${displayProviderName(p.provider_name)} ${p.model_name} ${label}`,
+      };
+    }),
+  ];
+}
+
 function VoiceLibraryPageInner() {
   const { session } = useAuth();
   const userId = session?.user?.id ?? null;
 
-  const [providerId, setProviderId] = useState<string | null>(null);
+  const [providerId, setProviderId] = useState<string>(ALL_PROVIDERS);
   const [providers, setProviders] = useState<VoiceTtsProvider[]>([]);
   const [voices, setVoices] = useState<CatalogVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [cloneOpen, setCloneOpen] = useState(false);
-  const providerIdRef = useRef<string | null>(null);
-  providerIdRef.current = providerId;
 
-  const refresh = useCallback(async (selectedId?: string | null) => {
+  const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const tts = await listVoiceTtsProviders();
       setProviders(tts);
-      const kupe = tts.find((p) => p.provider_name.toLowerCase() === "kupe");
-      const preferred = selectedId ?? providerIdRef.current;
-      const nextId =
-        (preferred && tts.some((p) => p.id === preferred) ? preferred : null) ??
-        kupe?.id ??
-        tts.find((p) => p.is_default)?.id ??
-        tts[0]?.id ??
-        null;
-      setProviderId(nextId);
-      setVoices(nextId ? await listVoiceTtsVoices(nextId) : []);
+      setVoices(await listAllTtsVoices());
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't load the voice library"));
     } finally {
@@ -96,7 +96,8 @@ function VoiceLibraryPageInner() {
   }, [refresh]);
 
   const q = search.trim().toLowerCase();
-  const filtered = voices.filter((v) => {
+  const scoped = providerId === ALL_PROVIDERS ? voices : voices.filter((v) => v.provider_id === providerId);
+  const filtered = scoped.filter((v) => {
     if (!q) return true;
     const model = formatProviderModel(v.provider_name ?? "", v.model_name ?? "").toLowerCase();
     return (
@@ -114,25 +115,11 @@ function VoiceLibraryPageInner() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-title">Voice Library</h1>
-
+          <p className="mt-1 text-sm text-muted-foreground">
+            Catalog voices across every TTS provider. Samples are cached once and shared.
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select
-            value={providerId ?? undefined}
-            onValueChange={(id) => void refresh(id)}
-            disabled={!providers.length}
-          >
-            <SelectTrigger className="h-9 w-52 rounded-full">
-              <SelectValue placeholder="Select provider" />
-            </SelectTrigger>
-            <SelectContent>
-              {providers.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {formatProviderModel(p.provider_name, p.model_name)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <div className="relative">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -149,27 +136,40 @@ function VoiceLibraryPageInner() {
         </div>
       </div>
 
-      <div className="mt-8">
-        <TtsPlayground voices={voices} />
-      </div>
-
-      <div className="mt-10 space-y-8">
-        <VoiceSection
-          title="My voices"
-          description="Voices you've cloned — private by default, or shared with your workspace."
-          voices={myVoices}
-          loading={loading}
-          isOwner
-          onChanged={refresh}
-        />
-        <VoiceSection
-          title="All voices"
-          description="Catalog voices for this provider, plus workspace voices others have made public."
-          voices={otherVoices}
-          loading={loading}
-          onChanged={refresh}
-        />
-      </div>
+      <Tabs defaultValue="voices" className="mt-4">
+        <TabsList>
+          <TabsTrigger value="voices">Voices</TabsTrigger>
+          <TabsTrigger value="try-tts">Try TTS</TabsTrigger>
+        </TabsList>
+        <TabsContent value="voices" className="mt-6 space-y-8">
+          <SearchableSelect
+            value={providerId}
+            onChange={setProviderId}
+            disabled={!providers.length}
+            placeholder="All providers"
+            searchPlaceholder="Search providers…"
+            options={providerFilterOptions(providers)}
+          />
+          <VoiceSection
+            title="My voices"
+            description="Voices you've cloned — private by default, or shared with your workspace."
+            voices={myVoices}
+            loading={loading}
+            isOwner
+            onChanged={() => void refresh()}
+          />
+          <VoiceSection
+            title="All voices"
+            description="Catalog voices for every provider, plus workspace voices others have made public."
+            voices={otherVoices}
+            loading={loading}
+            onChanged={() => void refresh()}
+          />
+        </TabsContent>
+        <TabsContent value="try-tts" className="mt-6">
+          <TtsStudio providers={providers} voices={voices} />
+        </TabsContent>
+      </Tabs>
 
       <CloneVoiceDialog
         open={cloneOpen}
@@ -249,14 +249,10 @@ function VoiceCard({
       player.pause();
       return;
     }
-    if (voice.preview_url) {
-      player.play(voice.id, voice.preview_url);
-      return;
-    }
     setPreviewing(true);
     try {
-      const blob = await speakVoicePreview(voice.id, `Hi, I'm ${voice.voice_name}.`);
-      player.play(voice.id, URL.createObjectURL(blob));
+      const url = await fetchVoicePreview(voice.id);
+      player.play(voice.id, url);
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't preview this voice"));
     } finally {
@@ -512,80 +508,5 @@ function CloneVoiceDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function TtsPlayground({ voices }: { voices: CatalogVoice[] }) {
-  const [voiceId, setVoiceId] = useState("");
-  const [text, setText] = useState("Hi, thanks for calling — how can I help you today?");
-  const [generating, setGenerating] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    if (!voiceId && voices.length > 0) setVoiceId(voices[0]!.voice_id);
-  }, [voices, voiceId]);
-
-  async function generate() {
-    const voice = voices.find((v) => v.voice_id === voiceId);
-    if (!voice || !text.trim()) return;
-    setGenerating(true);
-    try {
-      const blob = await speakVoicePreview(voice.id, text.trim());
-      const url = URL.createObjectURL(blob);
-      setAudioUrl(url);
-      requestAnimationFrame(() => audioRef.current?.play());
-    } catch (err) {
-      toast.error(friendlyVoiceError(err, "Couldn't generate speech"));
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="flex items-center gap-2">
-        <AiStar size={16} />
-        <p className="text-sm font-semibold">Try text-to-speech</p>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <Textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={3}
-          maxLength={500}
-          placeholder="Type something for the voice to say…"
-        />
-        <div className="flex flex-col gap-2 sm:w-48">
-          <select
-            value={voiceId}
-            onChange={(e) => setVoiceId(e.target.value)}
-            className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
-          >
-            {voices.map((v) => (
-              <option key={v.id} value={v.voice_id}>
-                {v.voice_name}
-              </option>
-            ))}
-          </select>
-          <Button type="button" className="rounded-full" onClick={() => void generate()} loading={generating}>
-            Generate
-          </Button>
-        </div>
-      </div>
-      {audioUrl && (
-        <div className="mt-3 flex items-center gap-3 border-t border-border pt-3">
-          <audio ref={audioRef} controls src={audioUrl} className="h-9 flex-1" />
-          <a
-            href={audioUrl}
-            download={`kupe-voice-preview.mp3`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-          >
-            <Download className="size-3.5" />
-            Download
-          </a>
-        </div>
-      )}
-    </div>
   );
 }

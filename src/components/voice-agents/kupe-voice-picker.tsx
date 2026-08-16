@@ -17,6 +17,7 @@ import {
 import { Matrix, seededPattern } from "@/components/ui/matrix";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
+import { fetchVoicePreview } from "@/lib/api/voice/providers";
 import { formatProviderModel } from "@/lib/voice/provider-brand";
 import type { CatalogVoice } from "@/types";
 
@@ -139,19 +140,24 @@ function VoicePickerItem({
 }) {
   const [isHovered, setIsHovered] = React.useState(false);
   const player = useAudioPreview();
-
-  const preview = voice.preview_url;
-  const isPlaying = Boolean(preview) && player.isItemActive(voice.id) && player.isPlaying;
+  const isPlaying = player.isItemActive(voice.id) && player.isPlaying;
 
   const handlePreview = React.useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!preview) return;
-      if (isPlaying) player.pause();
-      else player.play(voice.id, preview);
+      if (isPlaying) {
+        player.pause();
+        return;
+      }
+      try {
+        const url = await fetchVoicePreview(voice.id);
+        player.play(voice.id, url);
+      } catch {
+        // Preview is best-effort inside the picker.
+      }
     },
-    [preview, isPlaying, player, voice.id],
+    [isPlaying, player, voice.id],
   );
 
   const meta = [voice.gender, ...voice.supported_languages.slice(0, 2)].filter(Boolean);
@@ -181,7 +187,7 @@ function VoicePickerItem({
         onClick={handlePreview}
       >
         <VoiceOrb seed={voice.id} />
-        {preview && isHovered && (
+        {isHovered && (
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-md bg-black/40 backdrop-blur-sm">
             {isPlaying ? (
               <Pause className="size-3 text-white" />
