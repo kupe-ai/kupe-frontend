@@ -239,7 +239,7 @@ export default function VoiceAgentEditorPage() {
                   <ChevronDown className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-72">
+              <DropdownMenuContent align="start" className="w-80">
                 <DropdownMenuItem onClick={() => setCommitOpen(true)}>
                   <Plus className="size-4" />
                   Commit…
@@ -254,18 +254,19 @@ export default function VoiceAgentEditorPage() {
                     versions.map((v) => (
                       <DropdownMenuItem
                         key={v.id}
-                        className="flex-col items-start gap-0.5"
+                        className="gap-2"
                         onClick={() => setPreviewVersion(v)}
                       >
-                        <span className="flex w-full items-center justify-between text-sm font-medium">
-                          v{v.version}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            {new Date(v.created_at).toLocaleDateString()}
-                          </span>
+                        <span className="shrink-0 font-medium">v{v.version}</span>
+                        <span
+                          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
+                          title={v.message ?? undefined}
+                        >
+                          {v.message ?? ""}
                         </span>
-                        {v.message ? (
-                          <span className="truncate text-xs text-muted-foreground">{v.message}</span>
-                        ) : null}
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {new Date(v.created_at).toLocaleDateString()}
+                        </span>
                       </DropdownMenuItem>
                     ))
                   )}

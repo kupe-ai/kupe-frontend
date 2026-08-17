@@ -1,7 +1,6 @@
-/** Loads Razorpay's Checkout.js once and opens it as an in-page overlay.
- * Never navigates away or opens a new tab — the SPA stays mounted.
- * No secret ever touches this file — only the public key_id the backend
- * hands back from GET /v1/billing/config or a checkout-order response. */
+/** Loads Razorpay's Checkout.js once and opens it as a centered popup
+ * over the current page. No secret ever touches this file — only the
+ * public key_id the backend hands back. */
 
 declare global {
   interface Window {
@@ -18,7 +17,6 @@ export type RazorpayOptions = {
   name?: string;
   description?: string;
   theme?: { color?: string; backdrop_color?: string };
-  /** Selector or node Checkout.js embeds into. Keeps payment on this page. */
   parent?: string | HTMLElement;
   redirect?: boolean;
   handler: (response: {
@@ -33,6 +31,7 @@ export type RazorpayOptions = {
 const OVERLAY_ID = "kupe-rzp-overlay";
 /** Checkout.js special-cases this id for in-page embed (not hosted redirect). */
 const MOUNT_ID = "checkout-container";
+const STYLE_ID = "kupe-rzp-popup-css";
 
 let loadPromise: Promise<void> | null = null;
 let previousBodyOverflow = "";
@@ -61,6 +60,7 @@ export function preloadRazorpayCheckout() {
 
 function teardownCheckoutHost() {
   document.getElementById(OVERLAY_ID)?.remove();
+  document.getElementById(STYLE_ID)?.remove();
   document.body.style.overflow = previousBodyOverflow;
 }
 
@@ -68,6 +68,8 @@ function mountCheckoutHost() {
   teardownCheckoutHost();
   previousBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
+
+  const mobile = window.matchMedia("(max-width: 640px)").matches;
 
   const overlay = document.createElement("div");
   overlay.id = OVERLAY_ID;
@@ -77,30 +79,44 @@ function mountCheckoutHost() {
     inset: "0",
     zIndex: "400",
     display: "flex",
-    padding: window.matchMedia("(max-width: 640px)").matches ? "0" : "16px",
-    background: "rgb(0 0 0 / 0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: mobile ? "0" : "24px",
+    background: "rgb(0 0 0 / 0.5)",
     pointerEvents: "auto",
   });
 
   const mount = document.createElement("div");
   mount.id = MOUNT_ID;
   Object.assign(mount.style, {
-    flex: "1",
-    minHeight: "530px",
-    borderRadius: window.matchMedia("(max-width: 640px)").matches ? "0" : "16px",
+    width: mobile ? "100%" : "min(920px, calc(100vw - 48px))",
+    height: mobile ? "100%" : "min(640px, calc(100vh - 48px))",
+    minHeight: mobile ? "100%" : "520px",
+    borderRadius: mobile ? "0" : "16px",
     overflow: "hidden",
     background: "#fff",
+    boxShadow: mobile ? "none" : "0 24px 80px rgb(0 0 0 / 0.4)",
     pointerEvents: "auto",
   });
 
   overlay.appendChild(mount);
   document.body.appendChild(overlay);
-  return mount;
+
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = `
+    #${MOUNT_ID} iframe,
+    #${MOUNT_ID} .razorpay-checkout-frame {
+      width: 100% !important;
+      height: 100% !important;
+      min-height: 0 !important;
+      border: 0 !important;
+    }
+  `;
+  document.head.appendChild(style);
 }
 
-/** Opens Checkout.js inside the current page. Resolves/rejects based on the
- * `handler` callback firing vs. the user dismissing the overlay — callers
- * don't need to wire modal.ondismiss themselves. */
+/** Opens Checkout.js as a popup over the current SPA. */
 export async function openRazorpayCheckout(
   options: Omit<RazorpayOptions, "handler" | "modal" | "parent" | "redirect">,
 ): Promise<{
@@ -113,8 +129,6 @@ export async function openRazorpayCheckout(
   if (!window.Razorpay) throw new Error("Razorpay checkout script failed to initialize");
 
   // Let a closing Radix dialog drop `inert` / pointer-events on body first.
-  // Opening Checkout.js while a modal trap is active makes it fall back to a
-  // hosted blank page instead of embedding here.
   await new Promise((r) => setTimeout(r, 60));
 
   mountCheckoutHost();
@@ -131,13 +145,11 @@ export async function openRazorpayCheckout(
     try {
       const rzp = new window.Razorpay!({
         ...options,
-        // Embed in our overlay — Checkout.js otherwise may window.open / location.assign
-        // after an async order create, which replaces this SPA with a blank hosted page.
         parent: `#${MOUNT_ID}`,
         redirect: false,
         theme: {
           color: options.theme?.color ?? "#111827",
-          backdrop_color: "rgba(0, 0, 0, 0.55)",
+          backdrop_color: "rgba(0, 0, 0, 0)",
         },
         handler: (response) => {
           finish(() => resolve(response));

@@ -1,4 +1,5 @@
 {
+  "trailingSlash": false,
   "headers": [
     {
       "source": "/",
@@ -33,7 +34,7 @@
       "destination": "https://us.i.posthog.com/:path*"
     },
     {
-      "source": "/((?!.*\\.).*)",
+      "source": "/((?!ingest/|.*\\.).*)",
       "destination": "/index.html"
     }
   ]
