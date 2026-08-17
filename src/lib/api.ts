@@ -252,6 +252,24 @@ export const api = {
     authedJson<Wallet>(`/v1/orgs/${orgId}/billing/wallet${usageQuery(params)}`),
   listInvoices: (orgId: string, params?: ListParams & { currency?: string }) =>
     authedJson<Page<Invoice>>(`/v1/orgs/${orgId}/billing/invoices${usageQuery(params)}`),
+  downloadInvoicePdf: async (orgId: string, invoiceId: string, invoiceNumber: string) => {
+    const res = await authedFetch(`/v1/orgs/${orgId}/billing/invoices/${invoiceId}/pdf`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const detail = (body as { detail?: string }).detail;
+      throw new Error(detail || `Backend returned ${res.status}`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${invoiceNumber || "invoice"}.pdf`;
+      a.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  },
   getBillingConfig: () => authedJson<{ key_id: string }>("/v1/billing/config"),
   getPlans: () => authedJson<BillingPlan[]>("/v1/billing/plans"),
   getBillingSubscription: (orgId: string) =>

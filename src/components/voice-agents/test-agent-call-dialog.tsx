@@ -259,9 +259,9 @@ export function TestAgentCallDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(90vh,680px)] flex-col gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
+      <DialogContent className="flex max-h-[min(90vh,680px)] flex-col gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-3xl">
         <DialogTitle className="sr-only">Test call with {agentName}</DialogTitle>
-        <div className="flex shrink-0 flex-col items-center gap-5 px-6 pt-10 pb-5 text-center">
+        <div className="flex shrink-0 flex-col items-center gap-2 px-6 pt-10 pb-4 text-center">
           <div className="relative size-16">
             <AgentAvatar seed={seed} size={64} className="size-full rounded-2xl" />
             {status === "connecting" && (
@@ -282,99 +282,103 @@ export function TestAgentCallDialog({
               )}
             </p>
           </div>
-
-          {errorCopy ? (
-            <div className="w-full rounded-2xl border border-border bg-muted/40 px-4 py-4 text-left">
-              <div className="flex items-start gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-                  <PhoneOff className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-foreground">{errorCopy.title}</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{errorCopy.body}</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-3 rounded-full"
-                    onClick={() => {
-                      setErrorMsg(null);
-                      setStatus("connecting");
-                      setAttempt((n) => n + 1);
-                    }}
-                  >
-                    <RotateCw className="size-3.5" />
-                    Try again
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <BarVisualizer
-              state={visualizerState}
-              mediaStream={vizStream}
-              demo={!vizStream && status === "connecting"}
-              flat
-              barCount={15}
-              className="w-full"
-            />
-          )}
-
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="rounded-full"
-              aria-label={muted ? "Unmute" : "Mute"}
-              onClick={toggleMute}
-              disabled={status !== "connected"}
-            >
-              {muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              className="rounded-full"
-              aria-label="End call"
-              onClick={() => onOpenChange(false)}
-            >
-              <PhoneOff className="size-4" />
-            </Button>
-          </div>
         </div>
 
-        <div
-          ref={transcriptRef}
-          className="h-56 min-h-0 overflow-y-scroll overscroll-contain border-t border-border p-3"
-        >
-          {turns.length === 0 ? (
-            <ConversationEmptyState
-              title="Transcript"
-              description={status === "connected" ? "Listening…" : "Starts once the call connects."}
-              className="h-full min-h-48"
-            />
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              {turns.map((t) => (
-                <div key={t.id} className={t.role === "user" ? "flex flex-col items-end" : "flex flex-col items-start"}>
-                  <Message from={t.role === "user" ? "user" : "assistant"}>
-                    <MessageContent variant="contained">{t.text}</MessageContent>
-                  </Message>
-                  {t.latencyMs !== undefined && (
-                    <span
-                      className={`mt-0.5 px-1 text-[10px] ${
-                        t.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
-                      }`}
+        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+          <div className="flex shrink-0 flex-col items-center justify-center gap-5 px-6 pb-5 sm:w-[280px] sm:justify-start sm:border-r sm:border-border sm:pt-2 sm:pb-6">
+            {errorCopy ? (
+              <div className="w-full rounded-2xl border border-border bg-muted/40 px-4 py-4 text-left">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                    <PhoneOff className="size-4" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">{errorCopy.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{errorCopy.body}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 rounded-full"
+                      onClick={() => {
+                        setErrorMsg(null);
+                        setStatus("connecting");
+                        setAttempt((n) => n + 1);
+                      }}
                     >
-                      responded in {Math.round(t.latencyMs)} ms
-                    </span>
-                  )}
+                      <RotateCw className="size-3.5" />
+                      Try again
+                    </Button>
+                  </div>
                 </div>
-              ))}
+              </div>
+            ) : (
+              <BarVisualizer
+                state={visualizerState}
+                mediaStream={vizStream}
+                demo={!vizStream && status === "connecting"}
+                flat
+                barCount={15}
+                className="w-full sm:h-48"
+              />
+            )}
+
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="rounded-full"
+                aria-label={muted ? "Unmute" : "Mute"}
+                onClick={toggleMute}
+                disabled={status !== "connected"}
+              >
+                {muted ? <MicOff className="size-4" /> : <Mic className="size-4" />}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                className="rounded-full"
+                aria-label="End call"
+                onClick={() => onOpenChange(false)}
+              >
+                <PhoneOff className="size-4" />
+              </Button>
             </div>
-          )}
+          </div>
+
+          <div
+            ref={transcriptRef}
+            className="h-56 min-h-0 overflow-y-scroll overscroll-contain border-t border-border p-3 sm:h-auto sm:flex-1 sm:border-t-0"
+          >
+            {turns.length === 0 ? (
+              <ConversationEmptyState
+                title="Transcript"
+                description={status === "connected" ? "Listening…" : "Starts once the call connects."}
+                className="h-full min-h-48"
+              />
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                {turns.map((t) => (
+                  <div key={t.id} className={t.role === "user" ? "flex flex-col items-end" : "flex flex-col items-start"}>
+                    <Message from={t.role === "user" ? "user" : "assistant"}>
+                      <MessageContent variant="contained">{t.text}</MessageContent>
+                    </Message>
+                    {t.latencyMs !== undefined && (
+                      <span
+                        className={`mt-0.5 px-1 text-[10px] ${
+                          t.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
+                        }`}
+                      >
+                        responded in {Math.round(t.latencyMs)} ms
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

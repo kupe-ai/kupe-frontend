@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AudioPlayer } from "@/components/ui/audio-player";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Message, MessageContent } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
@@ -227,8 +228,12 @@ export function CallLogDetailDialog({
         </div>
 
         {tab === "transcript" && detail?.recording_url ? (
-          <div className="flex items-center gap-3 border-t border-border px-4 py-3">
-            <audio controls src={detail.recording_url} className="w-full" />
+          <div className="shrink-0 border-t border-border bg-background p-3">
+            <AudioPlayer
+              src={detail.recording_url}
+              autoPlay={false}
+              downloadName={`call-${detail.id}.mp3`}
+            />
           </div>
         ) : null}
       </DialogContent>

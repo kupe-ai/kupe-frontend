@@ -131,8 +131,13 @@ export default function VoiceAgentsAnalyticsPage() {
   }, [refreshTabData]);
 
   return (
-    <div className="voice-page voice-page-wide">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div
+      className={cn(
+        "voice-page voice-page-wide",
+        tab === "calllogs" && "h-full min-h-0 overflow-hidden",
+      )}
+    >
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-4">
         <h1 className="text-title">Analytics</h1>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="sm" className="h-8 rounded-full" onClick={() => setEvalOpen(true)}>
@@ -152,7 +157,7 @@ export default function VoiceAgentsAnalyticsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-2 border-b border-border">
+      <div className="mt-4 flex shrink-0 flex-wrap items-end justify-between gap-2 border-b border-border">
         <div className="flex flex-wrap gap-1">
           {ANALYTICS_TABS.map((t) => (
             <button
@@ -173,7 +178,7 @@ export default function VoiceAgentsAnalyticsPage() {
         </div>
       </div>
 
-      <div className="mt-5 pb-10">
+      <div className={cn("mt-5", tab === "calllogs" ? "flex min-h-0 flex-1 flex-col overflow-hidden pb-0" : "pb-10")}>
         {tab === "overview" ? <OverviewTab data={overview} /> : null}
         {tab === "connectivity" ? <ConnectivityTab overview={overview} data={connectivity} /> : null}
         {tab === "engagement" ? <EngagementTab data={engagement} /> : null}
@@ -571,8 +576,8 @@ function CallLogsTab({
   onOpen: (call: VoiceCall) => void;
 }) {
   return (
-    <div>
-      <div className="mb-3 flex gap-1.5">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-3 flex shrink-0 gap-1.5">
         {(["all", "connected"] as const).map((f) => (
           <button
             key={f}
@@ -587,10 +592,10 @@ function CallLogsTab({
           </button>
         ))}
       </div>
-      <div className="overflow-hidden rounded-xl border border-border">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1200px] text-left text-sm">
-            <thead className="border-b border-border bg-muted/30 text-xs text-muted-foreground">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card">
+        <div className="min-h-0 flex-1 overflow-auto">
+          <table className="w-full min-w-[1200px] border-separate border-spacing-0 text-left text-sm">
+            <thead className="text-xs text-muted-foreground">
               <tr>
                 {[
                   "Call ID",
@@ -609,7 +614,7 @@ function CallLogsTab({
                   "Goal status",
                   "",
                 ].map((h) => (
-                  <th key={h} className="px-3 py-2.5 font-medium whitespace-nowrap">
+                  <th key={h} className="sticky top-0 z-10 border-b border-border bg-card px-3 py-2.5 font-medium whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -700,7 +705,7 @@ function CallLogsTab({
             </tbody>
           </table>
         </div>
-        <div className="border-t border-border px-3">
+        <div className="shrink-0 border-t border-border bg-card px-3">
           <VoicePagination page={page} perPage={perPage} total={total} onPageChange={onPage} onPerPageChange={onPerPage} perPageOptions={[10, 20, 50]} />
         </div>
       </div>

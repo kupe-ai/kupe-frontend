@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -54,6 +59,7 @@ export default function BillingPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [amount, setAmount] = useState("1000");
   const [manageOpen, setManageOpen] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const canManageBalance = membership?.role === "owner" || membership?.role === "admin";
 
   const load = useCallback(async () => {
@@ -124,6 +130,18 @@ export default function BillingPage() {
       toast.error(e instanceof Error ? e.message : "Could not add credits");
     } finally {
       setAddingCredits(false);
+    }
+  }
+
+  async function downloadInvoice(row: Invoice) {
+    if (!org) return;
+    setDownloadingId(row.id);
+    try {
+      await api.downloadInvoicePdf(org.id, row.id, row.invoice_number);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not download invoice");
+    } finally {
+      setDownloadingId(null);
     }
   }
 
@@ -254,14 +272,20 @@ export default function BillingPage() {
                       <td className="px-5 py-2.5 whitespace-nowrap">{formatDate(row.issued_at)}</td>
                       <td className="px-5 py-2.5 whitespace-nowrap">{formatDate(row.due_at)}</td>
                       <td className="px-5 py-2.5 text-right">
-                        {row.has_pdf ? (
-                          <span className="inline-flex items-center gap-1 text-caption">
-                            <FileDown className="size-3.5" />
-                            PDF
-                          </span>
-                        ) : (
-                          <span className="text-caption">—</span>
-                        )}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              loading={downloadingId === row.id}
+                              onClick={() => void downloadInvoice(row)}
+                              aria-label={`Download ${row.invoice_number}`}
+                            >
+                              <FileDown />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Download PDF</TooltipContent>
+                        </Tooltip>
                       </td>
                     </tr>
                   ))}

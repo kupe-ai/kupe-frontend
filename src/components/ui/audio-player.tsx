@@ -16,10 +16,12 @@ export function AudioPlayer({
   src,
   downloadName = "kupe-tts.mp3",
   className,
+  autoPlay = true,
 }: {
   src: string;
   downloadName?: string;
   className?: string;
+  autoPlay?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -38,7 +40,9 @@ export function AudioPlayer({
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("ended", onEnded);
-    void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    if (autoPlay) {
+      void audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
+    }
     return () => {
       audio.pause();
       audio.removeEventListener("timeupdate", onTime);
@@ -47,7 +51,7 @@ export function AudioPlayer({
     };
     // Re-bind when the clip changes; volume is applied separately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src]);
+  }, [src, autoPlay]);
 
   useEffect(() => {
     const audio = audioRef.current;
