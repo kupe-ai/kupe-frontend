@@ -4,7 +4,7 @@
 
 declare global {
   interface Window {
-    Razorpay?: new (options: RazorpayOptions) => { open: () => void };
+    Razorpay?: new (options: RazorpayOptions) => { open: () => void; close: () => void };
   }
 }
 
@@ -64,12 +64,10 @@ function teardownCheckoutHost() {
   document.body.style.overflow = previousBodyOverflow;
 }
 
-function mountCheckoutHost() {
+function mountCheckoutHost(): { overlay: HTMLDivElement; mount: HTMLDivElement } {
   teardownCheckoutHost();
   previousBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-
-  const mobile = window.matchMedia("(max-width: 640px)").matches;
 
   const overlay = document.createElement("div");
   overlay.id = OVERLAY_ID;
@@ -81,22 +79,21 @@ function mountCheckoutHost() {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    padding: mobile ? "0" : "24px",
     background: "rgb(0 0 0 / 0.5)",
     pointerEvents: "auto",
   });
 
+  // Transparent host only — Razorpay paints the checkout card. A sized white
+  // box here showed up as empty margins around the widget and ate clicks.
   const mount = document.createElement("div");
   mount.id = MOUNT_ID;
   Object.assign(mount.style, {
-    width: mobile ? "100%" : "min(920px, calc(100vw - 48px))",
-    height: mobile ? "100%" : "min(640px, calc(100vh - 48px))",
-    minHeight: mobile ? "100%" : "520px",
-    borderRadius: mobile ? "0" : "16px",
-    overflow: "hidden",
-    background: "#fff",
-    boxShadow: mobile ? "none" : "0 24px 80px rgb(0 0 0 / 0.4)",
-    pointerEvents: "auto",
+    position: "absolute",
+    inset: "0",
+    width: "100%",
+    height: "100%",
+    background: "transparent",
+    pointerEvents: "none",
   });
 
   overlay.appendChild(mount);
@@ -105,15 +102,22 @@ function mountCheckoutHost() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
+    #${MOUNT_ID} {
+      background: transparent !important;
+      box-shadow: none !important;
+    }
     #${MOUNT_ID} iframe,
     #${MOUNT_ID} .razorpay-checkout-frame {
       width: 100% !important;
       height: 100% !important;
       min-height: 0 !important;
       border: 0 !important;
+      background: transparent !important;
+      pointer-events: auto !important;
     }
   `;
   document.head.appendChild(style);
+  return { overlay, mount };
 }
 
 /** Opens Checkout.js as a popup over the current SPA. */
@@ -131,7 +135,7 @@ export async function openRazorpayCheckout(
   // Let a closing Radix dialog drop `inert` / pointer-events on body first.
   await new Promise((r) => setTimeout(r, 60));
 
-  mountCheckoutHost();
+  const { overlay, mount } = mountCheckoutHost();
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -163,6 +167,10 @@ export async function openRazorpayCheckout(
           },
         },
       });
+      const dismissOnBackdrop = (e: MouseEvent) => {
+        if (e.target === overlay || e.target === mount) rzp.close();
+      };
+      overlay.addEventListener("click", dismissOnBackdrop);
       rzp.open();
     } catch (e) {
       finish(() => reject(e instanceof Error ? e : new Error("Could not open checkout")));
