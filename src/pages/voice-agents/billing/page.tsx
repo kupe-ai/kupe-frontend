@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { VoicePagination } from "@/components/voice-agents/shared";
 import { CurrencyToggle, UI_DEFAULT_CURRENCY, formatMoney } from "@/components/voice-agents/currency-toggle";
 import { ManageSubscriptionModal } from "./manage-subscription-modal";
+import { BillingPlanCards } from "@/components/voice-agents/billing-plan-cards";
 import type { Invoice, Wallet } from "@/types";
 
 const PAGE_SIZE = 10;
@@ -197,6 +198,11 @@ export default function BillingPage() {
           }
         />
         <StatTile label="Invoices" value={loading ? null : String(total)} />
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-headline mb-4">Plans</h2>
+        <BillingPlanCards orgId={org?.id} canManage={canManageBalance} onChanged={() => setRefreshKey((k) => k + 1)} />
       </div>
 
       <div className="mt-6 rounded-2xl border border-border bg-card shadow-elevated">

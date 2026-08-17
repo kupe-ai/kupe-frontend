@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useWorkspace } from "@/context/workspace-context";
 import { api, type DisplayCurrency } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,6 +74,17 @@ function formatDuration(seconds: number | null | undefined) {
 
 function shortId(id: string) {
   return id.replace(/-/g, "").slice(0, 8);
+}
+
+const CHANNEL_META: Record<string, { label: string; variant: "info" | "violet" | "secondary" }> = {
+  web: { label: "Web", variant: "info" },
+  outbound: { label: "Outbound", variant: "violet" },
+  incoming: { label: "Incoming", variant: "secondary" },
+};
+
+function ChannelBadge({ channel }: { channel: string | null | undefined }) {
+  const meta = (channel && CHANNEL_META[channel]) || CHANNEL_META.incoming;
+  return <Badge variant={meta.variant}>{meta.label}</Badge>;
 }
 
 export default function UsagePage() {
@@ -287,7 +299,9 @@ export default function UsagePage() {
             >
               <td className="px-5 py-2.5 font-mono text-xs">{shortId(row.session_id)}</td>
               <td className="px-5 py-2.5 whitespace-nowrap">{row.created_at ? row.created_at.slice(0, 16).replace("T", " ") : "—"}</td>
-              <td className="px-5 py-2.5 text-muted-foreground">{row.transport || "—"}</td>
+              <td className="px-5 py-2.5">
+                <ChannelBadge channel={row.channel} />
+              </td>
               <td className="px-5 py-2.5 text-right font-mono tabular-nums">{formatDuration(row.duration_seconds)}</td>
               <td className="px-5 py-2.5 text-right font-mono tabular-nums">
                 {formatMoney(row.cost ?? 0, row.currency || currency)}

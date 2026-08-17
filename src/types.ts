@@ -151,6 +151,8 @@ export type SessionUsage = {
   created_at: string | null;
   status: string | null;
   transport: string | null;
+  /** "web" | "outbound" | "incoming" -- never the raw transport id. */
+  channel: string | null;
   duration_seconds: number | null;
   metrics: SessionUsageMetric[];
   prompt_tokens: number;
