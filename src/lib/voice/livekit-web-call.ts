@@ -35,7 +35,6 @@ async function hangUpSession(callId: string | undefined) {
 function attachRemoteAudio(track: RemoteTrack, attached: HTMLMediaElement[]) {
   const el = track.attach();
   el.autoplay = true;
-  (el as HTMLVideoElement).playsInline = true;
   el.setAttribute("playsinline", "true");
   el.style.display = "none";
   document.body.appendChild(el);

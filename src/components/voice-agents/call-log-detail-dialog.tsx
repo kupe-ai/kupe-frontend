@@ -16,8 +16,8 @@ import {
 import { StatusChip } from "@/components/ui/status-chip";
 import { Message, MessageContent } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
-import { getInteraction } from "@/lib/api/voice/calls";
-import type { VoiceCall, VoiceCallTranscriptTurn } from "@/lib/api/voice/types";
+import { prefetchInteraction, type InteractionDetail } from "@/lib/api/voice/calls";
+import type { VoiceCall } from "@/lib/api/voice/types";
 
 function copy(text: string) {
   void navigator.clipboard.writeText(text);
@@ -26,28 +26,48 @@ function copy(text: string) {
 
 export function CallLogDetailDialog({
   callId,
+  call,
   open,
   onOpenChange,
 }: {
   callId: string | null;
+  call?: VoiceCall | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const [tab, setTab] = useState<"transcript" | "overview">("overview");
-  const [detail, setDetail] = useState<(VoiceCall & { transcript: VoiceCallTranscriptTurn[] }) | null>(null);
+  const [detail, setDetail] = useState<InteractionDetail | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !callId) {
       setDetail(null);
+      setLoading(false);
       return;
     }
-    getInteraction(callId)
-      .then(setDetail)
+    setDetail((prev) => {
+      if (prev?.id === callId) return prev;
+      if (call && call.id === callId) {
+        return { ...call, transcript: [], recording_url: call.recording_url ?? null };
+      }
+      return null;
+    });
+    setLoading(true);
+    let cancelled = false;
+    prefetchInteraction(callId, call ?? undefined)
+      .then((next) => {
+        if (!cancelled) setDetail(next);
+      })
       .catch(() => {
-        toast.error("Couldn't load call details");
-        setDetail(null);
+        if (!cancelled) toast.error("Couldn't load call details");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-  }, [open, callId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, callId, call]);
 
   if (!callId) return null;
 
@@ -182,7 +202,9 @@ export function CallLogDetailDialog({
             </div>
           ) : (
             <div>
-              {detail.transcript.length === 0 ? (
+              {loading && detail.transcript.length === 0 ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">Loading transcript…</p>
+              ) : detail.transcript.length === 0 ? (
                 <p className="py-10 text-center text-sm text-muted-foreground">No transcript recorded.</p>
               ) : (
                 detail.transcript.map((turn, i) => {

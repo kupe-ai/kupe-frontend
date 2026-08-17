@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -46,6 +46,8 @@ import {
 import { orgSupportsCallTransfer } from "@/lib/api/voice/agent-builder";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
+const AUTO_SAVE_MS = 1000;
+
 export default function VoiceAgentEditorPage() {
   const { id = "" } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -55,6 +57,11 @@ export default function VoiceAgentEditorPage() {
   const [instructionsSeed, setInstructionsSeed] = useState(0);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [transferVisible, setTransferVisible] = useState(true);
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [firstMessage, setFirstMessage] = useState("");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPatchRef = useRef<Partial<VoiceAgent>>({});
+  const savingRef = useRef(false);
 
   const agentQuery = useKoriQuery({
     queryKey: ["voice-agent", id],
@@ -63,6 +70,13 @@ export default function VoiceAgentEditorPage() {
   });
 
   const agent = agentQuery.data ?? null;
+
+  useEffect(() => {
+    const data = agentQuery.data;
+    if (!data || data.id !== id) return;
+    setSystemPrompt(data.system_prompt);
+    setFirstMessage(data.first_message ?? "");
+  }, [id, instructionsSeed, agentQuery.data?.id]);
 
   const refresh = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: ["voice-agent", id] });
@@ -77,25 +91,63 @@ export default function VoiceAgentEditorPage() {
     void orgSupportsCallTransfer().then(setTransferVisible);
   }, []);
 
-  async function savePromptField(patch: Partial<VoiceAgent>) {
-    if (!agent) return;
-    if (patch.system_prompt != null && patch.system_prompt === agent.system_prompt) return;
-    if (
-      patch.first_message !== undefined &&
-      (patch.first_message ?? "") === (agent.first_message ?? "")
-    ) {
-      return;
+  const flushPromptSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
     }
+    if (!id || savingRef.current) return;
+    const patch = pendingPatchRef.current;
+    pendingPatchRef.current = {};
+    if (!Object.keys(patch).length) return;
+
+    const current = queryClient.getQueryData<VoiceAgent>(["voice-agent", id]);
+    const systemUnchanged =
+      patch.system_prompt === undefined || patch.system_prompt === current?.system_prompt;
+    const firstUnchanged =
+      patch.first_message === undefined ||
+      (patch.first_message ?? "") === (current?.first_message ?? "");
+    if (systemUnchanged && firstUnchanged) return;
+
+    savingRef.current = true;
     setSavingPrompt(true);
     try {
       await updateVoiceAgent(id, patch);
-      await queryClient.invalidateQueries({ queryKey: ["voice-agent", id] });
+      queryClient.setQueryData<VoiceAgent>(["voice-agent", id], (prev) =>
+        prev ? { ...prev, ...patch } : prev,
+      );
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't save prompt"));
     } finally {
+      savingRef.current = false;
       setSavingPrompt(false);
+      if (Object.keys(pendingPatchRef.current).length) {
+        void flushPromptSave();
+      }
     }
-  }
+  }, [id, queryClient]);
+
+  const queuePromptSave = useCallback(
+    (patch: Partial<VoiceAgent>) => {
+      pendingPatchRef.current = { ...pendingPatchRef.current, ...patch };
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        saveTimerRef.current = null;
+        void flushPromptSave();
+      }, AUTO_SAVE_MS);
+    },
+    [flushPromptSave],
+  );
+
+  const flushPromptSaveRef = useRef(flushPromptSave);
+  flushPromptSaveRef.current = flushPromptSave;
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      void flushPromptSaveRef.current();
+    };
+  }, []);
 
   async function commit() {
     try {
@@ -190,7 +242,17 @@ export default function VoiceAgentEditorPage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button type="button" size="sm" className="group/nav rounded-full" onClick={() => setTestOpen(true)}>
+          <Button
+            type="button"
+            size="sm"
+            className="group/nav rounded-full"
+            onClick={() => {
+              void (async () => {
+                await flushPromptSave();
+                setTestOpen(true);
+              })();
+            }}
+          >
             <KupeIcon name="phone" className="size-3.5" />
             Test agent
           </Button>
@@ -234,10 +296,16 @@ export default function VoiceAgentEditorPage() {
           {section === "instructions" && (
             <SystemPromptSection
               key={`${id}-${instructionsSeed}`}
-              systemPrompt={agent.system_prompt}
-              firstMessage={agent.first_message ?? ""}
-              onSystemPromptChange={(value) => void savePromptField({ system_prompt: value })}
-              onFirstMessageChange={(value) => void savePromptField({ first_message: value })}
+              systemPrompt={systemPrompt}
+              firstMessage={firstMessage}
+              onSystemPromptChange={(value) => {
+                setSystemPrompt(value);
+                queuePromptSave({ system_prompt: value });
+              }}
+              onFirstMessageChange={(value) => {
+                setFirstMessage(value);
+                queuePromptSave({ first_message: value });
+              }}
             />
           )}
           {section === "variables" && <AgentVariablesPanel agentId={id} />}

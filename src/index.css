@@ -446,12 +446,6 @@
   .ki .ki-minute {
     transform-origin: 12px 12px;
   }
-  .ki .ki-plug-a,
-  .ki .ki-plug-b,
-  .ki .ki-spark {
-    transform-box: fill-box;
-    transform-origin: center;
-  }
 
   :is(.group\/nav:hover, .group\/nav:focus-within) .ki-home .ki-roof,
   .ki-home:hover .ki-roof {
@@ -660,14 +654,6 @@
   :is(.group\/nav:hover, .group\/nav:focus-within) .ki-copy .ki-back,
   .ki-copy:hover .ki-back {
     animation: ki-copy 0.45s var(--ease-pop);
-  }
-  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-plug .ki-plug-b,
-  .ki-plug:hover .ki-plug-b {
-    animation: ki-plug-connect 0.5s var(--ease-pop);
-  }
-  :is(.group\/nav:hover, .group\/nav:focus-within) .ki-plug .ki-spark,
-  .ki-plug:hover .ki-spark {
-    animation: ki-plug-spark 0.6s var(--ease-pop);
   }
   .animate-prompt-cycle {
     animation: kupe-prompt-cycle 2.8s var(--ease-out-soft) both;
@@ -997,43 +983,56 @@
   .prompt-variable-token {
     display: inline;
     line-height: inherit;
-    padding: 0 3px;
-    border-radius: 4px;
-    font-weight: 550;
+    border-radius: 2px;
+    font-weight: inherit;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
   }
 
-  .prompt-editor-pre,
-  .prompt-editor-textarea {
-    font-family: inherit;
-    font-size: 0.875rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-break: break-word;
-    overflow-wrap: break-word;
-    letter-spacing: normal;
-    margin: 0;
-    box-sizing: border-box;
-    width: 100%;
+  .prompt-editor-content {
+    position: relative;
   }
-  .prompt-editor-pre {
+
+  .prompt-editor-scroll-host {
+    overflow: visible !important;
+  }
+
+  .prompt-editor-content pre,
+  .prompt-editor-textarea {
+    font-family: inherit !important;
+    font-size: 0.875rem !important;
+    line-height: 1.5 !important;
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    letter-spacing: normal !important;
+    font-variant-ligatures: none !important;
+    tab-size: 4 !important;
+  }
+
+  .prompt-editor-content pre {
     pointer-events: none;
     position: relative;
     z-index: 0;
     color: var(--foreground);
+    margin: 0 !important;
   }
+
   .prompt-editor-textarea {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background: transparent;
-    color: transparent;
-    caret-color: var(--foreground);
-    resize: none;
-    border: none;
-    outline: none;
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1 !important;
+    background: transparent !important;
+    color: transparent !important;
+    caret-color: var(--foreground) !important;
+    outline: none !important;
+    resize: none !important;
+    border: none !important;
   }
+
   .prompt-editor-textarea::placeholder {
     color: var(--muted-foreground);
   }
@@ -1233,16 +1232,6 @@
 @keyframes ki-copy {
   0%, 100% { transform: translate(0, 0); }
   45% { transform: translate(-1.5px, -1.5px); }
-}
-@keyframes ki-plug-connect {
-  0% { transform: translateY(-2px); opacity: 0.5; }
-  60% { transform: translateY(0.5px); opacity: 1; }
-  100% { transform: translateY(0); opacity: 1; }
-}
-@keyframes ki-plug-spark {
-  0%, 100% { opacity: 0; transform: scale(0.6); }
-  35% { opacity: 1; transform: scale(1.3); }
-  60% { opacity: 0.7; transform: scale(0.9); }
 }
 @keyframes kupe-prompt-cycle {
   0% { transform: translateY(110%); opacity: 0; }

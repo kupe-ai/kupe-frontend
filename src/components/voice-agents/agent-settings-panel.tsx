@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { GripVertical, Play, Trash2 } from "lucide-react";
+import { GripVertical, Loader2, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -148,6 +148,8 @@ const DEFAULTS: Required<
   max_call_length_minutes: 10,
 };
 
+const AUTO_SAVE_MS = 1000;
+
 const INDIC_LANGS = new Set([
   "hi", "bn", "te", "mr", "ta", "gu", "ur", "kn", "or", "od", "ml", "pa",
   "as", "mai", "sat", "ks", "ne", "kok", "sd", "doi", "mni", "brx", "sa",
@@ -200,6 +202,10 @@ export function AgentSettingsPanel({
   const [voiceId, setVoiceId] = useState(agent?.tts_voice_id ?? "");
   const [sttId, setSttId] = useState(agent?.stt_provider_id ?? "");
   const defaultsApplied = useRef(false);
+  const autoSaveArmed = useRef(false);
+  const lastSavedRef = useRef("");
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | null>(null);
 
   useEffect(() => {
     setLlmId(agent?.llm_provider_id ?? "");
@@ -313,12 +319,26 @@ export function AgentSettingsPanel({
     onAgentUpdated,
   ]);
 
-  function set<K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+  function snapshotOf(
+    nextSettings = settings,
+    nextLlm = llmId,
+    nextTts = ttsId,
+    nextVoice = voiceId,
+    nextStt = sttId,
+  ) {
+    return JSON.stringify({
+      settings: nextSettings,
+      llmId: nextLlm,
+      ttsId: nextTts,
+      voiceId: nextVoice,
+      sttId: nextStt,
+    });
   }
 
-  async function save() {
+  async function save(isAutoSave = false) {
     setSaving(true);
+    if (isAutoSave) setSaveStatus("saving");
+    const snapshotAtSave = snapshotOf();
     try {
       await updateAgentSettings(agentId, settings);
       await updateVoiceAgent(agentId, {
@@ -327,13 +347,60 @@ export function AgentSettingsPanel({
         tts_voice_id: voiceId || null,
         stt_provider_id: sttId || null,
       } as Partial<VoiceAgent>);
-      toast.success("Settings saved");
-      onAgentUpdated?.();
+      lastSavedRef.current = snapshotAtSave;
+      setSaveStatus("saved");
+      if (!isAutoSave) {
+        toast.success("Settings saved");
+        onAgentUpdated?.();
+      }
     } catch (err) {
-      toast.error(friendlyVoiceError(err, "Couldn't save settings"));
+      setSaveStatus("unsaved");
+      toast.error(friendlyVoiceError(err, isAutoSave ? "Auto-save failed" : "Couldn't save settings"));
     } finally {
       setSaving(false);
     }
+  }
+
+  useEffect(() => {
+    if (loading) {
+      autoSaveArmed.current = false;
+      return;
+    }
+    lastSavedRef.current = snapshotOf();
+    const arm = window.setTimeout(() => {
+      lastSavedRef.current = snapshotOf();
+      autoSaveArmed.current = true;
+      setSaveStatus("saved");
+    }, 400);
+    return () => window.clearTimeout(arm);
+    // Snapshot at arm time; don't re-arm on every field change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, agentId]);
+
+  useEffect(() => {
+    if (!autoSaveArmed.current || loading || saving) return;
+    const current = snapshotOf();
+    if (current === lastSavedRef.current) {
+      setSaveStatus((prev) => (prev === "saving" ? prev : "saved"));
+      return;
+    }
+    setSaveStatus("unsaved");
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      void save(true);
+    }, AUTO_SAVE_MS);
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, llmId, ttsId, voiceId, sttId, loading, saving]);
+
+  function set<K extends keyof typeof settings>(key: K, value: (typeof settings)[K]) {
+    setSettings((prev) => ({ ...prev, [key]: value }));
   }
 
   const nudges = settings.nudges ?? [];
@@ -374,9 +441,16 @@ export function AgentSettingsPanel({
   return (
     <div className="w-full max-w-4xl space-y-1 px-6 py-6 pb-16 md:px-10 lg:px-12">
       <div className="sticky top-0 z-10 -mx-6 mb-2 flex h-12 items-center justify-end border-b border-border bg-background/95 px-6 backdrop-blur md:-mx-10 md:px-10 lg:-mx-12 lg:px-12">
-        <Button type="button" className="rounded-full" onClick={() => void save()} loading={saving}>
-          Save settings
-        </Button>
+        {saveStatus === "saving" || saving ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin" />
+            Saving
+          </span>
+        ) : saveStatus === "unsaved" ? (
+          <span className="text-xs text-muted-foreground">Unsaved</span>
+        ) : saveStatus === "saved" ? (
+          <span className="text-xs text-muted-foreground">Saved</span>
+        ) : null}
       </div>
 
       <SectionTitle>Providers</SectionTitle>

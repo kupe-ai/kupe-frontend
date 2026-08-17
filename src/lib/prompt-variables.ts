@@ -64,7 +64,7 @@ export function highlightPromptVariables(code: string): string {
     const raw = match[1];
     const swatch = colors.get(raw.trim()) ?? VIBGYOR[0];
     parts.push(
-      `<span class="prompt-variable-token" style="background-color:${swatch.bg};color:${swatch.text};box-shadow:inset 0 0 0 1px ${swatch.border}">{{${escapeHtml(raw)}}}</span>`,
+      `<span class="prompt-variable-token" style="background-color:${swatch.bg};color:${swatch.text}">{{${escapeHtml(raw)}}}</span>`,
     );
     last = match.index + match[0].length;
   }

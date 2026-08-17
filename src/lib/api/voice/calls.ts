@@ -25,32 +25,61 @@ export async function createWebCall(agentId: string, _userIdentifier?: string): 
   };
 }
 
+function connectivityOf(status: string): string {
+  if (status === "failed") return "failed";
+  if (status === "ended" || status === "active") return "connected";
+  return status || "starting";
+}
+
+function directionOf(channel: string): VoiceCall["direction"] {
+  if (channel === "telephony") return "outbound";
+  return "web";
+}
+
 function toVoiceCall(s: {
   session_id: string;
   channel: string;
   status: string;
   created_at: string;
+  started_at?: string | null;
   ended_at: string | null;
+  agent_id?: string | null;
+  user_identifier?: string | null;
+  ended_by?: string | null;
+  failure_reason?: string | null;
+  language?: string | null;
+  message_count?: number;
+  duration_seconds?: number | null;
+  avg_agent_latency_ms?: number | null;
+  avg_user_latency_ms?: number | null;
+  attempt_number?: number;
+  goal_status?: string | null;
 }): VoiceCall {
+  const duration =
+    s.duration_seconds != null
+      ? Math.max(0, Math.round(s.duration_seconds))
+      : s.ended_at
+        ? Math.max(0, Math.round((new Date(s.ended_at).getTime() - new Date(s.started_at || s.created_at).getTime()) / 1000))
+        : null;
   return {
     id: s.session_id,
-    agent_id: "",
-    direction: s.channel === "telephony" ? "outbound" : "web",
+    agent_id: s.agent_id ?? "",
+    direction: directionOf(s.channel),
     channel: s.channel === "telephony" ? "pstn" : "web",
     status: s.status,
-    connectivity: s.status === "ended" || s.status === "active" ? "connected" : s.status,
-    failure_reason: null,
-    ended_by: null,
-    started_at: s.created_at,
+    connectivity: connectivityOf(s.status),
+    failure_reason: s.failure_reason ?? null,
+    ended_by: s.ended_by ?? null,
+    started_at: s.started_at || s.created_at,
     ended_at: s.ended_at,
-    duration_seconds: null,
-    language: null,
-    message_count: 0,
-    avg_agent_latency_ms: null,
-    avg_user_latency_ms: null,
-    attempt_number: 1,
-    user_identifier: null,
-    goal_status: null,
+    duration_seconds: duration,
+    language: s.language ?? null,
+    message_count: s.message_count ?? 0,
+    avg_agent_latency_ms: s.avg_agent_latency_ms != null ? Math.round(s.avg_agent_latency_ms) : null,
+    avg_user_latency_ms: s.avg_user_latency_ms != null ? Math.round(s.avg_user_latency_ms) : null,
+    attempt_number: s.attempt_number ?? 1,
+    user_identifier: s.user_identifier ?? null,
+    goal_status: s.goal_status ?? null,
     variables: {},
   };
 }
@@ -76,6 +105,13 @@ export async function listInteractions(
     has_more: start + slice.length < items.length,
   };
 }
+
+export type InteractionDetail = VoiceCall & {
+  transcript: VoiceCallTranscriptTurn[];
+  recording_url: string | null;
+};
+
+const _interactionCache = new Map<string, Promise<InteractionDetail>>();
 
 function toTranscriptTurns(turns: unknown, fallbackText?: string): VoiceCallTranscriptTurn[] {
   const list = Array.isArray(turns) ? turns : [];
@@ -107,35 +143,49 @@ function toTranscriptTurns(turns: unknown, fallbackText?: string): VoiceCallTran
     .filter((t): t is VoiceCallTranscriptTurn => t != null);
 }
 
-export async function getInteraction(callId: string) {
-  const { orgId } = requireScope();
-  const sessions = await api.listSessions(orgId, { limit: 100 });
-  const session = sessions.items.find((s) => s.session_id === callId);
-  const base = session
-    ? toVoiceCall(session)
-    : toVoiceCall({
-        session_id: callId,
-        channel: "web",
-        status: "ended",
-        created_at: new Date().toISOString(),
-        ended_at: null,
-      });
-  let transcript: VoiceCallTranscriptTurn[] = [];
-  try {
-    const info = await api.getTranscript(callId);
-    transcript = toTranscriptTurns(info.turns, info.transcript);
-  } catch {
-    transcript = [];
-  }
-  let recording_url: string | null = null;
-  try {
-    const rec = await api.getRecording(callId);
-    if (rec.status === "complete" && rec.id) {
-      const play = await api.getPlaybackUrl(rec.id);
-      recording_url = play.url;
-    }
-  } catch {
-    recording_url = null;
-  }
+async function loadInteraction(callId: string, seed?: VoiceCall): Promise<InteractionDetail> {
+  const sessionP = seed
+    ? Promise.resolve(seed)
+    : api.getSession(callId).then(toVoiceCall).catch(() =>
+        toVoiceCall({
+          session_id: callId,
+          channel: "web",
+          status: "ended",
+          created_at: new Date().toISOString(),
+          ended_at: null,
+        }),
+      );
+
+  const transcriptP = api
+    .getTranscript(callId)
+    .then((info) => toTranscriptTurns(info.turns, info.transcript))
+    .catch(() => [] as VoiceCallTranscriptTurn[]);
+
+  const recordingP = api
+    .getRecording(callId)
+    .then(async (rec) => {
+      if (rec.status === "complete" && rec.id) {
+        const play = await api.getPlaybackUrl(rec.id);
+        return play.url;
+      }
+      return null;
+    })
+    .catch(() => null);
+
+  const [base, transcript, recording_url] = await Promise.all([sessionP, transcriptP, recordingP]);
   return { ...base, transcript, recording_url };
+}
+
+export function prefetchInteraction(callId: string, seed?: VoiceCall): Promise<InteractionDetail> {
+  let pending = _interactionCache.get(callId);
+  if (!pending) {
+    pending = loadInteraction(callId, seed);
+    _interactionCache.set(callId, pending);
+    pending.catch(() => _interactionCache.delete(callId));
+  }
+  return pending;
+}
+
+export function getInteraction(callId: string, seed?: VoiceCall): Promise<InteractionDetail> {
+  return prefetchInteraction(callId, seed);
 }

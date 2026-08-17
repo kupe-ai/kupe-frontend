@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
 import { Matrix, loader } from "@/components/ui/matrix";
-import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
+import { ConversationEmptyState } from "@/components/ui/conversation";
 import { Message, MessageContent } from "@/components/ui/message";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
@@ -81,6 +81,7 @@ export function TestAgentCallDialog({
   const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [attempt, setAttempt] = useState(0);
   const handleRef = useRef<WebCallHandle | null>(null);
+  const transcriptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) {
@@ -173,6 +174,12 @@ export function TestAgentCallDialog({
     };
   }, [open, agentId, attempt]);
 
+  useEffect(() => {
+    const el = transcriptRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [turns]);
+
   function toggleMute() {
     const room = handleRef.current?.room;
     if (!room) return;
@@ -205,9 +212,9 @@ export function TestAgentCallDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
+      <DialogContent className="flex max-h-[min(90vh,680px)] flex-col gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-md">
         <DialogTitle className="sr-only">Test call with {agentName}</DialogTitle>
-        <div className="flex flex-col items-center gap-5 px-6 pt-10 pb-5 text-center">
+        <div className="flex shrink-0 flex-col items-center gap-5 px-6 pt-10 pb-5 text-center">
           <div className="relative size-16">
             <AgentAvatar seed={seed} size={64} className="size-full rounded-2xl" />
             {status === "connecting" && (
@@ -286,24 +293,25 @@ export function TestAgentCallDialog({
           </div>
         </div>
 
-        <div className="flex h-56 flex-col border-t border-border">
-          <Conversation className="flex-1">
-            <ConversationContent className="p-3">
-              {turns.length === 0 ? (
-                <ConversationEmptyState
-                  title="Transcript"
-                  description={status === "connected" ? "Listening…" : "Starts once the call connects."}
-                  className="h-full"
-                />
-              ) : (
-                turns.map((t) => (
-                  <Message key={t.id} from={t.role === "user" ? "user" : "assistant"}>
-                    <MessageContent variant="contained">{t.text}</MessageContent>
-                  </Message>
-                ))
-              )}
-            </ConversationContent>
-          </Conversation>
+        <div
+          ref={transcriptRef}
+          className="h-56 min-h-0 overflow-y-scroll overscroll-contain border-t border-border p-3"
+        >
+          {turns.length === 0 ? (
+            <ConversationEmptyState
+              title="Transcript"
+              description={status === "connected" ? "Listening…" : "Starts once the call connects."}
+              className="h-full min-h-48"
+            />
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              {turns.map((t) => (
+                <Message key={t.id} from={t.role === "user" ? "user" : "assistant"}>
+                  <MessageContent variant="contained">{t.text}</MessageContent>
+                </Message>
+              ))}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

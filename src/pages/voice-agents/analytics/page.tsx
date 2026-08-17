@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import {
   ChevronDown,
+  ChevronRight,
   Copy,
   Download,
   ExternalLink,
@@ -51,7 +52,7 @@ import {
   getAnalyticsGroupBy,
   getAnalyticsOverview,
 } from "@/lib/api/voice/analytics";
-import { listInteractions } from "@/lib/api/voice/calls";
+import { listInteractions, prefetchInteraction } from "@/lib/api/voice/calls";
 import { uploadEvaluationCriteria } from "@/lib/api/voice/evaluation";
 import type { VoiceCall } from "@/lib/api/voice/types";
 
@@ -201,7 +202,12 @@ export default function VoiceAgentsAnalyticsPage() {
         ) : null}
       </div>
 
-      <CallLogDetailDialog callId={selectedCallId} open={detailOpen} onOpenChange={setDetailOpen} />
+      <CallLogDetailDialog
+        callId={selectedCallId}
+        call={calls.find((c) => c.id === selectedCallId) ?? null}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
       <EvaluationCriteriaDialog open={evalOpen} onOpenChange={setEvalOpen} />
     </div>
   );
@@ -590,7 +596,7 @@ function CallLogsTab({
                   "Call ID",
                   "User identifier",
                   "Connectivity",
-                  "Failure reason",
+                  "Cause",
                   "Ended by",
                   "Duration",
                   "Start time",
@@ -601,6 +607,7 @@ function CallLogsTab({
                   "Direction",
                   "Attempt #",
                   "Goal status",
+                  "",
                 ].map((h) => (
                   <th key={h} className="px-3 py-2.5 font-medium whitespace-nowrap">
                     {h}
@@ -612,14 +619,14 @@ function CallLogsTab({
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-border">
-                    <td colSpan={14} className="px-3 py-3">
+                    <td colSpan={15} className="px-3 py-3">
                       <div className="h-4 w-full animate-pulse rounded bg-muted/60" />
                     </td>
                   </tr>
                 ))
               ) : calls.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="px-3 py-10 text-center text-muted-foreground">
+                  <td colSpan={15} className="px-3 py-10 text-center text-muted-foreground">
                     No calls yet.
                   </td>
                 </tr>
@@ -645,30 +652,46 @@ function CallLogsTab({
                       },
                     ]}
                   >
-                    <tr className="cursor-context-menu border-b border-border hover:bg-muted/30" onClick={() => onOpen(call)}>
-                    <td className="max-w-[12rem] px-3 py-2.5">
+                    <tr
+                      className="cursor-pointer border-b border-border hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
+                      tabIndex={0}
+                      onClick={() => onOpen(call)}
+                      onPointerEnter={() => prefetchInteraction(call.id, call)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onOpen(call);
+                        }
+                      }}
+                    >
+                    <td className="max-w-[12rem] px-3 py-3">
                       <CopyCell text={call.id} truncate />
                     </td>
-                    <td className="max-w-[12rem] px-3 py-2.5">
+                    <td className="max-w-[12rem] px-3 py-3">
                       <CopyCell text={call.user_identifier ?? "—"} truncate />
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-3">
                       <StatusChip status={call.connectivity} />
                     </td>
-                    <td className="px-3 py-2.5">{call.failure_reason ?? "—"}</td>
-                    <td className="px-3 py-2.5">{call.ended_by ?? "—"}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</td>
-                    <td className="px-3 py-2.5 whitespace-nowrap">{new Date(call.started_at).toLocaleString()}</td>
-                    <td className="px-3 py-2.5">{call.language ?? "—"}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{call.message_count}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{call.avg_agent_latency_ms != null ? `${call.avg_agent_latency_ms}ms` : "—"}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{call.avg_user_latency_ms != null ? `${call.avg_user_latency_ms}ms` : "—"}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-3">{call.failure_reason ?? "—"}</td>
+                    <td className="px-3 py-3">
+                      {call.ended_by ? <StatusChip status={call.ended_by} /> : "—"}
+                    </td>
+                    <td className="px-3 py-3 tabular-nums">{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</td>
+                    <td className="px-3 py-3 whitespace-nowrap">{new Date(call.started_at).toLocaleString()}</td>
+                    <td className="px-3 py-3">{call.language ?? "—"}</td>
+                    <td className="px-3 py-3 tabular-nums">{call.message_count}</td>
+                    <td className="px-3 py-3 tabular-nums">{call.avg_agent_latency_ms != null ? `${call.avg_agent_latency_ms}ms` : "—"}</td>
+                    <td className="px-3 py-3 tabular-nums">{call.avg_user_latency_ms != null ? `${call.avg_user_latency_ms}ms` : "—"}</td>
+                    <td className="px-3 py-3">
                       <StatusChip status={call.direction} />
                     </td>
-                    <td className="px-3 py-2.5 tabular-nums">{call.attempt_number}</td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-3 tabular-nums">{call.attempt_number}</td>
+                    <td className="px-3 py-3">
                       <StatusChip status={call.goal_status ?? "not_evaluated"} />
+                    </td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      <ChevronRight className="size-4" />
                     </td>
                   </tr>
                   </QuickContextMenu>
@@ -688,19 +711,24 @@ function CallLogsTab({
 function CopyCell({ text, truncate }: { text: string; truncate?: boolean }) {
   const empty = !text || text === "—";
   return (
-    <button
-      type="button"
-      title={empty ? undefined : text}
-      disabled={empty}
-      className="inline-flex w-[11rem] max-w-[11rem] min-w-0 items-center gap-1 disabled:cursor-default"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (!empty) copyText(text);
-      }}
-    >
-      <span className={cn("min-w-0 font-mono text-xs", truncate && "truncate")}>{text}</span>
-      {!empty ? <Copy className="size-3 shrink-0 text-muted-foreground" /> : null}
-    </button>
+    <span className="inline-flex min-w-0 max-w-[14rem] items-center gap-1">
+      <span className={cn("min-w-0 font-mono text-xs", truncate && "truncate")} title={empty ? undefined : text}>
+        {text}
+      </span>
+      {!empty ? (
+        <button
+          type="button"
+          aria-label="Copy"
+          className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation();
+            copyText(text);
+          }}
+        >
+          <Copy className="size-3.5" />
+        </button>
+      ) : null}
+    </span>
   );
 }
 

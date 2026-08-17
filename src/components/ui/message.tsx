@@ -15,8 +15,8 @@ export type MessageProps = HTMLAttributes<HTMLDivElement> & {
 export const Message = ({ className, from, ...props }: MessageProps) => (
   <div
     className={cn(
-      "group flex w-full items-end justify-end gap-2 py-4",
-      from === "user" ? "is-user" : "is-assistant flex-row-reverse justify-end",
+      "group flex w-full min-w-0 items-end gap-2 py-1.5",
+      from === "user" ? "is-user justify-end" : "is-assistant justify-start",
       className
     )}
     {...props}
@@ -24,12 +24,12 @@ export const Message = ({ className, from, ...props }: MessageProps) => (
 )
 
 const messageContentVariants = cva(
-  "is-user:dark flex flex-col gap-2 overflow-hidden rounded-lg text-sm",
+  "is-user:dark flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg text-sm break-words whitespace-pre-wrap [overflow-wrap:anywhere]",
   {
     variants: {
       variant: {
         contained: [
-          "max-w-[80%] px-4 py-3",
+          "max-w-[80%] px-3 py-2",
           "group-[.is-user]:bg-primary group-[.is-user]:text-primary-foreground",
           "group-[.is-assistant]:bg-secondary group-[.is-assistant]:text-foreground",
         ],

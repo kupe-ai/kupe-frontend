@@ -46,6 +46,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   starting: "warning",
   scheduled: "warning",
   pending_kyc: "warning",
+  initializing: "warning",
 
   inbound: "info",
   info: "info",
