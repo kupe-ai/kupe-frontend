@@ -73,7 +73,8 @@ export function TemplateAgentDialog({
       const agent = await createVoiceAgent({
         template_id: template.id,
         name: template.name,
-        system_prompt: `${template.about}\n\n${template.scenario}`,
+        system_prompt: template.systemPrompt,
+        first_message: template.firstMessage ?? undefined,
       });
       setCreatedId(agent.id);
       return agent.id;

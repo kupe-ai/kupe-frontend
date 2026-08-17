@@ -9,13 +9,17 @@ export interface WebCallResult {
   livekit_url: string;
 }
 
-export async function createWebCall(agentId: string, _userIdentifier?: string): Promise<WebCallResult> {
+export async function createWebCall(
+  agentId: string,
+  variables?: Record<string, string>,
+): Promise<WebCallResult> {
   const { orgId, projectId } = requireScope();
   const session = await api.createSession({
     agent_id: agentId,
     org_id: orgId,
     project_id: projectId,
     channel: "web",
+    ...(variables && Object.keys(variables).length > 0 ? { variables } : {}),
   });
   return {
     call_id: session.session_id,

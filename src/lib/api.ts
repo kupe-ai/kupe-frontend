@@ -318,6 +318,11 @@ export const api = {
   listAgents: (orgId: string, projectId: string, params?: ListParams) =>
     authedJson<Page<Agent>>(`/v1/orgs/${orgId}/projects/${projectId}/agents${qs(params)}`),
   getAgent: (agentId: string) => authedJson<Agent>(`/v1/agents/${agentId}`),
+  getAgentDemoVariables: (agentId: string, overrides?: Record<string, string>) =>
+    authedJson<{ values: Record<string, string> }>(`/v1/agents/${agentId}/demo-variables`, {
+      method: "POST",
+      body: JSON.stringify({ overrides: overrides || {} }),
+    }),
   createAgent: (orgId: string, projectId: string, body: Partial<Agent>) =>
     authedJson<Agent>(`/v1/orgs/${orgId}/projects/${projectId}/agents`, { method: "POST", body: JSON.stringify(body) }),
   updateAgent: (agentId: string, body: Partial<Agent>) =>

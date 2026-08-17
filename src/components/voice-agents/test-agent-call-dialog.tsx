@@ -6,10 +6,12 @@ import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
 import { Matrix, loader } from "@/components/ui/matrix";
 import { ConversationEmptyState } from "@/components/ui/conversation";
 import { Message, MessageContent } from "@/components/ui/message";
+import { api } from "@/lib/api";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 
@@ -27,6 +29,10 @@ function formatDuration(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function demoVarLabel(key: string): string {
+  return key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
 }
 
 /** Sub-800ms is the target for user-stops-speaking -> agent-starts-speaking. */
@@ -94,8 +100,12 @@ export function TestAgentCallDialog({
   const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [attempt, setAttempt] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [demoValues, setDemoValues] = useState<Record<string, string>>({});
+  const [demoReady, setDemoReady] = useState(false);
+  const [demoDirty, setDemoDirty] = useState(false);
   const handleRef = useRef<WebCallHandle | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  const demoValuesRef = useRef<Record<string, string>>({});
   // Latest "user stopped -> agent started" latency, stashed here as it
   // arrives and attached to the next agent turn that lands.
   const pendingLatencyRef = useRef<number | null>(null);
@@ -112,9 +122,40 @@ export function TestAgentCallDialog({
       setErrorMsg(null);
       setTurns([]);
       setElapsedSec(0);
+      setDemoValues({});
+      setDemoReady(false);
+      setDemoDirty(false);
+      demoValuesRef.current = {};
       pendingLatencyRef.current = null;
       return;
     }
+
+    let cancelled = false;
+    setDemoReady(false);
+    void api
+      .getAgentDemoVariables(agentId)
+      .then((res) => {
+        if (cancelled) return;
+        const values = res.values || {};
+        setDemoValues(values);
+        demoValuesRef.current = values;
+        setDemoDirty(false);
+        setDemoReady(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setDemoValues({});
+        demoValuesRef.current = {};
+        setDemoReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, agentId]);
+
+  useEffect(() => {
+    if (!open || !demoReady) return;
 
     let cancelled = false;
     setErrorMsg(null);
@@ -130,7 +171,7 @@ export function TestAgentCallDialog({
         if (cancelled) return;
         setErrorMsg(friendlyVoiceError(err, webCallErrorMessage(err)));
       },
-    }).then((handle) => {
+    }, demoValuesRef.current).then((handle) => {
       if (cancelled) {
         void handle.disconnect();
         return;
@@ -207,7 +248,7 @@ export function TestAgentCallDialog({
       void handleRef.current?.disconnect();
       handleRef.current = null;
     };
-  }, [open, agentId, attempt]);
+  }, [open, agentId, attempt, demoReady]);
 
   useEffect(() => {
     const el = transcriptRef.current;
@@ -235,19 +276,22 @@ export function TestAgentCallDialog({
     setMuted(next);
   }
 
-  const statusLabel =
-    status === "connecting"
+  const preparing = open && !demoReady;
+  const statusLabel = preparing
+    ? "Preparing demo…"
+    : status === "connecting"
       ? "Connecting…"
       : status === "connected"
         ? "Live"
         : status === "error"
           ? "Couldn't connect"
           : "Call ended";
+  const demoKeys = Object.keys(demoValues);
 
   const agentSpeaking = status === "connected" && level > 0.04;
   const vizStream = agentSpeaking ? agentStream : (localStream ?? agentStream);
   const visualizerState: AgentState | undefined =
-    status === "connecting"
+    status === "connecting" || preparing
       ? "connecting"
       : status === "connected"
         ? agentSpeaking
@@ -264,7 +308,7 @@ export function TestAgentCallDialog({
         <div className="flex shrink-0 flex-col items-center gap-2 px-6 pt-10 pb-4 text-center">
           <div className="relative size-16">
             <AgentAvatar seed={seed} size={64} className="size-full rounded-2xl" />
-            {status === "connecting" && (
+            {(status === "connecting" || preparing) && (
               <span className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-background shadow-sm">
                 <Matrix rows={7} cols={7} frames={loader} fps={12} size={1.4} gap={0.4} palette={{ on: "var(--primary)", off: "transparent" }} ariaLabel="Connecting" />
               </span>
@@ -316,7 +360,7 @@ export function TestAgentCallDialog({
               <BarVisualizer
                 state={visualizerState}
                 mediaStream={vizStream}
-                demo={!vizStream && status === "connecting"}
+                demo={!vizStream && (status === "connecting" || preparing)}
                 flat
                 barCount={15}
                 className="w-full sm:h-48"
@@ -348,9 +392,50 @@ export function TestAgentCallDialog({
             </div>
           </div>
 
+          <div className="flex min-h-0 flex-1 flex-col border-t border-border sm:border-t-0">
+            {demoKeys.length > 0 && (
+              <div className="shrink-0 border-b border-border px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">Demo values</p>
+                  {demoDirty && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-6 rounded-full px-2 text-[11px]"
+                      onClick={() => {
+                        setDemoDirty(false);
+                        setErrorMsg(null);
+                        setAttempt((n) => n + 1);
+                      }}
+                    >
+                      <RotateCw className="size-3" />
+                      Restart with these
+                    </Button>
+                  )}
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {demoKeys.map((key) => (
+                    <label key={key} className="min-w-0">
+                      <span className="text-[10px] text-muted-foreground capitalize">{demoVarLabel(key)}</span>
+                      <Input
+                        value={demoValues[key] ?? ""}
+                        onChange={(e) => {
+                          const next = { ...demoValues, [key]: e.target.value };
+                          setDemoValues(next);
+                          demoValuesRef.current = next;
+                          setDemoDirty(true);
+                        }}
+                        className="h-7 text-xs"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           <div
             ref={transcriptRef}
-            className="h-56 min-h-0 overflow-y-scroll overscroll-contain border-t border-border p-3 sm:h-auto sm:flex-1 sm:border-t-0"
+            className="h-56 min-h-0 overflow-y-scroll overscroll-contain p-3 sm:h-auto sm:flex-1"
           >
             {turns.length === 0 ? (
               <ConversationEmptyState
@@ -378,6 +463,7 @@ export function TestAgentCallDialog({
                 ))}
               </div>
             )}
+          </div>
           </div>
         </div>
       </DialogContent>

@@ -71,8 +71,14 @@ export async function createVoiceAgent(input: CreateVoiceAgentInput) {
     system_prompt:
       input.system_prompt ??
       input.prompt ??
-      (tpl ? `${tpl.about}\n\n${tpl.scenario}` : ""),
-    greeting: input.first_message ?? null,
+      tpl?.systemPrompt ??
+      "",
+    greeting: input.first_message ?? tpl?.firstMessage ?? null,
+    config: tpl
+      ? ({
+          variables: tpl.variables.map((key) => ({ key, description: "", example: "" })),
+        } as Agent["config"])
+      : undefined,
   });
   return toVoiceAgent(created);
 }
@@ -148,7 +154,7 @@ export async function listVoiceAgentTemplates(category = "all"): Promise<VoiceAg
     languages: t.languages,
     tools: t.tools,
     variables: t.variables,
-    system_prompt: `${t.about}\n\n${t.scenario}`,
-    first_message: null,
+    system_prompt: t.systemPrompt,
+    first_message: t.firstMessage,
   }));
 }

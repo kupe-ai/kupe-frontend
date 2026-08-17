@@ -1,4 +1,10 @@
-/** Dummy Voice Agents catalog — frontend-only until a backend lands. */
+/** Voice agent catalog templates. System prompts are spoken (STT→LLM→TTS). */
+
+import {
+  templateFirstMessage,
+  templatePrompt,
+} from "@/lib/voice-agent-template-prompts";
+
 
 export type TemplateCategory =
   | "all"
@@ -20,6 +26,8 @@ export interface VoiceAgentTemplate {
   languages: string[];
   tools: string[];
   variables: string[];
+  systemPrompt: string;
+  firstMessage: string | null;
 }
 
 export interface RecentVoiceAgent {
@@ -138,7 +146,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "cancel_appointment",
       "send_reminder",
     ],
-    variables: ["userName", "businessHours", "serviceLocation"],
+    variables: ["userName", "companyName", "businessHours", "serviceLocation", "customerGender"],
   },
   {
     id: "tpl-sales",
@@ -160,7 +168,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "book_meeting",
       "send_followup",
     ],
-    variables: ["prospectName", "companyName", "productInterest"],
+    variables: ["prospectName", "companyName", "productInterest", "customerGender"],
   },
   {
     id: "tpl-emi",
@@ -182,7 +190,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "schedule_callback",
       "log_promise_to_pay",
     ],
-    variables: ["customerName", "emiAmount", "dueDate", "loanId"],
+    variables: ["customerName", "companyName", "emiAmount", "dueDate", "loanId", "customerGender"],
   },
   {
     id: "tpl-real-estate",
@@ -204,7 +212,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "book_site_visit",
       "notify_sales",
     ],
-    variables: ["buyerName", "budgetRange", "preferredLocality"],
+    variables: ["buyerName", "companyName", "budgetRange", "preferredLocality", "customerGender"],
   },
   {
     id: "tpl-cart",
@@ -226,7 +234,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "send_checkout_link",
       "create_support_ticket",
     ],
-    variables: ["shopperName", "cartValue", "productList"],
+    variables: ["shopperName", "companyName", "cartValue", "productList", "customerGender"],
   },
   {
     id: "tpl-insurance",
@@ -248,7 +256,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "start_renewal",
       "schedule_callback",
     ],
-    variables: ["policyHolder", "policyNumber", "renewalDate", "premium"],
+    variables: ["policyHolder", "companyName", "policyNumber", "renewalDate", "premium", "customerGender"],
   },
   {
     id: "tpl-subscription",
@@ -265,7 +273,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "In this scenario, your subscription is about to expire. Sam confirms details and shares a renewal link.",
     languages: ["English", "Hindi"],
     tools: ["get_subscription", "send_renewal_link", "schedule_callback"],
-    variables: ["subscriberName", "planName", "renewalDate"],
+    variables: ["subscriberName", "companyName", "planName", "renewalDate", "customerGender"],
   },
   {
     id: "tpl-overdue",
@@ -287,7 +295,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "log_promise_to_pay",
       "escalate_case",
     ],
-    variables: ["customerName", "outstandingAmount", "daysPastDue"],
+    variables: ["customerName", "companyName", "outstandingAmount", "daysPastDue", "customerGender"],
   },
   {
     id: "tpl-welcome",
@@ -304,7 +312,7 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "In this scenario, you just signed up. Luna confirms your details, walks through key features, and books a success call if needed.",
     languages: ["English", "Hindi"],
     tools: ["get_account", "send_guide", "book_success_call", "open_ticket"],
-    variables: ["customerName", "planName", "signupDate"],
+    variables: ["customerName", "companyName", "planName", "signupDate", "customerGender"],
   },
   {
     id: "tpl-feedback",
@@ -321,6 +329,11 @@ export const AGENT_TEMPLATES: VoiceAgentTemplate[] = [
       "In this scenario, you recently completed a purchase. Theo asks for a quick score and notes open feedback.",
     languages: ["English", "Hindi", "Kannada"],
     tools: ["capture_nps", "log_feedback", "create_support_ticket"],
-    variables: ["customerName", "orderId", "npsScore"],
+    variables: ["customerName", "companyName", "orderId", "npsScore", "customerGender"],
   },
-];
+].map((t): VoiceAgentTemplate => ({
+  ...t,
+  category: t.category as VoiceAgentTemplate["category"],
+  systemPrompt: templatePrompt(t.id),
+  firstMessage: templateFirstMessage(t.id),
+}));

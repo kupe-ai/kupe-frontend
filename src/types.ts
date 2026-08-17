@@ -86,6 +86,7 @@ export type CreateSessionBody = Partial<ProviderSelection> & {
   channel?: "web" | "telephony";
   provider?: "twilio" | "plivo" | "exotel";
   record?: boolean;
+  variables?: Record<string, string>;
 };
 
 export type SessionInfo = {

@@ -60,7 +60,11 @@ function emitLocalMic(
 /** Connects the browser mic to a LiveKit room for a "Test Agent" call:
  * requests a room+token from the backend, joins over WebRTC, publishes the
  * mic, and plays back the agent's synthesized audio track. */
-export async function startWebCall(agentId: string, callbacks: WebCallCallbacks = {}): Promise<WebCallHandle> {
+export async function startWebCall(
+  agentId: string,
+  callbacks: WebCallCallbacks = {},
+  variables?: Record<string, string>,
+): Promise<WebCallHandle> {
   callbacks.onStatusChange?.("connecting");
   const attached: HTMLMediaElement[] = [];
   const clones: MediaStreamTrack[] = [];
@@ -68,7 +72,7 @@ export async function startWebCall(agentId: string, callbacks: WebCallCallbacks 
   let callId: string | undefined;
 
   try {
-    const { call_id, access_token, livekit_url } = await createWebCall(agentId);
+    const { call_id, access_token, livekit_url } = await createWebCall(agentId, variables);
     callId = call_id;
     if (!livekit_url) {
       throw new Error("Server did not return a LiveKit URL — check voice.livekit_url in config.");
