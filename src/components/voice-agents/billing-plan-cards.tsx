@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { openRazorpayCheckout } from "@/lib/razorpay";
+import { openRazorpayCheckout, preloadRazorpayCheckout } from "@/lib/razorpay";
 import type { BillingPlan, BillingSubscription } from "@/types";
 
 const PLAN_BAR_HEIGHTS = ["40%", "56%", "74%", "92%"] as const;
@@ -85,6 +86,10 @@ export function BillingPlanCards({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    preloadRazorpayCheckout();
+  }, []);
+
   const currentPlanCode = sub?.plan_code ?? "payg";
 
   async function payAsYouGoTopup(planCode: "payg" | "enterprise" = "payg") {
@@ -97,8 +102,9 @@ export function BillingPlanCards({
     setBusyPlan(planCode);
     try {
       const order = await api.createTopupOrder(orgId, Math.round(rupees * 100), planCode);
-      // Checkout.js renders as an overlay on this same page — never a
-      // redirect/new tab — so the buyer never leaves the app mid-purchase.
+      // Drop the Radix dialog so Checkout.js can embed on this page (focus trap
+      // + pointer-events:none on body otherwise push Razorpay to a blank hosted page).
+      flushSync(() => setAddOpen(false));
       const result = await openRazorpayCheckout({
         key: order.key_id,
         amount: order.amount_minor_units,
@@ -114,7 +120,6 @@ export function BillingPlanCards({
         razorpay_signature: result.razorpay_signature,
       });
       toast.success(`Added ₹${rupees.toLocaleString("en-IN")} to your wallet`);
-      setAddOpen(false);
       void load();
       onChanged?.();
     } catch (e) {

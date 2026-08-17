@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { AlertTriangle, FileDown, Loader2, Plus, RefreshCw, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/context/workspace-context";
 import { api, type DisplayCurrency } from "@/lib/api";
-import { openRazorpayCheckout } from "@/lib/razorpay";
+import { openRazorpayCheckout, preloadRazorpayCheckout } from "@/lib/razorpay";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,6 +80,10 @@ export default function BillingPage() {
   }, [load, refreshKey]);
 
   useEffect(() => {
+    preloadRazorpayCheckout();
+  }, []);
+
+  useEffect(() => {
     setPage(1);
   }, [currency]);
 
@@ -97,6 +102,7 @@ export default function BillingPage() {
     setAddingCredits(true);
     try {
       const order = await api.createTopupOrder(org.id, Math.round(rupees * 100), "payg");
+      flushSync(() => setAddOpen(false));
       const result = await openRazorpayCheckout({
         key: order.key_id,
         amount: order.amount_minor_units,
@@ -112,7 +118,6 @@ export default function BillingPage() {
         razorpay_signature: result.razorpay_signature,
       });
       toast.success(`Added ₹${rupees.toLocaleString("en-IN")} to the wallet`);
-      setAddOpen(false);
       setRefreshKey((k) => k + 1);
     } catch (e) {
       if (e instanceof Error && e.message === "cancelled") return;
@@ -292,7 +297,7 @@ export default function BillingPage() {
               disabled={addingCredits}
             />
             <p className="text-xs text-muted-foreground">
-              You'll be taken to Razorpay to complete payment. Credits are added once payment is confirmed.
+              Payment opens on this page — you'll pay via Razorpay and credits land the moment it's confirmed.
             </p>
           </div>
           <DialogFooter>

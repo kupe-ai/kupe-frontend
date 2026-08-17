@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -90,6 +91,7 @@ export function ManageSubscriptionModal({
     try {
       const result = await api.changeSubscription(orgId, targetPlan);
       if (result.razorpay_subscription_id && result.key_id) {
+        flushSync(() => onOpenChange(false));
         await openRazorpayCheckout({
           key: result.key_id,
           subscription_id: result.razorpay_subscription_id,
