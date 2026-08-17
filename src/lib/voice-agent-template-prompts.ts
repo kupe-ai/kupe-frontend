@@ -154,7 +154,7 @@ send_reminder: after a confirmed booking, and only if they say yes to a reminder
       "Primary: qualify the lead and book the next meeting. Secondary: send a follow-up only after they agree.",
     language: "Default: Hindi (aap). Also English, Tamil. Hinglish is welcome.",
     knowledge: `Your company: {{companyName}}. Prospect: {{prospectName}}. Interest: {{productInterest}}.
-You may book a meeting only after check_calendar / book_meeting succeeds. You do not invent product prices or discounts.`
+You may book a meeting only after check_calendar / book_meeting succeeds. You do not invent product prices or discounts.`,
     flow: `Opening: permission, then one reason for the call tied to {{productInterest}}.
 Discovery: ONE qualifying question (need, timeline, or who decides). Listen. Let the answer steer.
 Value: map ONE benefit to what they just told you.

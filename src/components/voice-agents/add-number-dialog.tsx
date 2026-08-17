@@ -386,7 +386,7 @@ function PlivoNumbersStep({
               {complianceApp.status === "rejected" && complianceApp.rejection_reason && (
                 <p className="text-sm text-destructive">{complianceApp.rejection_reason}</p>
               )}
-              {complianceApp.status !== "accepted" && (
+              {complianceApp.status === "rejected" && (
                 <Button variant="outline" size="sm" className="rounded-full" onClick={onStartKyc}>
                   Resubmit verification
                 </Button>
@@ -465,13 +465,14 @@ function PlivoKycForm({ orgId, onSubmitted }: { orgId: string; onSubmitted: () =
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Documents are submitted to Plivo under your own business — Kupe never sees your compliance data beyond this form.
+        Plivo reviews the Certificate of Incorporation (or Udyam) and GST REG-06 under your business.
+        Use the CIN from the incorporation certificate as the registration number, not the GSTIN.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Business name" value={businessName} onChange={setBusinessName} full />
         <Field label="First name" value={firstName} onChange={setFirstName} />
         <Field label="Last name" value={lastName} onChange={setLastName} />
-        <Field label="GSTIN" value={gstin} onChange={(v) => setGstin(v.toUpperCase())} full />
+        <Field label="CIN / Udyam number" value={gstin} onChange={(v) => setGstin(v.toUpperCase())} full />
         <Field label="Email" value={email} onChange={setEmail} />
         <Field label="Phone" value={phone} onChange={setPhone} />
         <Field label="Address" value={address} onChange={setAddress} full />
@@ -516,7 +517,7 @@ function FileField({ label, file, onChange }: { label: string; file: File | null
     <div className="space-y-1.5">
       <Label>{label}</Label>
       <label className="pressable flex cursor-pointer items-center justify-between rounded-lg border border-dashed border-border px-3 py-2.5 text-sm hover:bg-muted/40">
-        <span className={cn("truncate", !file && "text-muted-foreground")}>{file?.name ?? "Choose PDF"}</span>
+        <span className={cn("truncate", !file && "text-muted-foreground")}>{file?.name ?? "PDF, JPEG, or PNG"}</span>
         {file ? <Check className="size-4 shrink-0 text-emerald-600" /> : null}
         <input
           type="file"

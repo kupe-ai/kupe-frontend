@@ -380,6 +380,8 @@ export function AgentTemplatesSection({
             languages: t.languages,
             tools: t.tools,
             variables: t.variables,
+            systemPrompt: t.system_prompt,
+            firstMessage: t.first_message,
           })),
         ),
       )
