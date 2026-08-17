@@ -51,9 +51,24 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
 
   inbound: "info",
   info: "info",
+  user: "info",
+  web: "info",
+  caller_hung_up: "info",
 
   outbound: "violet",
   paused: "violet",
+  agent: "violet",
+  agent_ended_the_call: "violet",
+  call_transferred: "violet",
+
+  system: "warning",
+  call_hit_the_time_limit: "warning",
+  no_response_from_caller: "warning",
+
+  call_failed_to_start: "destructive",
+  agent_error: "destructive",
+  call_dropped_before_anyone_joined: "destructive",
+
   draft: "secondary",
   archived: "secondary",
   skipped: "secondary",
@@ -61,6 +76,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   released: "secondary",
   not_evaluated: "secondary",
   idle: "secondary",
+  reached_voicemail: "secondary",
 };
 
 export function statusChipVariant(status: string | null | undefined): BadgeVariant {
@@ -89,7 +105,11 @@ export function StatusChip({
     return <span className="text-muted-foreground">—</span>;
   }
   return (
-    <Badge variant={statusChipVariant(status)} className={cn("font-normal capitalize", className)}>
+    <Badge
+      variant={statusChipVariant(status)}
+      title={typeof children === "string" ? children : status}
+      className={cn("font-normal capitalize whitespace-nowrap", className)}
+    >
       {children ?? formatStatusLabel(status)}
     </Badge>
   );

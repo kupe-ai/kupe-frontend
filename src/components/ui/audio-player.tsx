@@ -84,7 +84,7 @@ export function AudioPlayer({
       <Button type="button" variant="ghost" size="icon-sm" className="rounded-full" onClick={toggle} aria-label={playing ? "Pause" : "Play"}>
         {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
       </Button>
-      <span className="w-16 shrink-0 text-xs tabular-nums text-muted-foreground">
+      <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-muted-foreground">
         {formatTime(current)} / {formatTime(duration)}
       </span>
       <input

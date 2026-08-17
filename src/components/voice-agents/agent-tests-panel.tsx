@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { StatusChip } from "@/components/ui/status-chip";
 import {
   Dialog,
@@ -130,13 +131,38 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
 
   if (loading) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-3 px-6 py-6">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+      <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Skeleton className="h-9 w-36 rounded-full" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-44 rounded-full" />
+            <Skeleton className="h-8 w-24 rounded-full" />
+            <Skeleton className="h-8 w-20 rounded-full" />
           </div>
-        ))}
+        </div>
+        <div className="overflow-hidden rounded-xl border border-border">
+          <div className="grid grid-cols-[1fr_100px_120px] gap-3 border-b border-border bg-muted/20 px-4 py-2.5">
+            <Skeleton className="h-3 w-10" />
+            <Skeleton className="h-3 w-12" />
+            <Skeleton className="ml-auto h-3 w-8" />
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_100px_120px] items-center gap-3 border-b border-border px-4 py-3 last:border-b-0"
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="size-8 shrink-0 rounded-full" />
+                <Skeleton className="h-4 w-40 max-w-full" />
+              </div>
+              <Skeleton className="h-4 w-10" />
+              <div className="flex items-center justify-end gap-1">
+                <Skeleton className="h-8 w-14 rounded-full" />
+                <Skeleton className="size-8 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -320,7 +346,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
       )}
 
       <Dialog open={runOpen} onOpenChange={setRunOpen}>
-        <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-md">
+        <DialogContent showCloseButton={false} className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-md">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <DialogTitle className="text-base font-semibold">Run tests</DialogTitle>
             <button
@@ -391,7 +417,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
       </Dialog>
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditId(null)}>
-        <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-lg">
+        <DialogContent showCloseButton={false} className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-lg">
           {editing && (
             <EditTestDialog
               agentId={agentId}

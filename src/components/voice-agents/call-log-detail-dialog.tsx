@@ -85,10 +85,11 @@ export function CallLogDetailDialog({
         { key: "Channel", value: detail.channel },
         { key: "Status", value: detail.status, chip: true },
         { key: "Connectivity", value: detail.connectivity ?? "—", chip: true },
-        { key: "Ended by", value: detail.ended_by ?? "—" },
+        { key: "Cause", value: detail.failure_reason ?? "—", chip: true },
+        { key: "Ended by", value: detail.ended_by ?? "—", chip: true },
         { key: "Started at", value: new Date(detail.started_at).toLocaleString() },
         { key: "Duration", value: detail.duration_seconds != null ? `${detail.duration_seconds}s` : "—" },
-        { key: "Language", value: detail.language ?? "—" },
+        { key: "Language", value: detail.language ?? "—", chip: true },
         { key: "Messages", value: String(detail.message_count) },
         { key: "User identifier", value: detail.user_identifier ?? "—", copy: Boolean(detail.user_identifier), truncate: true },
       ]
@@ -100,11 +101,11 @@ export function CallLogDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[min(92vh,840px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="flex h-[min(92vh,840px)] max-h-[min(92vh,840px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
       >
         <DialogTitle className="sr-only">Unified View Details</DialogTitle>
 
-        <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0">
             <h2 className="text-base font-semibold">Unified View Details</h2>
             <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
@@ -124,7 +125,7 @@ export function CallLogDetailDialog({
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-b border-border px-5">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5">
           <div className="flex gap-4">
             {(
               [
@@ -147,7 +148,7 @@ export function CallLogDetailDialog({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
           {!detail ? (
             <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
           ) : tab === "overview" ? (

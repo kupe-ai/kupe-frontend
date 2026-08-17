@@ -675,24 +675,34 @@ function CallLogsTab({
                     <td className="max-w-[12rem] px-3 py-3">
                       <CopyCell text={call.user_identifier ?? "—"} truncate />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="whitespace-nowrap px-3 py-3">
                       <StatusChip status={call.connectivity} />
                     </td>
-                    <td className="px-3 py-3">{call.failure_reason ?? "—"}</td>
-                    <td className="px-3 py-3">
-                      {call.ended_by ? <StatusChip status={call.ended_by} /> : "—"}
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <StatusChip status={call.failure_reason} />
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      <StatusChip status={call.ended_by} />
                     </td>
                     <td className="px-3 py-3 tabular-nums">{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</td>
                     <td className="px-3 py-3 whitespace-nowrap">{new Date(call.started_at).toLocaleString()}</td>
-                    <td className="px-3 py-3">{call.language ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-3">
+                      {call.language ? (
+                        <StatusChip status={call.language} className="normal-case">
+                          {call.language}
+                        </StatusChip>
+                      ) : (
+                        <StatusChip status={null} />
+                      )}
+                    </td>
                     <td className="px-3 py-3 tabular-nums">{call.message_count}</td>
                     <td className="px-3 py-3 tabular-nums">{call.avg_agent_latency_ms != null ? `${call.avg_agent_latency_ms}ms` : "—"}</td>
                     <td className="px-3 py-3 tabular-nums">{call.avg_user_latency_ms != null ? `${call.avg_user_latency_ms}ms` : "—"}</td>
-                    <td className="px-3 py-3">
+                    <td className="whitespace-nowrap px-3 py-3">
                       <StatusChip status={call.direction} />
                     </td>
                     <td className="px-3 py-3 tabular-nums">{call.attempt_number}</td>
-                    <td className="px-3 py-3">
+                    <td className="whitespace-nowrap px-3 py-3">
                       <StatusChip status={call.goal_status ?? "not_evaluated"} />
                     </td>
                     <td className="px-3 py-3 text-muted-foreground">
