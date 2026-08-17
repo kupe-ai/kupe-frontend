@@ -105,7 +105,20 @@ export type SessionInfo = {
   stt_id: string;
   tts_id: string;
   created_at: string;
+  started_at?: string | null;
   ended_at: string | null;
+  user_identifier?: string | null;
+  ended_by?: string | null;
+  failure_reason?: string | null;
+  hangup_reason?: string | null;
+  language?: string | null;
+  message_count?: number;
+  duration_seconds?: number | null;
+  avg_agent_latency_ms?: number | null;
+  avg_user_latency_ms?: number | null;
+  attempt_number?: number;
+  goal_status?: string | null;
+  agent_id?: string | null;
 };
 
 export type UsageSummaryRow = {
@@ -129,6 +142,8 @@ export type SessionUsageMetric = {
   output_audio_tokens: number | null;
   cache_read_input_audio_tokens: number | null;
   total_tokens: number | null;
+  cost?: number;
+  currency?: string | null;
 };
 
 export type SessionUsage = {
@@ -141,6 +156,41 @@ export type SessionUsage = {
   prompt_tokens: number;
   completion_tokens: number;
   total_tokens: number;
+  cost?: number;
+  currency?: string | null;
+};
+
+export type StandaloneUsageRow = {
+  day: string;
+  source: string;
+  metric_type: string;
+  provider_name: string;
+  model_name: string;
+  total_quantity: number;
+  cost: number;
+  currency: string | null;
+};
+
+export type Wallet = {
+  org_id: string;
+  currency: string;
+  balance: number;
+  credits: number;
+  unmetered: boolean;
+  fx_rate: number | null;
+  fx_date: string | null;
+};
+
+export type Invoice = {
+  id: string;
+  invoice_number: string;
+  status: string;
+  amount: number;
+  currency: string;
+  issued_at: string | null;
+  due_at: string | null;
+  paid_at: string | null;
+  has_pdf: boolean;
 };
 
 export type UsageDailyRow = {
@@ -159,6 +209,7 @@ export type UsageDailyRow = {
   total_tokens: number;
   currency: string | null;
   cost_minor_units: number;
+  cost?: number;
 };
 
 export type CurrencyCostTotal = {
@@ -168,8 +219,12 @@ export type CurrencyCostTotal = {
 };
 
 export type UsageCostSummary = {
+  currency?: string;
+  cost?: number;
   totals: CurrencyCostTotal[];
   minutes_consumed: number;
+  fx_rate?: number | null;
+  fx_date?: string | null;
 };
 
 export type Recording = {

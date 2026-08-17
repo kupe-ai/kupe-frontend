@@ -14,6 +14,7 @@ function Flagged({ flag, children }: { flag: string; children: ReactNode }) {
 
 const LoginPage = lazyWithRetry(() => import("@/pages/login/page"));
 const AuthCallbackPage = lazyWithRetry(() => import("@/pages/auth-callback/page"));
+const IntegrationsCallbackPage = lazyWithRetry(() => import("@/pages/integrations-callback/page"));
 const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding/page"));
 const VoiceAgentsHomePage = lazyWithRetry(() => import("@/pages/voice-agents/page"));
 const VoiceAgentsAgentsPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/page"));
@@ -42,6 +43,7 @@ const VoiceAgentsDeployRecipePage = lazyWithRetry(
 );
 const VoiceAgentsAnalyticsPage = lazyWithRetry(() => import("@/pages/voice-agents/analytics/page"));
 const VoiceAgentsUsagePage = lazyWithRetry(() => import("@/pages/voice-agents/usage/page"));
+const VoiceAgentsBillingPage = lazyWithRetry(() => import("@/pages/voice-agents/billing/page"));
 const VoiceAgentsSettingsPage = lazyWithRetry(() => import("@/pages/voice-agents/settings/page"));
 const VoiceAgentsDocsPage = lazyWithRetry(() => import("@/pages/voice-agents/documentation/page"));
 
@@ -66,6 +68,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route path="/integrations/callback" element={<IntegrationsCallbackPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />
         <Route element={<ProtectedLayout />}>
           <Route element={<VoiceAgentsLayout />}>
@@ -100,6 +103,7 @@ export default function AppRoutes() {
             <Route path="/deploy-with-code/recipes/:slug" element={<VoiceAgentsDeployRecipePage />} />
             <Route path="/analytics" element={<Flagged flag="feature_analytics"><VoiceAgentsAnalyticsPage /></Flagged>} />
             <Route path="/usage" element={<VoiceAgentsUsagePage />} />
+            <Route path="/billing" element={<VoiceAgentsBillingPage />} />
             <Route path="/settings" element={<VoiceAgentsSettingsPage />} />
             <Route path="/documentation" element={<VoiceAgentsDocsPage />} />
             <Route path="/voice-agents" element={<Navigate to="/" replace />} />

@@ -36,7 +36,8 @@ export type KupeIconName =
   | "plus"
   | "clock"
   | "copy"
-  | "plug";
+  | "plug"
+  | "wallet";
 
 type SvgProps = { className?: string };
 
@@ -465,6 +466,16 @@ function CopyIcon({ className }: SvgProps) {
   );
 }
 
+function WalletIcon({ className }: SvgProps) {
+  return (
+    <Frame name="wallet" className={className}>
+      <rect x="3.6" y="6.4" width="16.8" height="13.2" rx="2.2" />
+      <path d="M3.6 9.6h16.8" />
+      <circle className="ki-coin" cx="16.4" cy="14.6" r="1.15" fill="currentColor" stroke="none" />
+    </Frame>
+  );
+}
+
 function PlugIcon({ className }: SvgProps) {
   return (
     <Frame name="plug" className={className}>
@@ -518,6 +529,7 @@ const ICONS: Record<KupeIconName, (props: SvgProps) => ReactElement> = {
   clock: ClockIcon,
   copy: CopyIcon,
   plug: PlugIcon,
+  wallet: WalletIcon,
 };
 
 export function KupeIcon({

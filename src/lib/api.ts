@@ -41,6 +41,7 @@ import type {
   Recording,
   SessionInfo,
   SessionUsage,
+  StandaloneUsageRow,
   TelephonyAccount,
   TelephonyAccountBody,
   ToolCallEvent,
@@ -49,15 +50,35 @@ import type {
   UsageCostSummary,
   UsageDailyRow,
   UsageSummaryRow,
+  Wallet,
+  Invoice,
 } from "../types";
 
 export type ListParams = { limit?: number; offset?: number };
+export type DisplayCurrency = "USD" | "INR";
 
 function qs(params?: ListParams): string {
   if (!params) return "";
   const sp = new URLSearchParams();
   if (params.limit != null) sp.set("limit", String(params.limit));
   if (params.offset != null) sp.set("offset", String(params.offset));
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+}
+
+function usageQuery(params?: {
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  offset?: number;
+  currency?: string;
+}): string {
+  const sp = new URLSearchParams();
+  if (params?.startDate) sp.set("start_date", params.startDate);
+  if (params?.endDate) sp.set("end_date", params.endDate);
+  if (params?.limit != null) sp.set("limit", String(params.limit));
+  if (params?.offset != null) sp.set("offset", String(params.offset));
+  if (params?.currency) sp.set("currency", params.currency);
   const s = sp.toString();
   return s ? `?${s}` : "";
 }
@@ -203,22 +224,26 @@ export const api = {
 
   usageSummary: (orgId: string, params?: ListParams) =>
     authedJson<Page<UsageSummaryRow>>(`/v1/orgs/${orgId}/usage${qs(params)}`),
-  usageCostSummary: (orgId: string, params?: { startDate?: string; endDate?: string }) => {
-    const sp = new URLSearchParams();
-    if (params?.startDate) sp.set("start_date", params.startDate);
-    if (params?.endDate) sp.set("end_date", params.endDate);
-    const q = sp.toString();
-    return authedJson<UsageCostSummary>(`/v1/orgs/${orgId}/usage/cost-summary${q ? `?${q}` : ""}`);
-  },
-  listSessionUsage: (orgId: string, params?: ListParams) =>
-    authedJson<Page<SessionUsage>>(`/v1/orgs/${orgId}/usage/sessions${qs(params)}`),
-  getSessionUsage: (sessionId: string) => authedJson<SessionUsage>(`/v1/sessions/${sessionId}/usage`),
-  dailyUsage: (orgId: string, params: { startDate: string; endDate: string; limit?: number; offset?: number }) => {
-    const sp = new URLSearchParams({ start_date: params.startDate, end_date: params.endDate });
-    if (params.limit != null) sp.set("limit", String(params.limit));
-    if (params.offset != null) sp.set("offset", String(params.offset));
-    return authedJson<Page<UsageDailyRow>>(`/v1/orgs/${orgId}/usage/daily?${sp.toString()}`);
-  },
+  usageCostSummary: (orgId: string, params?: { startDate?: string; endDate?: string; currency?: string }) =>
+    authedJson<UsageCostSummary>(`/v1/orgs/${orgId}/usage/cost-summary${usageQuery(params)}`),
+  listSessionUsage: (
+    orgId: string,
+    params?: ListParams & { startDate?: string; endDate?: string; currency?: string },
+  ) => authedJson<Page<SessionUsage>>(`/v1/orgs/${orgId}/usage/sessions${usageQuery(params)}`),
+  getSessionUsage: (sessionId: string, params?: { currency?: string }) =>
+    authedJson<SessionUsage>(`/v1/sessions/${sessionId}/usage${usageQuery(params)}`),
+  listStandaloneUsage: (
+    orgId: string,
+    params?: ListParams & { startDate?: string; endDate?: string; currency?: string },
+  ) => authedJson<Page<StandaloneUsageRow>>(`/v1/orgs/${orgId}/usage/standalone${usageQuery(params)}`),
+  dailyUsage: (
+    orgId: string,
+    params: { startDate: string; endDate: string; limit?: number; offset?: number; currency?: string },
+  ) => authedJson<Page<UsageDailyRow>>(`/v1/orgs/${orgId}/usage/daily${usageQuery(params)}`),
+  getWallet: (orgId: string, params?: { currency?: string }) =>
+    authedJson<Wallet>(`/v1/orgs/${orgId}/billing/wallet${usageQuery(params)}`),
+  listInvoices: (orgId: string, params?: ListParams & { currency?: string }) =>
+    authedJson<Page<Invoice>>(`/v1/orgs/${orgId}/billing/invoices${usageQuery(params)}`),
 
   getRecording: (sessionId: string) => authedJson<Recording>(`/v1/sessions/${sessionId}/recording`),
   listRecordings: (orgId: string, params?: ListParams) =>
@@ -287,32 +312,6 @@ export const api = {
   detachAnalysisTool: (analysisId: string, toolId: string) =>
     authedJson(`/v1/post-call-analyses/${analysisId}/tools/${toolId}`, { method: "DELETE" }),
 
-  // Composio app integrations
-  listComposioToolkits: (orgId: string, params?: { category?: string; cursor?: string }) =>
-    authedJson<ComposioToolkitsPage>(
-      `/v1/orgs/${orgId}/composio/toolkits?${new URLSearchParams(params as Record<string, string>).toString()}`,
-    ),
-  listComposioToolkitTools: (orgId: string, toolkitSlug: string, cursor?: string) =>
-    authedJson<ComposioToolsPage>(
-      `/v1/orgs/${orgId}/composio/toolkits/${toolkitSlug}/tools${cursor ? `?cursor=${cursor}` : ""}`,
-    ),
-  listComposioConnections: (orgId: string) =>
-    authedJson<ComposioConnection[]>(`/v1/orgs/${orgId}/composio/connections`),
-  connectComposioToolkit: (orgId: string, toolkitSlug: string, callbackUrl: string) =>
-    authedJson<ComposioConnectOut>(`/v1/orgs/${orgId}/composio/connections`, {
-      method: "POST",
-      body: JSON.stringify({ toolkit_slug: toolkitSlug, callback_url: callbackUrl }),
-    }),
-  refreshComposioConnection: (connectionId: string) =>
-    authedJson<ComposioConnection>(`/v1/composio/connections/${connectionId}/refresh`, { method: "POST" }),
-  disconnectComposio: (connectionId: string) =>
-    authedJson<void>(`/v1/composio/connections/${connectionId}`, { method: "DELETE" }),
-  attachComposioTool: (
-    orgId: string,
-    body: { toolkit_slug: string; tool_slug: string; connection_id: string; name?: string; label?: string },
-  ) => authedJson<CatalogTool>(`/v1/orgs/${orgId}/composio/tools`, { method: "POST", body: JSON.stringify(body) }),
-
-  // Tool-call events (agent analytics)
   listToolCallEvents: (orgId: string, params?: ListParams & { agent_id?: string }) => {
     const sp = new URLSearchParams();
     if (params?.limit != null) sp.set("limit", String(params.limit));
@@ -426,4 +425,37 @@ export const api = {
   cancelBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/cancel`, { method: "POST" }),
   updateBatchSchedule: (batchId: string, schedule: BatchSchedule) =>
     authedJson<Batch>(`/v1/batches/${batchId}/schedule`, { method: "PATCH", body: JSON.stringify(schedule) }),
+
+  listComposioToolkits: (orgId: string, params?: { category?: string; cursor?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.category) sp.set("category", params.category);
+    if (params?.cursor) sp.set("cursor", params.cursor);
+    const q = sp.toString();
+    return authedJson<ComposioToolkitsPage>(`/v1/orgs/${orgId}/composio/toolkits${q ? `?${q}` : ""}`);
+  },
+  listComposioToolkitTools: (orgId: string, toolkitSlug: string, cursor?: string) => {
+    const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    return authedJson<ComposioToolsPage>(`/v1/orgs/${orgId}/composio/toolkits/${toolkitSlug}/tools${q}`);
+  },
+  listComposioConnections: (orgId: string) =>
+    authedJson<ComposioConnection[]>(`/v1/orgs/${orgId}/composio/connections`),
+  connectComposioToolkit: (orgId: string, toolkitSlug: string, callbackUrl: string) =>
+    authedJson<ComposioConnectOut>(`/v1/orgs/${orgId}/composio/connections`, {
+      method: "POST",
+      body: JSON.stringify({ toolkit_slug: toolkitSlug, callback_url: callbackUrl }),
+    }),
+  refreshComposioConnection: (connectionId: string) =>
+    authedJson<ComposioConnection>(`/v1/composio/connections/${connectionId}/refresh`, { method: "POST" }),
+  disconnectComposio: (connectionId: string) =>
+    authedJson<void>(`/v1/composio/connections/${connectionId}`, { method: "DELETE" }),
+  attachComposioTool: (
+    orgId: string,
+    body: {
+      toolkit_slug: string;
+      tool_slug: string;
+      connection_id: string;
+      name?: string;
+      label?: string;
+    },
+  ) => authedJson<CatalogTool>(`/v1/orgs/${orgId}/composio/tools`, { method: "POST", body: JSON.stringify(body) }),
 };

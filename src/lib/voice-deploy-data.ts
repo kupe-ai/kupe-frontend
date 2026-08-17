@@ -5,6 +5,7 @@ export type DeployApiSlug =
   | "batch-outbound"
   | "inbound-deployments"
   | "data-fetch"
+  | "billing"
   | "agents-sdk"
   | "dnd-lists"
   | "agent-management"
@@ -240,6 +241,9 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
       { method: "GET", path: "/v1/sessions/{session_id}/analysis", summary: "Get post-call analysis results." },
       { method: "GET", path: "/v1/orgs/{org_id}/usage", summary: "Usage/cost summary for an org." },
       { method: "GET", path: "/v1/orgs/{org_id}/usage/daily", summary: "Daily usage rollups." },
+      { method: "GET", path: "/v1/orgs/{org_id}/usage/sessions", summary: "Call sessions with clubbed cost. Pass currency=USD|INR (default USD)." },
+      { method: "GET", path: "/v1/sessions/{session_id}/usage", summary: "Per-call metric breakdown, including TTS used on the call." },
+      { method: "GET", path: "/v1/orgs/{org_id}/usage/standalone", summary: "Non-call usage such as Voice Library TTS." },
     ],
     curlTabs: [
       {
@@ -251,7 +255,36 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
       {
         id: "usage",
         label: "usage",
-        code: `curl "${API_BASE_URL}/v1/orgs/<org_id>/usage?from=2026-07-26&to=2026-08-01" \\
+        code: `curl "${API_BASE_URL}/v1/orgs/<org_id>/usage/sessions?start_date=2026-07-26&end_date=2026-08-01&currency=USD" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+    ],
+  },
+  {
+    slug: "billing",
+    title: "Billing",
+    description: "Wallet balance, credits, and invoices for an organization.",
+    kind: "pricing",
+    tone: "emerald",
+    headline: "Read wallet and invoices in USD or INR.",
+    about:
+      "Billing amounts are converted at the latest exchange rate for the currency you request. APIs default to USD; pass currency=INR to match the dashboard. Call-session costs stay grouped on /usage/sessions — click through /v1/sessions/{id}/usage for the per-metric breakdown. Voice Library TTS and similar extras are listed separately on /usage/standalone.",
+    endpoints: [
+      { method: "GET", path: "/v1/orgs/{org_id}/billing/wallet", summary: "Wallet balance and credits. Default currency USD." },
+      { method: "GET", path: "/v1/orgs/{org_id}/billing/invoices", summary: "List invoices, paginated." },
+      { method: "GET", path: "/v1/orgs/{org_id}/usage/cost-summary", summary: "Period usage total in the requested currency." },
+    ],
+    curlTabs: [
+      {
+        id: "wallet",
+        label: "wallet",
+        code: `curl "${API_BASE_URL}/v1/orgs/<org_id>/billing/wallet?currency=USD" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "invoices",
+        label: "invoices",
+        code: `curl "${API_BASE_URL}/v1/orgs/<org_id>/billing/invoices?currency=USD" \\
   -H "Authorization: Bearer $KUPE_API_KEY"`,
       },
     ],

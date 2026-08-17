@@ -109,6 +109,12 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         href: "/usage",
         icon: "line-chart",
       },
+      {
+        id: "billing",
+        label: "Billing",
+        href: "/billing",
+        icon: "wallet",
+      },
     ],
   },
 ];

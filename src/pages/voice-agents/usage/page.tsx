@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Calendar, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/context/workspace-context";
-import { api } from "@/lib/api";
+import { api, type DisplayCurrency } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,7 +22,15 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import type { UsageCostSummary, UsageDailyRow } from "@/types";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { CurrencyToggle, UI_DEFAULT_CURRENCY, formatMoney } from "@/components/voice-agents/currency-toggle";
+import type { SessionUsage, SessionUsageMetric, StandaloneUsageRow, UsageCostSummary, UsageDailyRow } from "@/types";
 
 const RANGE_OPTIONS = [
   { id: "7d", label: "Last 7 days", days: 7 },
@@ -38,16 +46,11 @@ const METRIC_LABEL: Record<string, string> = {
   tts_audio_seconds: "Text-to-speech (audio)",
 };
 
-const CURRENCY_SYMBOL: Record<string, string> = { USD: "$", INR: "₹" };
-
-function formatCost(amount: number, currency: string) {
-  const symbol = CURRENCY_SYMBOL[currency] ?? currency + " ";
-  return `${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
-}
-
-function toISODate(d: Date) {
-  return d.toISOString().slice(0, 10);
-}
+const SOURCE_LABEL: Record<string, string> = {
+  tts_studio: "Voice Library TTS",
+  phone_number: "Phone numbers",
+  other: "Other",
+};
 
 const chartConfig: ChartConfig = {
   cost: { label: "Cost", color: "var(--chart-1)" },
@@ -55,16 +58,41 @@ const chartConfig: ChartConfig = {
 
 const PAGE_SIZE = 10;
 
+function toISODate(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDuration(seconds: number | null | undefined) {
+  if (seconds == null) return "—";
+  const s = Math.max(0, Math.round(seconds));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m === 0) return `${rem}s`;
+  return `${m}m ${rem}s`;
+}
+
+function shortId(id: string) {
+  return id.replace(/-/g, "").slice(0, 8);
+}
+
 export default function UsagePage() {
   const { org } = useWorkspace();
   const [rangeId, setRangeId] = useState<(typeof RANGE_OPTIONS)[number]["id"]>("30d");
+  const [currency, setCurrency] = useState<DisplayCurrency>(UI_DEFAULT_CURRENCY);
   const [costSummary, setCostSummary] = useState<UsageCostSummary | null>(null);
   const [daily, setDaily] = useState<UsageDailyRow[]>([]);
-  const [dailyTotal, setDailyTotal] = useState(0);
+  const [sessions, setSessions] = useState<SessionUsage[]>([]);
+  const [sessionTotal, setSessionTotal] = useState(0);
+  const [standalone, setStandalone] = useState<StandaloneUsageRow[]>([]);
+  const [standaloneTotal, setStandaloneTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [standalonePage, setStandalonePage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [openSessionId, setOpenSessionId] = useState<string | null>(null);
+  const [breakdown, setBreakdown] = useState<SessionUsage | null>(null);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
 
   const range = useMemo(() => RANGE_OPTIONS.find((r) => r.id === rangeId) ?? RANGE_OPTIONS[1], [rangeId]);
   const { startDate, endDate } = useMemo(() => {
@@ -79,19 +107,36 @@ export default function UsagePage() {
     setLoading(true);
     setError(null);
     try {
-      const [cost, dailyPage] = await Promise.all([
-        api.usageCostSummary(org.id, { startDate, endDate }),
-        api.dailyUsage(org.id, { startDate, endDate, limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+      const [cost, dailyPage, sessionPage, extraPage] = await Promise.all([
+        api.usageCostSummary(org.id, { startDate, endDate, currency }),
+        api.dailyUsage(org.id, { startDate, endDate, limit: 90, offset: 0, currency }),
+        api.listSessionUsage(org.id, {
+          startDate,
+          endDate,
+          currency,
+          limit: PAGE_SIZE,
+          offset: (page - 1) * PAGE_SIZE,
+        }),
+        api.listStandaloneUsage(org.id, {
+          startDate,
+          endDate,
+          currency,
+          limit: PAGE_SIZE,
+          offset: (standalonePage - 1) * PAGE_SIZE,
+        }),
       ]);
       setCostSummary(cost);
       setDaily(dailyPage.items);
-      setDailyTotal(dailyPage.total);
+      setSessions(sessionPage.items);
+      setSessionTotal(sessionPage.total);
+      setStandalone(extraPage.items);
+      setStandaloneTotal(extraPage.total);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load usage");
     } finally {
       setLoading(false);
     }
-  }, [org, startDate, endDate, page]);
+  }, [org, startDate, endDate, page, standalonePage, currency]);
 
   useEffect(() => {
     void load();
@@ -99,7 +144,31 @@ export default function UsagePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [rangeId]);
+    setStandalonePage(1);
+  }, [rangeId, currency]);
+
+  useEffect(() => {
+    if (!openSessionId) {
+      setBreakdown(null);
+      return;
+    }
+    let cancelled = false;
+    setBreakdownLoading(true);
+    api
+      .getSessionUsage(openSessionId, { currency })
+      .then((row) => {
+        if (!cancelled) setBreakdown(row);
+      })
+      .catch(() => {
+        if (!cancelled) setBreakdown(null);
+      })
+      .finally(() => {
+        if (!cancelled) setBreakdownLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openSessionId, currency]);
 
   function refresh() {
     setRefreshKey((k) => k + 1);
@@ -109,7 +178,7 @@ export default function UsagePage() {
   const chartData = useMemo(() => {
     const byDay = new Map<string, number>();
     for (const row of daily) {
-      const cost = (row.cost_minor_units ?? 0) / 100;
+      const cost = row.cost ?? (row.cost_minor_units ?? 0) / 100;
       byDay.set(row.day, (byDay.get(row.day) ?? 0) + cost);
     }
     return Array.from(byDay.entries())
@@ -117,15 +186,14 @@ export default function UsagePage() {
       .map(([day, cost]) => ({ day: day.slice(5), cost: Number(cost.toFixed(4)) }));
   }, [daily]);
 
-  const primaryCurrency = costSummary?.totals[0]?.currency ?? "USD";
-  const primaryCost = costSummary?.totals.find((t) => t.currency === primaryCurrency)?.cost ?? 0;
-  const otherTotals = costSummary?.totals.filter((t) => t.currency !== primaryCurrency) ?? [];
+  const displayCost = costSummary?.cost ?? costSummary?.totals[0]?.cost ?? 0;
 
   return (
     <div className="voice-page voice-page-wide">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-title">Usage</h1>
         <div className="flex items-center gap-2">
+          <CurrencyToggle value={currency} onChange={setCurrency} disabled={loading} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm">
@@ -161,27 +229,16 @@ export default function UsagePage() {
         />
         <StatTile
           label="Usage Cost"
-          value={loading ? null : formatCost(primaryCost, primaryCurrency)}
-          caption={
-            otherTotals.length > 0
-              ? otherTotals.map((t) => `+ ${formatCost(t.cost, t.currency)}`).join(", ")
-              : undefined
-          }
+          value={loading ? null : formatMoney(displayCost, currency)}
+          caption={costSummary?.fx_date ? `Rate as of ${costSummary.fx_date}` : undefined}
         />
-        <StatTile label="Telephony Cost" value={loading ? null : "—"} caption="Not tracked yet" />
-        <StatTile label="Phone Numbers Purchased" value={loading ? null : "—"} caption="Not tracked yet" />
-        <StatTile label="Phone Numbers Cost" value={loading ? null : "—"} caption="Not tracked yet" />
-        <StatTile
-          label="Providers Billed"
-          value={loading ? null : String(costSummary?.totals.length ?? 0)}
-          caption={costSummary?.totals.map((t) => t.currency).join(" · ") || undefined}
-        />
+        <StatTile label="Call sessions" value={loading ? null : String(sessionTotal)} />
       </div>
 
       <div className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-elevated">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-headline">Cost by day</h2>
-          <span className="text-caption">{primaryCurrency}</span>
+          <span className="text-caption">{currency}</span>
         </div>
         {loading ? (
           <Skeleton className="h-56 w-full rounded-xl" />
@@ -203,69 +260,188 @@ export default function UsagePage() {
         )}
       </div>
 
-      <div className="mt-6 rounded-2xl border border-border bg-card shadow-elevated">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <h2 className="text-headline">Daily breakdown</h2>
-        </div>
-        {loading ? (
-          <div className="space-y-2 p-5">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : daily.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-headline">No usage in this range</p>
-            <p className="text-caption mt-1">Calls and agent activity will show up here as they happen.</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
+      <UsageTable
+        title="Call sessions"
+        loading={loading}
+        emptyTitle="No calls in this range"
+        emptyCaption="Completed calls will show here with a clubbed cost. Click a row for the breakdown."
+        page={page}
+        total={sessionTotal}
+        onPageChange={setPage}
+      >
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="text-caption px-5 py-2.5 font-medium">Session</th>
+            <th className="text-caption px-5 py-2.5 font-medium">When</th>
+            <th className="text-caption px-5 py-2.5 font-medium">Channel</th>
+            <th className="text-caption px-5 py-2.5 text-right font-medium">Duration</th>
+            <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sessions.map((row) => (
+            <tr
+              key={row.session_id}
+              className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
+              onClick={() => setOpenSessionId(row.session_id)}
+            >
+              <td className="px-5 py-2.5 font-mono text-xs">{shortId(row.session_id)}</td>
+              <td className="px-5 py-2.5 whitespace-nowrap">{row.created_at ? row.created_at.slice(0, 16).replace("T", " ") : "—"}</td>
+              <td className="px-5 py-2.5 text-muted-foreground">{row.transport || "—"}</td>
+              <td className="px-5 py-2.5 text-right font-mono tabular-nums">{formatDuration(row.duration_seconds)}</td>
+              <td className="px-5 py-2.5 text-right font-mono tabular-nums">
+                {formatMoney(row.cost ?? 0, row.currency || currency)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </UsageTable>
+
+      <UsageTable
+        title="Other usage"
+        loading={loading}
+        emptyTitle="No other usage"
+        emptyCaption="Voice Library TTS and similar charges that are not part of a call show up here."
+        page={standalonePage}
+        total={standaloneTotal}
+        onPageChange={setStandalonePage}
+      >
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th className="text-caption px-5 py-2.5 font-medium">Day</th>
+            <th className="text-caption px-5 py-2.5 font-medium">Source</th>
+            <th className="text-caption px-5 py-2.5 font-medium">Metric</th>
+            <th className="text-caption px-5 py-2.5 font-medium">Provider / Model</th>
+            <th className="text-caption px-5 py-2.5 text-right font-medium">Quantity</th>
+            <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          {standalone.map((row) => (
+            <tr
+              key={`${row.day}-${row.source}-${row.metric_type}-${row.provider_name}-${row.model_name}`}
+              className="border-b border-border last:border-0"
+            >
+              <td className="px-5 py-2.5 whitespace-nowrap">{row.day}</td>
+              <td className="px-5 py-2.5">{SOURCE_LABEL[row.source] ?? row.source}</td>
+              <td className="px-5 py-2.5">{METRIC_LABEL[row.metric_type] ?? row.metric_type}</td>
+              <td className="px-5 py-2.5 text-muted-foreground">
+                {row.provider_name} / {row.model_name}
+              </td>
+              <td className="px-5 py-2.5 text-right font-mono tabular-nums">
+                {row.total_quantity.toLocaleString()}
+              </td>
+              <td className="px-5 py-2.5 text-right font-mono tabular-nums">
+                {formatMoney(row.cost, row.currency || currency)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </UsageTable>
+
+      <Sheet open={openSessionId != null} onOpenChange={(open) => !open && setOpenSessionId(null)}>
+        <SheetContent side="right" className="w-full sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>Call breakdown</SheetTitle>
+            <SheetDescription>
+              {openSessionId ? shortId(openSessionId) : ""} · {formatMoney(breakdown?.cost ?? 0, currency)}
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-6">
+            {breakdownLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : !breakdown || breakdown.metrics.length === 0 ? (
+              <p className="text-caption">No line items for this call.</p>
+            ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
-                    <th className="text-caption px-5 py-2.5 font-medium">Day</th>
-                    <th className="text-caption px-5 py-2.5 font-medium">Metric</th>
-                    <th className="text-caption px-5 py-2.5 font-medium">Provider / Model</th>
-                    <th className="text-caption px-5 py-2.5 text-right font-medium">Quantity</th>
-                    <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
+                    <th className="text-caption py-2 pr-3 font-medium">Metric</th>
+                    <th className="text-caption py-2 pr-3 font-medium">Provider</th>
+                    <th className="text-caption py-2 text-right font-medium">Qty</th>
+                    <th className="text-caption py-2 text-right font-medium">Cost</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {daily.map((row) => (
-                    <tr
-                      key={`${row.day}-${row.metric_type}-${row.provider_name}-${row.model_name}-${row.transport}`}
-                      className="border-b border-border last:border-0"
-                    >
-                      <td className="px-5 py-2.5 whitespace-nowrap">{row.day}</td>
-                      <td className="px-5 py-2.5">{METRIC_LABEL[row.metric_type] ?? row.metric_type}</td>
-                      <td className="px-5 py-2.5 text-muted-foreground">
-                        {row.provider_name} / {row.model_name}
+                  {breakdown.metrics.map((m: SessionUsageMetric) => (
+                    <tr key={`${m.metric_type}-${m.provider_name}-${m.model_name}`} className="border-b border-border last:border-0">
+                      <td className="py-2 pr-3">{METRIC_LABEL[m.metric_type] ?? m.metric_type}</td>
+                      <td className="py-2 pr-3 text-muted-foreground">
+                        {m.provider_name} / {m.model_name}
                       </td>
-                      <td className="px-5 py-2.5 text-right font-mono tabular-nums">
-                        {row.total_quantity.toLocaleString()}
-                      </td>
-                      <td className="px-5 py-2.5 text-right font-mono tabular-nums">
-                        {row.currency ? formatCost((row.cost_minor_units ?? 0) / 100, row.currency) : "—"}
+                      <td className="py-2 text-right font-mono tabular-nums">{m.total_quantity.toLocaleString()}</td>
+                      <td className="py-2 text-right font-mono tabular-nums">
+                        {formatMoney(m.cost ?? 0, m.currency || currency)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
-            <div className="px-5 py-3">
-              <VoicePagination
-                page={page}
-                perPage={PAGE_SIZE}
-                total={dailyTotal}
-                onPageChange={setPage}
-                onPerPageChange={() => {}}
-                perPageOptions={[PAGE_SIZE]}
-              />
-            </div>
-          </>
-        )}
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
+function UsageTable({
+  title,
+  loading,
+  emptyTitle,
+  emptyCaption,
+  page,
+  total,
+  onPageChange,
+  children,
+}: {
+  title: string;
+  loading: boolean;
+  emptyTitle: string;
+  emptyCaption: string;
+  page: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  children: ReactNode;
+}) {
+  const empty = !loading && total === 0;
+  return (
+    <div className="mt-6 rounded-2xl border border-border bg-card shadow-elevated">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <h2 className="text-headline">{title}</h2>
       </div>
+      {loading ? (
+        <div className="space-y-2 p-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded-lg" />
+          ))}
+        </div>
+      ) : empty ? (
+        <div className="p-8 text-center">
+          <p className="text-headline">{emptyTitle}</p>
+          <p className="text-caption mt-1">{emptyCaption}</p>
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">{children}</table>
+          </div>
+          <div className="px-5 py-3">
+            <VoicePagination
+              page={page}
+              perPage={PAGE_SIZE}
+              total={total}
+              onPageChange={onPageChange}
+              onPerPageChange={() => {}}
+              perPageOptions={[PAGE_SIZE]}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
