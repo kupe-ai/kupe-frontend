@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,20 +21,29 @@ import type { BillingPlan, BillingSubscription } from "@/types";
 
 const PLAN_BAR_HEIGHTS = ["40%", "56%", "74%", "92%"] as const;
 
-const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4; discountPct?: number }> = {
-  payg: { blurb: "No commitment — prepay and draw down.", bars: 1, discountPct: 15 },
-  business: { blurb: "Lower per-minute rate with monthly autopay.", bars: 2, discountPct: 30 },
-  scale: { blurb: "Our best self-serve rate, autopay.", bars: 3, discountPct: 50 },
+const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4; showDiscount?: boolean }> = {
+  payg: { blurb: "No commitment — prepay and draw down.", bars: 1, showDiscount: true },
+  business: { blurb: "Lower per-minute rate with monthly autopay.", bars: 2, showDiscount: true },
+  scale: { blurb: "Our best self-serve rate, autopay.", bars: 3, showDiscount: true },
   enterprise: { blurb: "Custom pricing at volume, dedicated support.", bars: 4 },
 };
+
+/** Shared optical list price so every plan’s “was” rate lines up. Charged rates stay as-is. */
+const VOICE_LIST_RUPEES = 4;
 
 function money(rupees: number | null | undefined, digits = 2) {
   if (rupees == null) return "Custom";
   return `₹${rupees.toLocaleString("en-IN", { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
 }
 
-/** Inflate a charged price so the UI can show `pct` off while keeping the real rate. */
-function listPrice(final: number, pct: number) {
+/** Nearest 5% from list → charged (optical only). */
+function approxOffPct(final: number, list: number) {
+  if (list <= 0 || final >= list) return undefined;
+  const stepped = Math.round((((list - final) / list) * 100) / 5) * 5;
+  return stepped > 0 ? stepped : undefined;
+}
+
+function listFromDiscount(final: number, pct: number) {
   return final / (1 - pct / 100);
 }
 
@@ -161,35 +170,23 @@ export function BillingPlanCards({
                 : plan.code === "enterprise"
                   ? "Talk to sales"
                   : "Subscribe";
-          const discountPct = meta.discountPct;
+          const discountPct =
+            meta.showDiscount && plan.voice_rate_rupees != null
+              ? approxOffPct(plan.voice_rate_rupees, VOICE_LIST_RUPEES)
+              : undefined;
           const listMonthly =
             discountPct && plan.monthly_commitment_rupees
-              ? listPrice(plan.monthly_commitment_rupees, discountPct)
+              ? Math.round(listFromDiscount(plan.monthly_commitment_rupees, discountPct) / 1000) * 1000
               : null;
-          const listVoice =
-            discountPct && plan.voice_rate_rupees != null
-              ? listPrice(plan.voice_rate_rupees, discountPct)
-              : null;
+          const listVoice = discountPct ? VOICE_LIST_RUPEES : null;
           return (
             <div
               key={plan.code}
               className={cn(
-                "group/plan relative flex h-full flex-col overflow-hidden rounded-2xl border bg-card p-5 shadow-elevated",
-                "transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)]",
-                "hover:-translate-y-1 hover:shadow-[0_16px_44px_rgb(64_72_255_/_0.22)]",
-                isCurrent
-                  ? "border-primary/55 ring-1 ring-primary/35"
-                  : "border-border hover:border-primary/45",
+                "relative flex h-full flex-col rounded-2xl border bg-card p-5 shadow-elevated",
+                isCurrent ? "border-primary/55 ring-1 ring-primary/35" : "border-border",
               )}
             >
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 top-0 h-36 opacity-0 transition-opacity duration-300 group-hover/plan:opacity-100"
-                style={{
-                  background:
-                    "linear-gradient(180deg, color-mix(in srgb, var(--primary) 16%, transparent), transparent)",
-                }}
-              />
               <PlanArt bars={meta.bars} title={plan.display_name} />
               <div className="relative mt-4 flex min-h-6 items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{plan.display_name}</p>
@@ -312,36 +309,24 @@ export function BillingPlanCards({
 }
 
 function PlanArt({ bars, title }: { bars: 1 | 2 | 3 | 4; title: string }) {
-  const uid = useId().replace(/:/g, "");
   const shown = PLAN_BAR_HEIGHTS.slice(0, bars);
 
   return (
     <div
       role="img"
       aria-label={title}
-      className="relative h-28 overflow-hidden rounded-xl kupe-hero-fill"
+      className="group/bars flex h-28 items-end gap-1.5 px-1"
     >
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-x-0 bottom-0 flex h-full items-end gap-1.5 px-6">
-        {shown.map((height, i) => (
-          <div
-            key={height}
-            className="min-w-4 w-[18%] max-w-7 origin-bottom rounded-t-sm kupe-theme-gradient transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover/plan:scale-y-110"
-            style={{
-              height,
-              transitionDelay: `${i * 40}ms`,
-              boxShadow: "inset 0 0 0 1px rgb(255 255 255 / 0.18)",
-            }}
-          />
-        ))}
-      </div>
-      <svg className="pointer-events-none absolute inset-0 size-full mix-blend-overlay" aria-hidden>
-        <filter id={`${uid}-grain`} x="0%" y="0%" width="100%" height="100%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter={`url(#${uid}-grain)`} opacity="0.45" />
-      </svg>
+      {shown.map((height, i) => (
+        <div
+          key={height}
+          className="min-w-4 w-[18%] max-w-7 origin-bottom rounded-t-md kupe-theme-gradient transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover/bars:scale-y-125"
+          style={{
+            height,
+            transitionDelay: `${i * 55}ms`,
+          }}
+        />
+      ))}
     </div>
   );
 }
