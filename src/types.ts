@@ -176,7 +176,10 @@ export type Wallet = {
   currency: string;
   balance: number;
   credits: number;
+  credited: number;
+  consumed: number;
   unmetered: boolean;
+  insufficient: boolean;
   fx_rate: number | null;
   fx_date: string | null;
 };

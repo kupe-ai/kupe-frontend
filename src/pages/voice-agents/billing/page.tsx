@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileDown, RefreshCw } from "lucide-react";
+import { AlertTriangle, FileDown, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/context/workspace-context";
 import { api, type DisplayCurrency } from "@/lib/api";
@@ -28,7 +28,7 @@ function statusVariant(status: string): "success" | "warning" | "secondary" {
 }
 
 export default function BillingPage() {
-  const { org } = useWorkspace();
+  const { org, membership } = useWorkspace();
   const [currency, setCurrency] = useState<DisplayCurrency>(UI_DEFAULT_CURRENCY);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -37,6 +37,8 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [addingCredits, setAddingCredits] = useState(false);
+  const canManageBalance = membership?.role === "owner" || membership?.role === "admin";
 
   const load = useCallback(async () => {
     if (!org) return;
@@ -70,12 +72,41 @@ export default function BillingPage() {
     toast.message("Refreshing billing…");
   }
 
+  async function addCredits() {
+    if (!org) return;
+    const input = window.prompt("Add credits — amount in INR (e.g. 100):");
+    if (!input) return;
+    const rupees = Number(input);
+    if (!Number.isFinite(rupees) || rupees <= 0) {
+      toast.error("Enter a positive amount in INR");
+      return;
+    }
+    setAddingCredits(true);
+    try {
+      await api.adjustBalance(org.id, Math.round(rupees * 100));
+      toast.success(`Added ₹${rupees.toLocaleString()} to the wallet`);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add credits");
+    } finally {
+      setAddingCredits(false);
+    }
+  }
+
+  const insufficient = !loading && wallet?.unmetered === false && wallet.insufficient;
+
   return (
     <div className="voice-page voice-page-wide">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-title">Billing</h1>
         <div className="flex items-center gap-2">
           <CurrencyToggle value={currency} onChange={setCurrency} disabled={loading} />
+          {canManageBalance && (
+            <Button variant="default" size="sm" onClick={addCredits} disabled={loading || addingCredits}>
+              <Plus className="size-4" />
+              Add credits
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={refresh} disabled={loading}>
             <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
             Refresh
@@ -89,9 +120,19 @@ export default function BillingPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {insufficient && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>
+            Insufficient balance — this workspace is out of credits. New calls and TTS generation are blocked until
+            you top up.
+          </span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
-          label="Wallet"
+          label="Wallet balance"
           value={
             loading
               ? null
@@ -99,10 +140,27 @@ export default function BillingPage() {
                 ? "Unmetered"
                 : formatMoney(wallet?.balance ?? 0, currency)
           }
+          tone={insufficient ? "danger" : undefined}
         />
         <StatTile
-          label="Credits"
-          value={loading ? null : wallet?.unmetered ? "—" : (wallet?.credits ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          label="Credits added"
+          value={
+            loading
+              ? null
+              : wallet?.unmetered
+                ? "—"
+                : formatMoney(wallet?.credited ?? 0, currency)
+          }
+        />
+        <StatTile
+          label="Credits consumed"
+          value={
+            loading
+              ? null
+              : wallet?.unmetered
+                ? "—"
+                : formatMoney(wallet?.consumed ?? 0, currency)
+          }
         />
         <StatTile label="Invoices" value={loading ? null : String(total)} />
       </div>
@@ -182,14 +240,36 @@ export default function BillingPage() {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: string | null }) {
+function StatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | null;
+  tone?: "danger";
+}) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-elevated">
+    <div
+      className={
+        tone === "danger"
+          ? "rounded-2xl border border-destructive/40 bg-destructive/5 p-5 shadow-elevated"
+          : "rounded-2xl border border-border bg-card p-5 shadow-elevated"
+      }
+    >
       <p className="text-caption">{label}</p>
       {value === null ? (
         <Skeleton className="mt-2 h-7 w-24 rounded-md" />
       ) : (
-        <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
+        <p
+          className={
+            tone === "danger"
+              ? "mt-1 text-2xl font-semibold tracking-tight text-destructive"
+              : "mt-1 text-2xl font-semibold tracking-tight text-foreground"
+          }
+        >
+          {value}
+        </p>
       )}
     </div>
   );

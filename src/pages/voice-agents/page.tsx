@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Copy, ExternalLink } from "lucide-react";
+import { AlertTriangle, ChevronDown, Copy, ExternalLink, Wallet as WalletIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   Bar,
   BarChart,
@@ -26,7 +27,10 @@ import {
 } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/context/session-context";
+import { useWorkspace } from "@/context/workspace-context";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
+import { api } from "@/lib/api";
+import { formatMoney, UI_DEFAULT_CURRENCY } from "@/components/voice-agents/currency-toggle";
 import {
   TEMPLATE_FILTERS,
   type TemplateCategory,
@@ -53,6 +57,7 @@ function greetingForNow(date = new Date()) {
 
 export default function VoiceAgentsHomePage() {
   const { session } = useSession();
+  const { org } = useWorkspace();
   const displayName =
     session?.profile.full_name?.trim() ||
     session?.departments.find((d) => d.id === session.currentDepartmentId)?.name ||
@@ -75,6 +80,13 @@ export default function VoiceAgentsHomePage() {
     queryKey: ["voice-analytics", "overview", "home"],
     queryFn: () => getAnalyticsOverview(),
   });
+  const walletQuery = useKoriQuery({
+    queryKey: ["billing", "wallet", "home", org?.id],
+    queryFn: () => api.getWallet(org!.id, { currency: UI_DEFAULT_CURRENCY }),
+    enabled: Boolean(org),
+  });
+  const wallet = walletQuery.data;
+  const walletInsufficient = wallet ? !wallet.unmetered && wallet.insufficient : false;
 
   useEffect(() => {
     document.title = "Voice Agents · Kupe";
@@ -156,10 +168,40 @@ export default function VoiceAgentsHomePage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6">
-      <p className="text-sm text-muted-foreground">Home</p>
-      <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight md:text-3xl">
-        {greetingForNow()}, {displayName}.
-      </h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">Home</p>
+          <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight md:text-3xl">
+            {greetingForNow()}, {displayName}.
+          </h1>
+        </div>
+        {wallet && !wallet.unmetered && (
+          <Link
+            to="/billing"
+            className={cn(
+              "mt-1 flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-medium transition-colors",
+              walletInsufficient
+                ? "border-destructive/40 bg-destructive/5 text-destructive hover:bg-destructive/10"
+                : "border-border bg-card text-foreground hover:bg-muted/40",
+            )}
+          >
+            <WalletIcon className="size-4" />
+            {formatMoney(wallet.balance, wallet.currency)}
+            <span className="text-xs font-normal opacity-70">wallet balance</span>
+          </Link>
+        )}
+      </div>
+
+      {walletInsufficient && (
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span>Insufficient balance — this workspace is out of credits. Calls and TTS are blocked until you</span>
+          <Link to="/billing" className="font-semibold underline underline-offset-2">
+            top up
+          </Link>
+          <span>.</span>
+        </div>
+      )}
 
       <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">

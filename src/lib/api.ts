@@ -245,6 +245,11 @@ export const api = {
     authedJson<Wallet>(`/v1/orgs/${orgId}/billing/wallet${usageQuery(params)}`),
   listInvoices: (orgId: string, params?: ListParams & { currency?: string }) =>
     authedJson<Page<Invoice>>(`/v1/orgs/${orgId}/billing/invoices${usageQuery(params)}`),
+  adjustBalance: (orgId: string, deltaCents: number) =>
+    authedJson<{ org_id: string; balance_cents: number }>(`/v1/orgs/${orgId}/balance/adjust`, {
+      method: "POST",
+      body: JSON.stringify({ delta_cents: deltaCents }),
+    }),
 
   getRecording: (sessionId: string) => authedJson<Recording>(`/v1/sessions/${sessionId}/recording`),
   listRecordings: (orgId: string, params?: ListParams) =>
