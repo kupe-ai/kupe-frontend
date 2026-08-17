@@ -540,5 +540,6 @@ export function KupeIcon({
   className?: string;
 }) {
   const Icon = ICONS[name];
+  if (!Icon) return null;
   return <Icon className={cn("size-4 shrink-0", className)} />;
 }

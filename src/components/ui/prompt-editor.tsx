@@ -1,10 +1,39 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useRef, useState } from "react";
-import Editor from "react-simple-code-editor";
+import { forwardRef, useCallback, useEffect, useRef, useState, type ComponentType, type CSSProperties } from "react";
+import SimpleCodeEditor from "react-simple-code-editor";
 import { cn } from "@/lib/utils";
 import { highlightPromptVariables } from "@/lib/prompt-variables";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+type CodeEditorProps = {
+  value: string;
+  onValueChange: (value: string) => void;
+  highlight: (code: string) => string;
+  padding?: number | string;
+  placeholder?: string;
+  textareaClassName?: string;
+  className?: string;
+  style?: CSSProperties;
+};
+
+function unwrapEditor(mod: unknown): ComponentType<CodeEditorProps> {
+  let current = mod;
+  for (let i = 0; i < 3; i++) {
+    if (typeof current === "function") return current as ComponentType<CodeEditorProps>;
+    if (current && typeof current === "object" && "$$typeof" in current) {
+      return current as ComponentType<CodeEditorProps>;
+    }
+    if (current && typeof current === "object" && "default" in current) {
+      current = (current as { default: unknown }).default;
+      continue;
+    }
+    break;
+  }
+  return current as ComponentType<CodeEditorProps>;
+}
+
+const Editor = unwrapEditor(SimpleCodeEditor);
 
 export const PromptEditor = forwardRef<
   HTMLTextAreaElement,
