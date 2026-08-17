@@ -109,7 +109,7 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
+    <div className="w-full space-y-4 px-6 py-6">
       {infoOpen && (
         <div className="flex items-center gap-2.5 rounded-xl bg-primary px-3.5 py-2 text-primary-foreground">
           <Info className="size-3.5 shrink-0" />

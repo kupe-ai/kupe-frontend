@@ -439,7 +439,7 @@ export function AgentSettingsPanel({
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-1 px-6 py-6 pb-16 md:px-10 lg:px-12">
+    <div className="w-full space-y-1 px-6 py-6 pb-16 md:px-10 lg:px-12">
       <div className="sticky top-0 z-10 -mx-6 mb-2 flex h-12 items-center justify-end border-b border-border bg-background/95 px-6 backdrop-blur md:-mx-10 md:px-10 lg:-mx-12 lg:px-12">
         {saveStatus === "saving" || saving ? (
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
