@@ -29,6 +29,7 @@ import type {
   NoiseCancellation,
   PostCallAnalysis,
   ProvidersResponse,
+  ThinkingSoundsConfig,
 } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -157,8 +158,9 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
       ...((data.silence_breaker as AgentConfig["silence_breaker"]) ?? {}),
     },
     thinking_sounds: {
-      ...DEFAULT_CONFIG.thinking_sounds,
-      ...((data.thinking_sounds as AgentConfig["thinking_sounds"]) ?? {}),
+      enabled:
+        (data.thinking_sounds as ThinkingSoundsConfig | undefined)?.enabled ??
+        DEFAULT_CONFIG.thinking_sounds.enabled,
     },
     voicemail_detection: {
       ...DEFAULT_CONFIG.voicemail_detection,
@@ -321,8 +323,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
           ...(patch.silence_breaker ?? {}),
         },
         thinking_sounds: {
-          ...prev.config.thinking_sounds,
-          ...(patch.thinking_sounds ?? {}),
+          enabled: patch.thinking_sounds?.enabled ?? prev.config.thinking_sounds?.enabled ?? false,
         },
         voicemail_detection: {
           ...prev.config.voicemail_detection,
