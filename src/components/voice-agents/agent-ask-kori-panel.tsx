@@ -24,7 +24,16 @@ const STARTER_OPTIONS = [
 
 type ChatBubble =
   | { id: string; role: "user"; text: string }
-  | { id: string; role: "kori"; text: string; choices?: string[]; actions?: string[] };
+  | { id: string; role: "kori"; text: string; choices?: string[]; actions?: string[]; latencyMs?: number };
+
+function formatDuration(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Sub-800ms is the target for user-stops-speaking -> agent-starts-speaking. */
+const LATENCY_TARGET_MS = 800;
 
 /**
  * Embedded Ask AI companion for the agent editor — always visible on the right.
@@ -67,7 +76,11 @@ export function AgentAskKoriPanel({
   const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const handleRef = useRef<WebCallHandle | null>(null);
+  // Latest "user stopped -> agent started" latency, stashed as it arrives
+  // and attached to the next kori (agent) bubble that lands.
+  const pendingLatencyRef = useRef<number | null>(null);
   const live = callStatus === "connecting" || callStatus === "connected";
 
   useEffect(() => {
@@ -76,6 +89,17 @@ export function AgentAskKoriPanel({
       handleRef.current = null;
     };
   }, [agentId]);
+
+  // Call duration ticker — starts once actually connected, freezes on end.
+  useEffect(() => {
+    if (callStatus !== "connected") return;
+    const start = Date.now();
+    setElapsedSec(0);
+    const id = window.setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [callStatus]);
 
   function resetChat() {
     void hangUp();
@@ -100,6 +124,8 @@ export function AgentAskKoriPanel({
     setAgentStream(null);
     setLocalStream(null);
     setMuted(false);
+    setElapsedSec(0);
+    pendingLatencyRef.current = null;
   }
 
   async function startTalk() {
@@ -109,6 +135,7 @@ export function AgentAskKoriPanel({
     setAgentStream(null);
     setLocalStream(null);
     setMuted(false);
+    pendingLatencyRef.current = null;
     try {
       const handle = await startWebCall(agentId, {
         onStatusChange: (s) => setCallStatus(s),
@@ -122,6 +149,20 @@ export function AgentAskKoriPanel({
         },
       });
       handleRef.current = handle;
+      handle.room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+        try {
+          const parsed = JSON.parse(new TextDecoder().decode(payload)) as {
+            kind?: string;
+            type?: string;
+            value_ms?: number;
+          };
+          if (parsed.kind === "latency" && parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
+            pendingLatencyRef.current = parsed.value_ms;
+          }
+        } catch {
+          // ignore non-JSON / non-latency data messages
+        }
+      });
       handle.room.on(
         RoomEvent.TranscriptionReceived,
         (segments: TranscriptionSegment[], participant) => {
@@ -131,11 +172,14 @@ export function AgentAskKoriPanel({
             for (const seg of segments) {
               if (!seg.final || !seg.text) continue;
               const idx = next.findIndex((t) => t.id === seg.id);
+              const latencyMs =
+                role === "kori" && idx < 0 ? (pendingLatencyRef.current ?? undefined) : undefined;
+              if (latencyMs !== undefined) pendingLatencyRef.current = null;
               const bubble: ChatBubble =
                 role === "user"
                   ? { id: seg.id, role: "user", text: seg.text }
-                  : { id: seg.id, role: "kori", text: seg.text };
-              if (idx >= 0) next[idx] = bubble;
+                  : { id: seg.id, role: "kori", text: seg.text, latencyMs };
+              if (idx >= 0) next[idx] = { ...next[idx], text: seg.text } as ChatBubble;
               else next.push(bubble);
             }
             return next;
@@ -258,7 +302,12 @@ export function AgentAskKoriPanel({
           className="h-20 w-full rounded-xl bg-muted/50 p-2.5"
         />
         <div className="mt-2.5 flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[11px] text-muted-foreground">{statusLabel}</p>
+          <p className="min-w-0 truncate text-[11px] text-muted-foreground">
+            {statusLabel}
+            {callStatus === "connected" && (
+              <span className="font-mono"> · {formatDuration(elapsedSec)}</span>
+            )}
+          </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {live ? (
               <>
@@ -315,6 +364,15 @@ export function AgentAskKoriPanel({
                 </span>
                 <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
               </div>
+              {m.latencyMs !== undefined && (
+                <span
+                  className={`ml-9 block text-[10px] ${
+                    m.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
+                  }`}
+                >
+                  responded in {Math.round(m.latencyMs)} ms
+                </span>
+              )}
               {m.actions && m.actions.length > 0 && (
                 <ul className="ml-9 space-y-1">
                   {m.actions.map((a, i) => (

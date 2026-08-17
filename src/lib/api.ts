@@ -52,6 +52,11 @@ import type {
   UsageSummaryRow,
   Wallet,
   Invoice,
+  BillingPlan,
+  TopupOrder,
+  TopupVerifyResult,
+  SubscriptionAction,
+  BillingSubscription,
 } from "../types";
 
 export type ListParams = { limit?: number; offset?: number };
@@ -245,6 +250,38 @@ export const api = {
     authedJson<Wallet>(`/v1/orgs/${orgId}/billing/wallet${usageQuery(params)}`),
   listInvoices: (orgId: string, params?: ListParams & { currency?: string }) =>
     authedJson<Page<Invoice>>(`/v1/orgs/${orgId}/billing/invoices${usageQuery(params)}`),
+  getBillingConfig: () => authedJson<{ key_id: string }>("/v1/billing/config"),
+  getPlans: () => authedJson<BillingPlan[]>("/v1/billing/plans"),
+  getBillingSubscription: (orgId: string) =>
+    authedJson<BillingSubscription>(`/v1/orgs/${orgId}/billing/subscription`),
+  createTopupOrder: (orgId: string, amountMinorUnits: number, planCode = "payg") =>
+    authedJson<TopupOrder>(`/v1/orgs/${orgId}/billing/topup`, {
+      method: "POST",
+      body: JSON.stringify({ amount_minor_units: amountMinorUnits, plan_code: planCode }),
+    }),
+  verifyTopupPayment: (
+    orgId: string,
+    body: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string },
+  ) =>
+    authedJson<TopupVerifyResult>(`/v1/orgs/${orgId}/billing/topup/verify`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  createSubscription: (orgId: string, planCode: string) =>
+    authedJson<SubscriptionAction>(`/v1/orgs/${orgId}/billing/subscribe`, {
+      method: "POST",
+      body: JSON.stringify({ plan_code: planCode }),
+    }),
+  changeSubscription: (orgId: string, planCode: string) =>
+    authedJson<SubscriptionAction>(`/v1/orgs/${orgId}/billing/subscribe/change`, {
+      method: "POST",
+      body: JSON.stringify({ plan_code: planCode }),
+    }),
+  setBillingOverages: (orgId: string, enabled: boolean) =>
+    authedJson<BillingSubscription>(`/v1/orgs/${orgId}/billing/subscription/overages`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled }),
+    }),
   adjustBalance: (orgId: string, deltaCents: number) =>
     authedJson<{ org_id: string; balance_cents: number }>(`/v1/orgs/${orgId}/balance/adjust`, {
       method: "POST",

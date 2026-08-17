@@ -1,15 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, FileDown, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, FileDown, Loader2, Plus, RefreshCw, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspace } from "@/context/workspace-context";
 import { api, type DisplayCurrency } from "@/lib/api";
+import { openRazorpayCheckout } from "@/lib/razorpay";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { VoicePagination } from "@/components/voice-agents/shared";
 import { CurrencyToggle, UI_DEFAULT_CURRENCY, formatMoney } from "@/components/voice-agents/currency-toggle";
+import { ManageSubscriptionModal } from "./manage-subscription-modal";
 import type { Invoice, Wallet } from "@/types";
 
 const PAGE_SIZE = 10;
@@ -38,6 +49,9 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [addingCredits, setAddingCredits] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [amount, setAmount] = useState("1000");
+  const [manageOpen, setManageOpen] = useState(false);
   const canManageBalance = membership?.role === "owner" || membership?.role === "admin";
 
   const load = useCallback(async () => {
@@ -74,19 +88,33 @@ export default function BillingPage() {
 
   async function addCredits() {
     if (!org) return;
-    const input = window.prompt("Add credits — amount in INR (e.g. 100):");
-    if (!input) return;
-    const rupees = Number(input);
+    const rupees = Number(amount);
     if (!Number.isFinite(rupees) || rupees <= 0) {
       toast.error("Enter a positive amount in INR");
       return;
     }
     setAddingCredits(true);
     try {
-      await api.adjustBalance(org.id, Math.round(rupees * 100));
-      toast.success(`Added ₹${rupees.toLocaleString()} to the wallet`);
+      const order = await api.createTopupOrder(org.id, Math.round(rupees * 100), "payg");
+      const result = await openRazorpayCheckout({
+        key: order.key_id,
+        amount: order.amount_minor_units,
+        currency: order.currency,
+        order_id: order.razorpay_order_id,
+        name: "Kupe credits",
+        description: `Add ₹${rupees.toLocaleString("en-IN")} in voice-agent credits`,
+        theme: { color: "#111827" },
+      });
+      await api.verifyTopupPayment(org.id, {
+        razorpay_order_id: result.razorpay_order_id!,
+        razorpay_payment_id: result.razorpay_payment_id,
+        razorpay_signature: result.razorpay_signature,
+      });
+      toast.success(`Added ₹${rupees.toLocaleString("en-IN")} to the wallet`);
+      setAddOpen(false);
       setRefreshKey((k) => k + 1);
     } catch (e) {
+      if (e instanceof Error && e.message === "cancelled") return;
       toast.error(e instanceof Error ? e.message : "Could not add credits");
     } finally {
       setAddingCredits(false);
@@ -102,10 +130,16 @@ export default function BillingPage() {
         <div className="flex items-center gap-2">
           <CurrencyToggle value={currency} onChange={setCurrency} disabled={loading} />
           {canManageBalance && (
-            <Button variant="default" size="sm" onClick={addCredits} disabled={loading || addingCredits}>
-              <Plus className="size-4" />
-              Add credits
-            </Button>
+            <>
+              <Button variant="secondary" size="sm" onClick={() => setManageOpen(true)} disabled={loading}>
+                <Settings className="size-4" />
+                Manage subscription
+              </Button>
+              <Button variant="default" size="sm" onClick={() => setAddOpen(true)} disabled={loading}>
+                <Plus className="size-4" />
+                Add credits
+              </Button>
+            </>
           )}
           <Button variant="secondary" size="sm" onClick={refresh} disabled={loading}>
             <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
@@ -236,6 +270,45 @@ export default function BillingPage() {
           </>
         )}
       </div>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add credits</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="billing-credit-amount">Amount (₹)</Label>
+            <Input
+              id="billing-credit-amount"
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              disabled={addingCredits}
+            />
+            <p className="text-xs text-muted-foreground">
+              You'll be taken to Razorpay to complete payment. Credits are added once payment is confirmed.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-full" onClick={() => setAddOpen(false)} disabled={addingCredits}>
+              Cancel
+            </Button>
+            <Button className="rounded-full" onClick={addCredits} disabled={addingCredits}>
+              {addingCredits ? <Loader2 className="size-4 animate-spin" /> : null}
+              Pay & add credits
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {org && (
+        <ManageSubscriptionModal
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          orgId={org.id}
+          onChanged={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
     </div>
   );
 }

@@ -17,7 +17,20 @@ interface LiveTurn {
   id: string;
   role: "agent" | "user";
   text: string;
+  /** Turn-taking latency for this turn (user stopped talking -> this reply
+   * started), from the backend's `perceived_response` latency event. Only
+   * ever set on agent turns. */
+  latencyMs?: number;
 }
+
+function formatDuration(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** Sub-800ms is the target for user-stops-speaking -> agent-starts-speaking. */
+const LATENCY_TARGET_MS = 800;
 
 function callErrorCopy(raw: string): { title: string; body: string } {
   if (/concurrency|didn't hang up|did not hang up/i.test(raw)) {
@@ -80,8 +93,12 @@ export function TestAgentCallDialog({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [turns, setTurns] = useState<LiveTurn[]>([]);
   const [attempt, setAttempt] = useState(0);
+  const [elapsedSec, setElapsedSec] = useState(0);
   const handleRef = useRef<WebCallHandle | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
+  // Latest "user stopped -> agent started" latency, stashed here as it
+  // arrives and attached to the next agent turn that lands.
+  const pendingLatencyRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -94,12 +111,16 @@ export function TestAgentCallDialog({
       setMuted(false);
       setErrorMsg(null);
       setTurns([]);
+      setElapsedSec(0);
+      pendingLatencyRef.current = null;
       return;
     }
 
     let cancelled = false;
     setErrorMsg(null);
     setTurns([]);
+    setElapsedSec(0);
+    pendingLatencyRef.current = null;
     void startWebCall(agentId, {
       onStatusChange: (s) => !cancelled && setStatus(s),
       onAgentAudioLevel: (l) => !cancelled && setLevel(l),
@@ -124,10 +145,21 @@ export function TestAgentCallDialog({
             role?: string;
             text?: string;
             final?: boolean;
+            type?: string;
+            value_ms?: number;
           };
+          if (parsed.kind === "latency") {
+            if (parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
+              pendingLatencyRef.current = parsed.value_ms;
+            }
+            return;
+          }
           if (parsed.kind !== "transcript" || !parsed.text) return;
           const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
           const id = `${role}-live`;
+          const latencyMs =
+            role === "agent" && parsed.final !== false ? (pendingLatencyRef.current ?? undefined) : undefined;
+          if (latencyMs !== undefined) pendingLatencyRef.current = null;
           setTurns((prev) => {
             const next = [...prev];
             if (parsed.final === false) {
@@ -137,7 +169,7 @@ export function TestAgentCallDialog({
               return next;
             }
             const liveIdx = next.findIndex((t) => t.id === id);
-            const turn = { id: `${role}-${next.length}-${parsed.text!.slice(0, 12)}`, role, text: parsed.text! };
+            const turn = { id: `${role}-${next.length}-${parsed.text!.slice(0, 12)}`, role, text: parsed.text!, latencyMs };
             if (liveIdx >= 0) next[liveIdx] = turn;
             else next.push(turn);
             return next;
@@ -156,8 +188,11 @@ export function TestAgentCallDialog({
             for (const seg of segments) {
               if (!seg.final || !seg.text) continue;
               const idx = next.findIndex((t) => t.id === seg.id);
-              if (idx >= 0) next[idx] = { id: seg.id, role, text: seg.text };
-              else next.push({ id: seg.id, role, text: seg.text });
+              const latencyMs =
+                role === "agent" && idx < 0 ? (pendingLatencyRef.current ?? undefined) : next[idx]?.latencyMs;
+              if (latencyMs !== undefined && role === "agent" && idx < 0) pendingLatencyRef.current = null;
+              if (idx >= 0) next[idx] = { id: seg.id, role, text: seg.text, latencyMs: next[idx].latencyMs };
+              else next.push({ id: seg.id, role, text: seg.text, latencyMs });
             }
             return next;
           });
@@ -179,6 +214,18 @@ export function TestAgentCallDialog({
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [turns]);
+
+  // Call duration ticker — starts once the call is actually connected, not
+  // while dialing, and stops (freezes, doesn't reset) once it ends.
+  useEffect(() => {
+    if (status !== "connected") return;
+    const start = Date.now();
+    setElapsedSec(0);
+    const id = window.setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [status]);
 
   function toggleMute() {
     const room = handleRef.current?.room;
@@ -228,7 +275,12 @@ export function TestAgentCallDialog({
           </div>
           <div>
             <p className="text-sm font-semibold">{agentName}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground capitalize">{statusLabel}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground capitalize">
+              {statusLabel}
+              {status === "connected" && (
+                <span className="font-mono normal-case"> · {formatDuration(elapsedSec)}</span>
+              )}
+            </p>
           </div>
 
           {errorCopy ? (
@@ -306,9 +358,20 @@ export function TestAgentCallDialog({
           ) : (
             <div className="flex flex-col gap-0.5">
               {turns.map((t) => (
-                <Message key={t.id} from={t.role === "user" ? "user" : "assistant"}>
-                  <MessageContent variant="contained">{t.text}</MessageContent>
-                </Message>
+                <div key={t.id} className={t.role === "user" ? "flex flex-col items-end" : "flex flex-col items-start"}>
+                  <Message from={t.role === "user" ? "user" : "assistant"}>
+                    <MessageContent variant="contained">{t.text}</MessageContent>
+                  </Message>
+                  {t.latencyMs !== undefined && (
+                    <span
+                      className={`mt-0.5 px-1 text-[10px] ${
+                        t.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
+                      }`}
+                    >
+                      responded in {Math.round(t.latencyMs)} ms
+                    </span>
+                  )}
+                </div>
               ))}
             </div>
           )}

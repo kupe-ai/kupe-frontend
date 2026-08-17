@@ -196,6 +196,49 @@ export type Invoice = {
   has_pdf: boolean;
 };
 
+export type BillingPlan = {
+  code: "payg" | "business" | "scale" | "enterprise";
+  display_name: string;
+  voice_rate_rupees: number | null;
+  telephony_rate_rupees: number | null;
+  phone_rental_rupees_per_month: number | null;
+  monthly_commitment_rupees: number | null;
+  min_topup_rupees?: number | null;
+  is_self_serve: boolean;
+};
+
+export type TopupOrder = {
+  razorpay_order_id: string;
+  key_id: string;
+  amount_minor_units: number;
+  currency: string;
+  credit_minor_units: number;
+};
+
+export type TopupVerifyResult = {
+  status: string;
+  credit_minor_units: number;
+};
+
+export type SubscriptionAction = {
+  razorpay_subscription_id?: string | null;
+  key_id?: string | null;
+  amount_minor_units?: number | null;
+  currency?: string | null;
+  status: string;
+  plan_code: string;
+};
+
+export type BillingSubscription = {
+  org_id: string;
+  plan_code: string;
+  status: string;
+  overages_enabled: boolean;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  recommended_plan: string | null;
+};
+
 export type UsageDailyRow = {
   day: string;
   metric_type: string;
