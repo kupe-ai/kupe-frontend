@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Play, Upload } from "lucide-react";
+import { Copy, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { KupeIcon } from "@/components/icons/kupe-icon";
@@ -33,17 +33,19 @@ import { useSession } from "@/context/session-context";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
 import {
   createCampaign,
+  ensureCampaignRecipients,
   listCampaigns,
   pauseCampaign,
   resumeCampaign,
   updateCampaignSchedule,
-  uploadCampaignCohort,
   EMPTY_BATCH_SCHEDULE,
   type BatchSchedule,
   type VoiceCampaign,
 } from "@/lib/api/voice/campaigns";
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
 import type { VoiceAgent } from "@/lib/api/voice/types";
+import { analyzeRecipients } from "@/lib/parse-recipients-csv";
+import { RecipientsStep, createEmptyRecipientsState, type RecipientsState } from "./recipients-step";
 
 const STEPS = ["Agent", "Recipients", "Schedule", "Review & Launch"] as const;
 
@@ -152,7 +154,10 @@ export default function VoiceAgentsOutboundPage() {
                       },
                 ]}
               >
-                <li className="grid cursor-context-menu grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                <li
+                  className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40"
+                  onClick={() => navigate(`/outbound-campaigns/${c.id}`)}
+                >
                   <span className="truncate text-sm font-medium">{c.name}</span>
                   <StatusChip status={c.status} />
                 </li>
@@ -184,11 +189,13 @@ function ScheduleCampaignDialog({
   const [agents, setAgents] = useState<VoiceAgent[]>([]);
   const [numbers, setNumbers] = useState<VoicePhoneNumber[]>([]);
   const [campaignId, setCampaignId] = useState<string | null>(null);
-  const [cohortFile, setCohortFile] = useState<File | null>(null);
-  const [cohortRows, setCohortRows] = useState<number | null>(null);
+  const [recipients, setRecipients] = useState<RecipientsState>(createEmptyRecipientsState);
+  const [recipientSummary, setRecipientSummary] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [schedule, setSchedule] = useState<BatchSchedule>(EMPTY_BATCH_SCHEDULE);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [listsAttached, setListsAttached] = useState(false);
+  const [boundListId, setBoundListId] = useState<string | null>(null);
+  const recipientPeople = analyzeRecipients(recipients.columns, recipients.rows).people;
 
   useEffect(() => {
     if (open) {
@@ -197,8 +204,10 @@ function ScheduleCampaignDialog({
       setAgentId("");
       setConnection("");
       setCampaignId(null);
-      setCohortFile(null);
-      setCohortRows(null);
+      setRecipients(createEmptyRecipientsState());
+      setRecipientSummary(null);
+      setListsAttached(false);
+      setBoundListId(null);
       setSchedule(EMPTY_BATCH_SCHEDULE);
       listVoiceAgents({ page_size: 100 }).then((res) => setAgents(res.items)).catch(() => setAgents([]));
       listPhoneNumbers().then((rows) => setNumbers(rows.filter((n) => n.status === "active"))).catch(() => setNumbers([]));
@@ -222,7 +231,10 @@ function ScheduleCampaignDialog({
           const campaign = await createCampaign(orgId, workspaceId, {
             name: name.trim(),
             agent_id: agentId,
-            connection_config: { phone_number_id: connection, sip_trunk_id: numbers.find((n) => n.id === connection)?.sip_trunk_id },
+            connection_config: {
+              phone_number_id: connection,
+              sip_trunk_id: numbers.find((n) => n.id === connection)?.sip_trunk_id,
+            },
           });
           setCampaignId(campaign.id);
         } catch {
@@ -231,13 +243,44 @@ function ScheduleCampaignDialog({
         }
       }
     }
-    if (step === 1 && campaignId && cohortFile && cohortRows === null) {
-      try {
-        const cohort = (await uploadCampaignCohort(campaignId, cohortFile)) as { row_count: number };
-        setCohortRows(cohort.row_count);
-      } catch {
-        toast.error("Couldn't upload recipients");
+    if (step === 1) {
+      const activeCampaignId = campaignId;
+      if (!activeCampaignId) {
+        toast.error("Create the campaign first");
         return;
+      }
+      if (recipients.mode === "new") {
+        if (!recipients.listName.trim()) {
+          toast.message("Name this recipient list");
+          return;
+        }
+        if (recipientPeople === 0) {
+          toast.message("Add at least one recipient with a phone number");
+          return;
+        }
+      } else if (!recipients.selectedListId) {
+        toast.message("Pick a saved recipient list");
+        return;
+      }
+      if (!listsAttached) {
+        try {
+          const result = await ensureCampaignRecipients({
+            campaignId: activeCampaignId,
+            mode: recipients.mode,
+            listName: recipients.listName,
+            selectedListId: recipients.selectedListId,
+            boundListId,
+            alreadyAttached: false,
+            columns: recipients.columns,
+            rows: recipients.rows,
+          });
+          setBoundListId(result.listId);
+          setRecipientSummary(`${result.copied} contacts from list`);
+          setListsAttached(true);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Couldn't save recipients");
+          return;
+        }
       }
     }
     if (step < STEPS.length - 1) {
@@ -274,7 +317,7 @@ function ScheduleCampaignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 sm:max-w-xl" showCloseButton>
+      <DialogContent className="gap-0 sm:max-w-2xl" showCloseButton>
         <DialogHeader>
           <DialogTitle>Schedule campaign</DialogTitle>
         </DialogHeader>
@@ -344,32 +387,17 @@ function ScheduleCampaignDialog({
           ) : null}
 
           {step === 1 ? (
-            <div className="space-y-3 py-4 text-sm">
-              <p className="font-medium">Recipients</p>
-              <p className="text-muted-foreground">Upload a CSV with a "phone" column (extra columns become call variables).</p>
-              <button
-                type="button"
-                className="flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center text-muted-foreground hover:bg-muted/30"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="size-5" />
-                {cohortRows !== null
-                  ? `${cohortFile?.name} · ${cohortRows} rows uploaded`
-                  : cohortFile
-                    ? cohortFile.name
-                    : "Click to choose a CSV file"}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={(e) => {
-                  setCohortFile(e.target.files?.[0] ?? null);
-                  setCohortRows(null);
-                }}
-              />
-            </div>
+            <RecipientsStep
+              value={recipients}
+              onChange={(next) => {
+                setRecipients(next);
+                if (next.mode !== recipients.mode) {
+                  setListsAttached(false);
+                } else if (next.mode === "saved" && next.selectedListId !== boundListId) {
+                  setListsAttached(false);
+                }
+              }}
+            />
           ) : null}
 
           {step === 2 ? <ScheduleStep schedule={schedule} onChange={setSchedule} /> : null}
@@ -381,7 +409,15 @@ function ScheduleCampaignDialog({
                 <Row label="Campaign" value={name || "—"} />
                 <Row label="Agent" value={agents.find((a) => a.id === agentId)?.name || "—"} />
                 <Row label="Connection" value={numbers.find((n) => n.id === connection)?.e164_number || "—"} />
-                <Row label="Recipients" value={cohortRows !== null ? `${cohortRows} contacts` : "—"} />
+                <Row
+                  label="Recipients"
+                  value={
+                    recipientSummary ??
+                    (recipients.mode === "saved"
+                      ? "Saved list"
+                      : `${recipientPeople} ${recipientPeople === 1 ? "contact" : "contacts"}`)
+                  }
+                />
                 <Row label="Schedule" value={scheduleSummary(schedule)} />
               </dl>
             </div>
@@ -401,7 +437,17 @@ function ScheduleCampaignDialog({
                 Back
               </Button>
             ) : null}
-            <Button className="rounded-full" onClick={() => void next()} disabled={submitting || (step === 1 && !cohortFile)}>
+            <Button
+              className="rounded-full"
+              onClick={() => void next()}
+              disabled={
+                submitting ||
+                (step === 1 &&
+                  ((recipients.mode === "new" &&
+                    (recipientPeople === 0 || !recipients.listName.trim())) ||
+                    (recipients.mode === "saved" && !recipients.selectedListId)))
+              }
+            >
               {step === STEPS.length - 1 ? (submitting ? "Launching…" : "Launch") : "Next"}
             </Button>
           </div>

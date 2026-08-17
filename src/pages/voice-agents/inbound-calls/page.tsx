@@ -2,17 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Pencil, Play, Trash2 } from "lucide-react";
+import { Copy, Pause, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
+import { AvailabilityFields } from "@/components/voice-agents/inbound-availability";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
 import { QuickContextMenu } from "@/components/quick-context-menu";
-import { RenameDialog } from "@/components/rename-dialog";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -29,17 +39,38 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
+import { flagForNumber } from "@/lib/country-flag";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
-import { createInboundDeployment, deleteInboundDeployment, listInboundDeployments, updateInboundDeployment, type VoiceInboundDeployment } from "@/lib/api/voice/inbound";
+import {
+  createInboundDeployment,
+  deleteInboundDeployment,
+  listInboundDeployments,
+  updateInboundDeployment,
+  availabilitySummary,
+  defaultInboundAvailability,
+  type InboundAvailability,
+  type VoiceInboundDeployment,
+} from "@/lib/api/voice/inbound";
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
 const STEPS = ["Agent", "Availability", "Review & Deploy"] as const;
+const INBOUND_COLS = "grid-cols-[minmax(0,1.1fr)_minmax(9rem,1fr)_minmax(0,1.3fr)_5.5rem]";
+
+function isLiveStatus(status: string) {
+  return status !== "paused";
+}
+
+function liveChip(status: string) {
+  return isLiveStatus(status) ? { status: "live", label: "Live" } : { status: "paused", label: "Paused" };
+}
 
 export default function VoiceAgentsInboundPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [renaming, setRenaming] = useState<VoiceInboundDeployment | null>(null);
+  const [selected, setSelected] = useState<VoiceInboundDeployment | null>(null);
+  const [toDelete, setToDelete] = useState<VoiceInboundDeployment | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [deployments, setDeployments] = useState<VoiceInboundDeployment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -97,82 +128,132 @@ export default function VoiceAgentsInboundPage() {
         />
       ) : (
         <div className="mt-6 overflow-hidden rounded-xl border border-border">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+          <div className={`grid ${INBOUND_COLS} items-center gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}>
             <span>Name</span>
+            <span>Number</span>
+            <span>Hours</span>
             <span>Status</span>
-            <span />
           </div>
           <ul className="divide-y divide-border">
-            {deployments.map((d) => (
-              <QuickContextMenu
-                key={d.id}
-                title={d.name}
-                items={[
-                  {
-                    label: "Copy name",
-                    icon: Copy,
-                    onSelect: () => {
-                      void navigator.clipboard.writeText(d.name);
-                      toast.message("Name copied");
-                    },
-                  },
-                  { label: "Rename", icon: Pencil, onSelect: () => setRenaming(d) },
-                  d.status === "paused" || d.status === "draft"
-                    ? {
-                        label: "Activate",
-                        icon: Play,
-                        onSelect: () => {
-                          void updateInboundDeployment(d.id, { status: "active" }).then(refresh);
-                        },
-                      }
-                    : {
-                        label: "Pause",
-                        icon: Pause,
-                        onSelect: () => {
-                          void updateInboundDeployment(d.id, { status: "paused" }).then(refresh);
-                        },
+            {deployments.map((d) => {
+              const chip = liveChip(d.status);
+              return (
+                <QuickContextMenu
+                  key={d.id}
+                  title={d.name}
+                  items={[
+                    {
+                      label: "Copy number",
+                      icon: Copy,
+                      disabled: !d.from_number,
+                      onSelect: () => {
+                        void navigator.clipboard.writeText(d.from_number);
+                        toast.message("Number copied");
                       },
-                  { type: "separator" },
-                  {
-                    label: "Delete",
-                    icon: Trash2,
-                    variant: "destructive",
-                    onSelect: () => {
-                      void deleteInboundDeployment(d.id).then(() => {
-                        toast.message("Inbound deleted");
-                        refresh();
-                      });
                     },
-                  },
-                ]}
-              >
-                <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
-                  <span className="truncate text-sm font-medium">{d.name}</span>
-                  <StatusChip status={d.status} />
-                  <span />
-                </li>
-              </QuickContextMenu>
-            ))}
+                    isLiveStatus(d.status)
+                      ? {
+                          label: "Pause",
+                          icon: Pause,
+                          onSelect: () => {
+                            void updateInboundDeployment(d.id, { status: "paused" }).then(refresh);
+                          },
+                        }
+                      : {
+                          label: "Go live",
+                          icon: Play,
+                          onSelect: () => {
+                            void updateInboundDeployment(d.id, { status: "active" }).then(refresh);
+                          },
+                        },
+                    { type: "separator" },
+                    {
+                      label: "Delete",
+                      icon: Trash2,
+                      variant: "destructive",
+                      onSelect: () => setToDelete(d),
+                    },
+                  ]}
+                >
+                  <li
+                    className={`grid cursor-pointer ${INBOUND_COLS} items-center gap-3 px-4 py-3 hover:bg-muted/40`}
+                    onClick={() => setSelected(d)}
+                  >
+                    <span className="truncate text-sm font-medium">{d.name}</span>
+                    <span className="flex min-w-0 items-center gap-1.5 font-mono text-sm">
+                      {d.from_number ? (
+                        <>
+                          <span aria-hidden>{flagForNumber(d.from_number)}</span>
+                          <span className="truncate">{d.from_number}</span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm">{availabilitySummary(d.availability)}</p>
+                      {isLiveStatus(d.status) ? (
+                        <p className="text-xs text-muted-foreground">{d.open_now ? "Open now" : "Outside hours"}</p>
+                      ) : null}
+                    </div>
+                    <StatusChip status={chip.status}>{chip.label}</StatusChip>
+                  </li>
+                </QuickContextMenu>
+              );
+            })}
           </ul>
         </div>
       )}
 
       <CreateInboundDialog open={open} onOpenChange={setOpen} onCreated={refresh} />
-      <RenameDialog
-        open={Boolean(renaming)}
+      <ManageInboundDialog
+        deployment={selected}
         onOpenChange={(next) => {
-          if (!next) setRenaming(null);
+          if (!next) setSelected(null);
         }}
-        title="Rename inbound"
-        initial={renaming?.name ?? ""}
-        onSubmit={async (name) => {
-          if (!renaming) return;
-          await updateInboundDeployment(renaming.id, { name });
-          setRenaming(null);
-          toast.message("Inbound renamed");
+        onSaved={(row) => {
+          setSelected(row);
           refresh();
         }}
+        onDelete={(row) => setToDelete(row)}
       />
+      <AlertDialog open={!!toDelete} onOpenChange={(next) => !next && !deleting && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete inbound?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete
+                ? `${toDelete.name}${toDelete.from_number ? ` on ${toDelete.from_number}` : ""} will stop answering calls.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              className="rounded-full"
+              disabled={deleting}
+              onClick={() => {
+                if (!toDelete) return;
+                setDeleting(true);
+                void deleteInboundDeployment(toDelete.id)
+                  .then(() => {
+                    toast.message("Inbound deleted");
+                    setToDelete(null);
+                    setSelected(null);
+                    refresh();
+                  })
+                  .catch((err) => {
+                    toast.error(err instanceof Error ? err.message : "Couldn't delete inbound");
+                  })
+                  .finally(() => setDeleting(false));
+              }}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -192,6 +273,7 @@ function CreateInboundDialog({
   const [connection, setConnection] = useState("");
   const [agents, setAgents] = useState<VoiceAgent[]>([]);
   const [numbers, setNumbers] = useState<VoicePhoneNumber[]>([]);
+  const [availability, setAvailability] = useState<InboundAvailability>(defaultInboundAvailability);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -200,6 +282,7 @@ function CreateInboundDialog({
       setName("");
       setAgentId("");
       setConnection("");
+      setAvailability(defaultInboundAvailability());
       listVoiceAgents({ page_size: 100 }).then((res) => setAgents(res.items)).catch(() => setAgents([]));
       listPhoneNumbers().then((rows) => setNumbers(rows.filter((n) => n.status === "active"))).catch(() => setNumbers([]));
     }
@@ -216,6 +299,10 @@ function CreateInboundDialog({
         return;
       }
     }
+    if (step === 1 && !availability.always && availability.days_of_week.length === 0) {
+      toast.message("Select at least one day");
+      return;
+    }
     if (step < STEPS.length - 1) {
       setStep((s) => s + 1);
       return;
@@ -230,13 +317,13 @@ function CreateInboundDialog({
         name: name.trim(),
         agent_id: agentId,
         phone_number_id: connection,
-        availability: { hours: "24/7", timezone: "Asia/Kolkata" },
+        availability,
       });
-      toast.success("Inbound deployment created");
+      toast.success("Inbound is live");
       onCreated();
       onOpenChange(false);
-    } catch {
-      toast.error("Couldn't create inbound deployment");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't create inbound deployment");
     } finally {
       setSubmitting(false);
     }
@@ -244,7 +331,7 @@ function CreateInboundDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 sm:max-w-xl" showCloseButton>
+      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-xl" showCloseButton>
         <DialogHeader>
           <DialogTitle>Create inbound</DialogTitle>
         </DialogHeader>
@@ -314,15 +401,7 @@ function CreateInboundDialog({
             </>
           ) : null}
 
-          {step === 1 ? (
-            <div className="space-y-3 py-6 text-sm text-muted-foreground">
-              <p className="font-medium text-foreground">Availability</p>
-              <p>Defaults to 24/7 — configurable hours ship in a later release.</p>
-              <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-foreground">
-                Always available · timezone Asia/Kolkata
-              </div>
-            </div>
-          ) : null}
+          {step === 1 ? <AvailabilityFields value={availability} onChange={setAvailability} /> : null}
 
           {step === 2 ? (
             <div className="space-y-3 py-4 text-sm">
@@ -331,6 +410,7 @@ function CreateInboundDialog({
                 <Row label="Name" value={name || "—"} />
                 <Row label="Agent" value={agents.find((a) => a.id === agentId)?.name || "—"} />
                 <Row label="Connection" value={numbers.find((n) => n.id === connection)?.e164_number || "—"} />
+                <Row label="Hours" value={availabilitySummary(availability)} />
               </dl>
             </div>
           ) : null}
@@ -365,5 +445,145 @@ function Row({ label, value }: { label: string; value: string }) {
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="truncate font-medium">{value}</dd>
     </div>
+  );
+}
+
+function ManageInboundDialog({
+  deployment,
+  onOpenChange,
+  onSaved,
+  onDelete,
+}: {
+  deployment: VoiceInboundDeployment | null;
+  onOpenChange: (open: boolean) => void;
+  onSaved: (row: VoiceInboundDeployment) => void;
+  onDelete: (row: VoiceInboundDeployment) => void;
+}) {
+  const [name, setName] = useState("");
+  const [agentId, setAgentId] = useState("");
+  const [live, setLive] = useState(true);
+  const [availability, setAvailability] = useState<InboundAvailability>(defaultInboundAvailability);
+  const [agents, setAgents] = useState<VoiceAgent[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!deployment) return;
+    setName(deployment.name);
+    setAgentId(deployment.agent_id);
+    setLive(isLiveStatus(deployment.status));
+    setAvailability(deployment.availability);
+    listVoiceAgents({ page_size: 100 })
+      .then((res) => setAgents(res.items))
+      .catch(() => setAgents([]));
+  }, [deployment]);
+
+  async function save() {
+    if (!deployment) return;
+    if (!name.trim() || !agentId) {
+      toast.message("Fill required fields");
+      return;
+    }
+    if (!availability.always && availability.days_of_week.length === 0) {
+      toast.message("Select at least one day");
+      return;
+    }
+    setSaving(true);
+    try {
+      const row = await updateInboundDeployment(deployment.id, {
+        name: name.trim(),
+        agent_id: agentId,
+        status: live ? "active" : "paused",
+        availability,
+      });
+      toast.success("Inbound updated");
+      onSaved(row);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't update inbound");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog open={Boolean(deployment)} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-xl" showCloseButton>
+        <DialogHeader>
+          <DialogTitle>{deployment?.name || "Inbound"}</DialogTitle>
+        </DialogHeader>
+
+        <div className="mt-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
+            <p className="text-xs font-medium text-muted-foreground">Number</p>
+            <p className="mt-1 flex items-center gap-2 font-mono text-sm">
+              {deployment?.from_number ? (
+                <>
+                  <span aria-hidden>{flagForNumber(deployment.from_number)}</span>
+                  {deployment.from_number}
+                </>
+              ) : (
+                "—"
+              )}
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Agent</Label>
+            <Select value={agentId} onValueChange={setAgentId}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select an agent" />
+              </SelectTrigger>
+              <SelectContent>
+                {agents.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
+            <div>
+              <p className="text-sm font-medium">Live</p>
+              <p className="text-xs text-muted-foreground">Answer inbound calls on this number.</p>
+            </div>
+            <Switch
+              checked={live}
+              onCheckedChange={setLive}
+              className="data-checked:bg-primary"
+            />
+          </label>
+
+          <AvailabilityFields value={availability} onChange={setAvailability} />
+        </div>
+
+        <DialogFooter className="mt-4 sm:justify-between">
+          <Button
+            variant="destructive"
+            className="rounded-full"
+            onClick={() => {
+              if (deployment) onDelete(deployment);
+            }}
+          >
+            <Trash2 className="size-3.5" />
+            Delete
+          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button className="rounded-full" onClick={() => void save()} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

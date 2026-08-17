@@ -11,6 +11,7 @@ import { requireScope } from "@/lib/api/workspace-scope";
 export interface VoicePhoneNumber {
   id: string;
   e164_number: string;
+  label: string;
   provider: "twilio" | "plivo" | "exotel";
   sip_trunk_id: string | null;
   status: "active";
@@ -49,9 +50,10 @@ export async function listPhoneNumbers(): Promise<VoicePhoneNumber[]> {
   return accounts.map((a) => ({
     id: a.id,
     e164_number: a.from_number,
+    label: a.label || "",
     provider: a.provider,
     sip_trunk_id: a.id,
-    status: "active",
+    status: "active" as const,
     assigned_agent_id: null,
   }));
 }

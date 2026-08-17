@@ -33,6 +33,9 @@ const VoiceAgentsInboundPage = lazyWithRetry(() => import("@/pages/voice-agents/
 const VoiceAgentsOutboundPage = lazyWithRetry(
   () => import("@/pages/voice-agents/outbound-campaigns/page"),
 );
+const VoiceAgentsOutboundDetailPage = lazyWithRetry(
+  () => import("@/pages/voice-agents/outbound-campaigns/[id]/page"),
+);
 const VoiceAgentsDeployCodePage = lazyWithRetry(
   () => import("@/pages/voice-agents/deploy-with-code/page"),
 );
@@ -99,6 +102,7 @@ export default function AppRoutes() {
             <Route path="/phone-numbers" element={<Flagged flag="feature_phone_numbers"><VoiceAgentsPhoneNumbersPage /></Flagged>} />
             <Route path="/inbound-calls" element={<Flagged flag="feature_inbound"><VoiceAgentsInboundPage /></Flagged>} />
             <Route path="/outbound-campaigns" element={<Flagged flag="feature_outbound"><VoiceAgentsOutboundPage /></Flagged>} />
+            <Route path="/outbound-campaigns/:id" element={<Flagged flag="feature_outbound"><VoiceAgentsOutboundDetailPage /></Flagged>} />
             <Route path="/deploy-with-code" element={<VoiceAgentsDeployCodePage />} />
             <Route path="/deploy-with-code/apis/:slug" element={<VoiceAgentsDeployApiPage />} />
             <Route path="/deploy-with-code/recipes/:slug" element={<VoiceAgentsDeployRecipePage />} />

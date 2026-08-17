@@ -463,7 +463,7 @@ export function BatchDetailPage({ orgId, projectId, batchId, onBack, onCreated }
                 <CardHeader>
                   <CardTitle>Upload CSV</CardTitle>
                   <CardDescription>
-                    Requires a <code className="text-xs">phone_number</code> column
+                    Requires a <code className="text-xs">phone</code> column
                     {variableKeys.length
                       ? `. Include columns for ${variableKeys.join(", ")}.`
                       : ". Other columns become template variables."}

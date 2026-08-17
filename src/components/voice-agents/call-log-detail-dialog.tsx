@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   Copy,
-  Expand,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -101,7 +100,7 @@ export function CallLogDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex h-[min(92vh,840px)] max-h-[min(92vh,840px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
+        className="flex max-h-[min(92vh,840px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
       >
         <DialogTitle className="sr-only">Unified View Details</DialogTitle>
 
@@ -116,9 +115,6 @@ export function CallLogDetailDialog({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
-            <Button variant="ghost" size="icon-sm">
-              <Expand className="size-4" />
-            </Button>
             <Button variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)}>
               <X className="size-4" />
             </Button>
@@ -148,7 +144,7 @@ export function CallLogDetailDialog({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+        <div className="min-h-0 overflow-y-auto overscroll-contain px-5 py-4">
           {!detail ? (
             <p className="py-10 text-center text-sm text-muted-foreground">Loading…</p>
           ) : tab === "overview" ? (

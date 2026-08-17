@@ -143,6 +143,7 @@ const DEFAULTS: Required<
   output_numbers_indic: false,
   nudges: [],
   hangup_after_unanswered_nudges: false,
+  thinking_sounds: false,
   voicemail_enabled: false,
   voicemail_message: "",
   max_call_length_minutes: 10,
@@ -529,6 +530,12 @@ export function AgentSettingsPanel({
       )}
 
       <SectionTitle>Thinking & knowledge</SectionTitle>
+      <SettingRow
+        title="Thinking sounds"
+        description="Play a short hmm or umm in the caller's language the moment they finish speaking, while the reply is generated."
+      >
+        <Switch checked={settings.thinking_sounds} onCheckedChange={(v) => set("thinking_sounds", v)} />
+      </SettingRow>
       <SettingRow
         title="Model temperature"
         description="Lower stays compliant; higher is more creative."

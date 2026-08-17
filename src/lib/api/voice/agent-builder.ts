@@ -77,6 +77,7 @@ export interface AgentSettings {
   output_numbers_indic?: boolean;
   nudges?: Array<{ text: string; after_seconds: number }>;
   hangup_after_unanswered_nudges?: boolean;
+  thinking_sounds?: boolean;
   voicemail_enabled?: boolean;
   voicemail_message?: string | null;
   max_call_length_minutes?: number;
@@ -472,6 +473,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     output_numbers_indic: config?.llm.output_numbers_indic,
     nudges,
     hangup_after_unanswered_nudges: config?.silence_breaker.hangup_after_unanswered ?? false,
+    thinking_sounds: config?.thinking_sounds?.enabled ?? false,
   };
 }
 
@@ -541,6 +543,9 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
       idle_seconds: nudges[0]?.after_seconds || agent.config.silence_breaker.idle_seconds || 8,
       messages: nudges.map((n) => ({ text: n.text, after_seconds: n.after_seconds })),
       hangup_after_unanswered: data.hangup_after_unanswered_nudges ?? false,
+    },
+    thinking_sounds: {
+      enabled: data.thinking_sounds ?? agent.config.thinking_sounds?.enabled ?? false,
     },
     voicemail_detection: {
       ...agent.config.voicemail_detection,

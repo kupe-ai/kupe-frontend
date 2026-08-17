@@ -417,6 +417,10 @@ export type SilenceBreakerConfig = {
   hangup_after_unanswered?: boolean;
 };
 
+export type ThinkingSoundsConfig = {
+  enabled: boolean;
+};
+
 export type VoicemailDetectionConfig = {
   enabled: boolean;
   message: string;
@@ -469,6 +473,7 @@ export type AgentConfig = {
   audio: AgentAudioConfig;
   end_of_call_warning: EndOfCallWarningConfig;
   silence_breaker: SilenceBreakerConfig;
+  thinking_sounds?: ThinkingSoundsConfig;
   voicemail_detection: VoicemailDetectionConfig;
   auto_cut: AutoCutConfig;
   call_transfer: CallTransferConfig;
@@ -812,6 +817,10 @@ export type TelephonyAccountBody = {
   is_default?: boolean;
 };
 
+export type TelephonyAccountPatchBody = {
+  label: string;
+};
+
 export type BatchScheduleRecurrence = "once" | "daily" | "weekly" | "monthly";
 
 export type BatchSchedule = {
@@ -847,6 +856,7 @@ export type Batch = {
   max_concurrent_calls: number;
   retry_policy: RetryPolicy;
   schedule: BatchSchedule;
+  recipient_list_id?: string | null;
   created_by: string | null;
   created_at: string;
   started_at: string | null;
@@ -879,6 +889,95 @@ export type BatchStats = {
   batch_id: string;
   contacts_by_status: Record<string, number>;
   attempts_by_status: Record<string, number>;
+};
+
+export type RecipientList = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  member_count: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RecipientListMember = {
+  id: string;
+  list_id: string;
+  phone_number: string;
+  variables: Record<string, unknown>;
+  created_at: string;
+};
+
+export type RecipientMembersPage = {
+  items: RecipientListMember[];
+  total: number;
+  limit: number;
+  next_cursor: string | null;
+};
+
+export type MemberInsertResult = {
+  inserted: number;
+  member_count: number;
+};
+
+export type AttachListResult = {
+  copied: number;
+  batch_id: string;
+  recipient_list_id: string;
+};
+
+export type CursorContactsPage = {
+  items: BatchContact[];
+  total: number;
+  limit: number;
+  next_cursor: string | null;
+};
+
+export type InboundStatus = "draft" | "active" | "paused";
+
+export type InboundAvailability = {
+  always: boolean;
+  timezone: string;
+  days_of_week: number[];
+  start: string;
+  end: string;
+  after_hours_message: string;
+};
+
+export type InboundDeployment = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  agent_id: string;
+  telephony_account_id: string;
+  from_number: string;
+  name: string;
+  status: InboundStatus;
+  availability: InboundAvailability;
+  open_now: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InboundCreateBody = {
+  org_id: string;
+  project_id: string;
+  agent_id: string;
+  telephony_account_id: string;
+  name: string;
+  status?: InboundStatus;
+  availability?: InboundAvailability;
+};
+
+export type InboundPatchBody = {
+  name?: string;
+  status?: InboundStatus;
+  agent_id?: string;
+  availability?: InboundAvailability;
 };
 
 export type RateLimitScope = "workspace" | "telephony" | "llm" | "tts" | "stt";

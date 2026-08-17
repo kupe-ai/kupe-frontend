@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { CurrencyToggle, UI_DEFAULT_CURRENCY, formatMoney } from "@/components/voice-agents/currency-toggle";
 import { formatProviderModel } from "@/lib/voice/provider-brand";
+import { flagForNumber } from "@/lib/country-flag";
 import type { SessionUsage, SessionUsageMetric, StandaloneUsageRow, UsageCostSummary, UsageDailyRow } from "@/types";
 
 const RANGE_OPTIONS = [
@@ -46,12 +47,25 @@ const METRIC_LABEL: Record<string, string> = {
   stt_audio_seconds: "Speech-to-text",
   tts_characters: "Text-to-speech (chars)",
   tts_audio_seconds: "Text-to-speech (audio)",
+  phone_number_purchase: "Phone number purchased",
+  phone_number_rent: "Monthly rent",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
   tts_studio: "Voice Library TTS",
   phone_number: "Phone numbers",
   other: "Other",
+};
+
+const SOURCE_CHIP: Record<string, { label: string; variant: "info" | "violet" | "secondary" | "success" }> = {
+  tts_studio: { label: "Voice Library TTS", variant: "violet" },
+  phone_number: { label: "Phone numbers", variant: "info" },
+  other: { label: "Other", variant: "secondary" },
+};
+
+const METRIC_CHIP: Record<string, { label: string; variant: "success" | "violet" | "info" | "secondary" }> = {
+  phone_number_purchase: { label: "Phone number purchased", variant: "success" },
+  phone_number_rent: { label: "Monthly rent", variant: "violet" },
 };
 
 const chartConfig: ChartConfig = {
@@ -86,6 +100,30 @@ const CHANNEL_META: Record<string, { label: string; variant: "info" | "violet" |
 function ChannelBadge({ channel }: { channel: string | null | undefined }) {
   const meta = (channel && CHANNEL_META[channel]) || CHANNEL_META.incoming;
   return <Badge variant={meta.variant}>{meta.label}</Badge>;
+}
+
+function SourceChip({ source }: { source: string }) {
+  const meta = SOURCE_CHIP[source];
+  if (!meta) return <>{SOURCE_LABEL[source] ?? source}</>;
+  return <Badge variant={meta.variant}>{meta.label}</Badge>;
+}
+
+function MetricChip({ metric }: { metric: string }) {
+  const meta = METRIC_CHIP[metric];
+  if (!meta) return <>{METRIC_LABEL[metric] ?? metric}</>;
+  return <Badge variant={meta.variant}>{meta.label}</Badge>;
+}
+
+function ProviderModelCell({ row }: { row: StandaloneUsageRow }) {
+  if (row.source === "phone_number" && row.model_name) {
+    return (
+      <Badge variant="outline" className="font-mono font-normal">
+        <span aria-hidden>{flagForNumber(row.model_name)}</span>
+        {row.model_name}
+      </Badge>
+    );
+  }
+  return <>{formatProviderModel(row.provider_name, row.model_name)}</>;
 }
 
 export default function UsagePage() {
@@ -283,10 +321,10 @@ export default function UsagePage() {
         onPageChange={setPage}
       >
         <thead>
-          <tr className="border-b border-border text-left">
-            <th className="text-caption px-5 py-2.5 font-medium">Session</th>
-            <th className="text-caption px-5 py-2.5 font-medium">When</th>
-            <th className="text-caption px-5 py-2.5 font-medium">Channel</th>
+          <tr className="border-b border-border">
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Session</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">When</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Channel</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Duration</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
           </tr>
@@ -316,17 +354,17 @@ export default function UsagePage() {
         title="Other usage"
         loading={loading}
         emptyTitle="No other usage"
-        emptyCaption="Voice Library TTS and similar charges that are not part of a call show up here."
+        emptyCaption="Voice Library TTS, phone number purchases, monthly rent, and similar charges that are not part of a call show up here."
         page={standalonePage}
         total={standaloneTotal}
         onPageChange={setStandalonePage}
       >
         <thead>
-          <tr className="border-b border-border text-left">
-            <th className="text-caption px-5 py-2.5 font-medium">Day</th>
-            <th className="text-caption px-5 py-2.5 font-medium">Source</th>
-            <th className="text-caption px-5 py-2.5 font-medium">Metric</th>
-            <th className="text-caption px-5 py-2.5 font-medium">Provider / Model</th>
+          <tr className="border-b border-border">
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Day</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Source</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Metric</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Provider / Model</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Quantity</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
           </tr>
@@ -337,11 +375,15 @@ export default function UsagePage() {
               key={`${row.day}-${row.source}-${row.metric_type}-${row.provider_name}-${row.model_name}`}
               className="border-b border-border last:border-0"
             >
-              <td className="px-5 py-2.5 whitespace-nowrap">{row.day}</td>
-              <td className="px-5 py-2.5">{SOURCE_LABEL[row.source] ?? row.source}</td>
-              <td className="px-5 py-2.5">{METRIC_LABEL[row.metric_type] ?? row.metric_type}</td>
-              <td className="px-5 py-2.5 text-muted-foreground">
-                {formatProviderModel(row.provider_name, row.model_name)}
+              <td className="px-5 py-2.5 text-left whitespace-nowrap">{row.day}</td>
+              <td className="px-5 py-2.5 text-left">
+                <SourceChip source={row.source} />
+              </td>
+              <td className="px-5 py-2.5 text-left">
+                <MetricChip metric={row.metric_type} />
+              </td>
+              <td className="px-5 py-2.5 text-left text-muted-foreground">
+                <ProviderModelCell row={row} />
               </td>
               <td className="px-5 py-2.5 text-right font-mono tabular-nums">
                 {row.total_quantity.toLocaleString()}

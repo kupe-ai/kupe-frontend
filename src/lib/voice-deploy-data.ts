@@ -3,6 +3,7 @@ import type { AsciiIconKind, AsciiIconTone } from "@/components/voice-agents/asc
 export type DeployApiSlug =
   | "instant-outbound"
   | "batch-outbound"
+  | "recipient-lists"
   | "inbound-deployments"
   | "data-fetch"
   | "billing"
@@ -97,15 +98,17 @@ export const DEPLOY_API_CARDS: DeployApiCard[] = [
     tone: "amber",
     headline: "Point an agent at a list. The platform does the rest.",
     about:
-      "A batch ties an agent and a telephony account to a list of contacts, with a concurrency cap and retry policy. Create a batch, add contacts (bulk JSON or CSV upload), then start it — the platform dials contacts up to max_concurrent_calls at a time, retrying retryable outcomes (no_answer, busy) per your retry_policy. Pause/resume/cancel are available at any time; a paused batch simply stops dequeuing new contacts, it never interrupts a call already in progress.",
+      "A batch ties an agent and a telephony account to a list of contacts, with a concurrency cap and retry policy. Prefer named recipient lists (see Recipient lists) for reusable cohorts — create a batch, attach a list with contacts:from-list (or add contacts via bulk JSON / CSV), then start it. The platform dials up to max_concurrent_calls at a time, retrying retryable outcomes per your retry_policy. Pause/resume/cancel never interrupt a call already in progress.",
     endpoints: [
       { method: "POST", path: "/v1/batches", summary: "Create a batch (draft) for an agent + telephony account." },
       { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/batches", summary: "List batches, paginated." },
       { method: "GET", path: "/v1/batches/{batch_id}", summary: "Get a batch's status and config." },
       { method: "GET", path: "/v1/batches/{batch_id}/stats", summary: "Get dial/answer/completion counts for a batch." },
+      { method: "PATCH", path: "/v1/batches/{batch_id}/schedule", summary: "Set recurrence / dial window / per-period limit." },
+      { method: "POST", path: "/v1/batches/{batch_id}/contacts:from-list", summary: "Copy a named recipient list into this draft batch." },
       { method: "POST", path: "/v1/batches/{batch_id}/contacts:bulk", summary: "Add contacts from a JSON array." },
-      { method: "POST", path: "/v1/batches/{batch_id}/contacts", summary: "Add contacts from an uploaded CSV." },
-      { method: "GET", path: "/v1/batches/{batch_id}/contacts", summary: "List contacts and their dial status." },
+      { method: "POST", path: "/v1/batches/{batch_id}/contacts", summary: "Add contacts from an uploaded CSV (phone column)." },
+      { method: "GET", path: "/v1/batches/{batch_id}/contacts", summary: "List contacts — use ?cursor= for keyset pagination at scale." },
       { method: "POST", path: "/v1/batches/{batch_id}/start", summary: "Start dialing a draft batch." },
       { method: "POST", path: "/v1/batches/{batch_id}/pause", summary: "Pause — stop dequeuing new contacts." },
       { method: "POST", path: "/v1/batches/{batch_id}/resume", summary: "Resume a paused batch." },
@@ -147,6 +150,65 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
     ],
   },
   {
+    slug: "recipient-lists",
+    title: "Recipient lists",
+    description: "Create named people batches, reuse them across campaigns, paginate at scale.",
+    kind: "batch",
+    tone: "coral",
+    headline: "Name a list of people once. Reuse it on every campaign.",
+    about:
+      "Recipient lists are reusable cohorts — name them, upload CSV (phone column required; extras become variables), or add members in bulk. Campaigns stay separate: attach a list to a draft batch with contacts:from-list and the platform copies members into campaign contacts in SQL (safe for millions). Member and contact reads use keyset cursors so deep pages stay smooth. Manage lists from the API or the Outbound campaign wizard.",
+    endpoints: [
+      { method: "POST", path: "/v1/recipient-lists", summary: "Create a named recipient list in a workspace." },
+      { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/recipient-lists", summary: "List saved recipient lists, paginated." },
+      { method: "GET", path: "/v1/recipient-lists/{list_id}", summary: "Get a list and its member_count." },
+      { method: "PATCH", path: "/v1/recipient-lists/{list_id}", summary: "Rename or update description." },
+      { method: "DELETE", path: "/v1/recipient-lists/{list_id}", summary: "Delete a list and its members." },
+      { method: "POST", path: "/v1/recipient-lists/{list_id}/members:bulk", summary: "Append members from JSON (returns inserted count only)." },
+      { method: "POST", path: "/v1/recipient-lists/{list_id}/members", summary: "Append members from CSV multipart (phone column)." },
+      { method: "GET", path: "/v1/recipient-lists/{list_id}/members", summary: "Keyset-paginated members (?limit=&cursor=)." },
+      { method: "PATCH", path: "/v1/recipient-lists/{list_id}/members/{member_id}", summary: "Update one member's phone or variables." },
+      { method: "DELETE", path: "/v1/recipient-lists/{list_id}/members/{member_id}", summary: "Remove one member." },
+      { method: "POST", path: "/v1/batches/{batch_id}/contacts:from-list", summary: "Copy an entire list into a draft campaign." },
+      { method: "GET", path: "/v1/batches/{batch_id}/contacts", summary: "Campaign people — pass cursor= for keyset pages." },
+    ],
+    curlTabs: [
+      {
+        id: "create-list",
+        label: "create-list",
+        code: `curl -X POST ${API_BASE_URL}/v1/recipient-lists \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "org_id": "<org_id>",
+    "project_id": "<project_id>",
+    "name": "Q3 renewals — West",
+    "description": "Warm leads from CRM export"
+  }'`,
+      },
+      {
+        id: "upload-members",
+        label: "upload-csv",
+        code: `# CSV must include a phone column (not phone_number)
+curl -X POST ${API_BASE_URL}/v1/recipient-lists/<list_id>/members \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -F "file=@contacts.csv"`,
+      },
+      {
+        id: "attach-campaign",
+        label: "attach-to-campaign",
+        code: `curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/contacts:from-list \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{ "recipient_list_id": "<list_id>" }'
+
+# Page campaign people with a keyset cursor (first page: cursor=)
+curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+    ],
+  },
+  {
     slug: "inbound-deployments",
     title: "Inbound deployments",
     description: "Deploy an agent on a number to answer inbound calls.",
@@ -154,16 +216,39 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
     tone: "emerald",
     headline: "Answer every inbound call with your agent.",
     about:
-      "Connect a telephony account (your Twilio, Plivo, or Exotel trunk) and every inbound call to its number is answered as a telephony session, routed to the agent bound to that account. Inbound status/connect/media webhooks are handled internally — you only need to manage the telephony account and which agent it points to.",
+      "Bind an agent to a number and set when it answers. Calls outside those hours are not connected. Availability is stored on the inbound deployment and evaluated in the number’s timezone.",
     endpoints: [
+      { method: "POST", path: "/v1/inbound", summary: "Create an inbound deployment (agent + number + hours)." },
+      { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/inbound", summary: "List inbound deployments." },
+      { method: "GET", path: "/v1/inbound/{deployment_id}", summary: "Get one inbound deployment." },
+      { method: "PATCH", path: "/v1/inbound/{deployment_id}", summary: "Update name, status, agent, or availability." },
+      { method: "DELETE", path: "/v1/inbound/{deployment_id}", summary: "Remove an inbound deployment." },
       { method: "POST", path: "/v1/orgs/{org_id}/telephony-accounts", summary: "Connect a Twilio/Plivo/Exotel account." },
       { method: "GET", path: "/v1/orgs/{org_id}/telephony-accounts", summary: "List connected telephony accounts." },
-      { method: "GET", path: "/v1/telephony-accounts/{account_id}", summary: "Get one telephony account." },
-      { method: "DELETE", path: "/v1/telephony-accounts/{account_id}", summary: "Disconnect a telephony account." },
-      { method: "POST", path: "/v1/rate-limit-configs", summary: "Set a concurrency/rate cap for an account." },
-      { method: "GET", path: "/v1/rate-limit-configs", summary: "List rate-limit configs." },
     ],
     curlTabs: [
+      {
+        id: "create-inbound",
+        label: "create-inbound",
+        code: `curl -X POST ${API_BASE_URL}/v1/inbound \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "org_id": "<org_id>",
+    "project_id": "<project_id>",
+    "agent_id": "<agent_id>",
+    "telephony_account_id": "<telephony_account_id>",
+    "name": "Support inbound",
+    "availability": {
+      "always": false,
+      "timezone": "Asia/Kolkata",
+      "days_of_week": [1, 2, 3, 4, 5],
+      "start": "09:00",
+      "end": "18:00",
+      "after_hours_message": "We are closed. Please call back during business hours."
+    }
+  }'`,
+      },
       {
         id: "connect-account",
         label: "connect-account",
@@ -298,12 +383,12 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
     tone: "violet",
     headline: "Manage agents as code — every save is a new version.",
     about:
-      "Agents are versioned: every PATCH creates a new version and you can list or revert to any prior one. An agent's config carries its provider selection (llm_id, stt_id, tts_id, tts_voice_id), system prompt, tools, and call-transfer destinations — everything the voice-agents UI edits is available here too.",
+      "Agents are versioned: every PATCH creates a new version and you can list or revert to any prior one. An agent's config carries its provider selection (llm_id, stt_id, tts_id, tts_voice_id), system prompt, tools, call-transfer destinations, and call-behavior knobs such as thinking_sounds — everything the voice-agents UI edits is available here too. Set config.thinking_sounds.enabled to play a short language-specific filler (hmm / umm, or the Indic equivalent) through the agent's TTS the instant the caller finishes speaking, before the real reply audio starts.",
     endpoints: [
       { method: "POST", path: "/v1/orgs/{org_id}/projects/{project_id}/agents", summary: "Create an agent." },
       { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/agents", summary: "List agents, paginated." },
       { method: "GET", path: "/v1/agents/{agent_id}", summary: "Get an agent's current config." },
-      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Update an agent — creates a new version." },
+      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Update an agent — creates a new version. Pass config.thinking_sounds.enabled to toggle thinking sounds." },
       { method: "GET", path: "/v1/agents/{agent_id}/versions", summary: "List all versions of an agent." },
       { method: "POST", path: "/v1/agents/{agent_id}/revert/{version}", summary: "Roll back to a prior version." },
       { method: "POST", path: "/v1/agents/{agent_id}/archive", summary: "Archive an agent." },
@@ -334,6 +419,18 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer $KUPE_API_KEY" \\
   -d '{ "greeting": "Hi, thanks for calling Acme — how can I help?" }'`,
+      },
+      {
+        id: "thinking-sounds",
+        label: "thinking-sounds",
+        code: `curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "config": {
+      "thinking_sounds": { "enabled": true }
+    }
+  }'`,
       },
     ],
   },

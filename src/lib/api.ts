@@ -25,6 +25,9 @@ import type {
   ComposioToolsPage,
   CreateSessionBody,
   CreatedApiKey,
+  InboundCreateBody,
+  InboundDeployment,
+  InboundPatchBody,
   Member,
   Membership,
   Organization,
@@ -42,11 +45,18 @@ import type {
   Project,
   RateLimitConfig,
   Recording,
+  RecipientList,
+  RecipientListMember,
+  RecipientMembersPage,
+  MemberInsertResult,
+  AttachListResult,
+  CursorContactsPage,
   SessionInfo,
   SessionUsage,
   StandaloneUsageRow,
   TelephonyAccount,
   TelephonyAccountBody,
+  TelephonyAccountPatchBody,
   ToolCallEvent,
   ToolCallStatsRow,
   TranscriptInfo,
@@ -462,6 +472,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  patchTelephonyAccount: (accountId: string, body: TelephonyAccountPatchBody) =>
+    authedJson<TelephonyAccount>(`/v1/telephony-accounts/${accountId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
   deleteTelephonyAccount: (accountId: string) =>
     authedJson<void>(`/v1/telephony-accounts/${accountId}`, { method: "DELETE" }),
 
@@ -503,10 +518,25 @@ export const api = {
   getBatchStats: (batchId: string) => authedJson<BatchStats>(`/v1/batches/${batchId}/stats`),
   listBatchContacts: (batchId: string, params?: ListParams) =>
     authedJson<Page<BatchContact>>(`/v1/batches/${batchId}/contacts${qs(params)}`),
+  listBatchContactsCursor: (
+    batchId: string,
+    params?: { limit?: number; cursor?: string | null; status?: string | null },
+  ) => {
+    const sp = new URLSearchParams();
+    sp.set("limit", String(params?.limit ?? 50));
+    sp.set("cursor", params?.cursor ?? "");
+    if (params?.status) sp.set("status", params.status);
+    return authedJson<CursorContactsPage>(`/v1/batches/${batchId}/contacts?${sp}`);
+  },
   addBatchContactsBulk: (batchId: string, contacts: { phone_number: string; variables?: Record<string, unknown> }[]) =>
     authedJson<BatchContact[]>(`/v1/batches/${batchId}/contacts:bulk`, {
       method: "POST",
       body: JSON.stringify({ contacts }),
+    }),
+  attachRecipientListToBatch: (batchId: string, recipientListId: string) =>
+    authedJson<AttachListResult>(`/v1/batches/${batchId}/contacts:from-list`, {
+      method: "POST",
+      body: JSON.stringify({ recipient_list_id: recipientListId }),
     }),
   uploadBatchContactsCsv: async (batchId: string, file: File) => {
     const { data } = await supabase.auth.getSession();
@@ -526,12 +556,77 @@ export const api = {
     }
     return (await res.json()) as BatchContact[];
   },
+  // Recipient lists (named reusable people batches)
+  listRecipientLists: (orgId: string, projectId: string, params?: ListParams) =>
+    authedJson<Page<RecipientList>>(`/v1/orgs/${orgId}/projects/${projectId}/recipient-lists${qs(params)}`),
+  createRecipientList: (body: { org_id: string; project_id: string; name: string; description?: string }) =>
+    authedJson<RecipientList>("/v1/recipient-lists", { method: "POST", body: JSON.stringify(body) }),
+  getRecipientList: (listId: string) => authedJson<RecipientList>(`/v1/recipient-lists/${listId}`),
+  patchRecipientList: (listId: string, body: { name?: string; description?: string }) =>
+    authedJson<RecipientList>(`/v1/recipient-lists/${listId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteRecipientList: (listId: string) =>
+    authedJson<void>(`/v1/recipient-lists/${listId}`, { method: "DELETE" }),
+  addRecipientListMembersBulk: (
+    listId: string,
+    members: { phone?: string; phone_number?: string; variables?: Record<string, unknown> }[],
+  ) =>
+    authedJson<MemberInsertResult>(`/v1/recipient-lists/${listId}/members:bulk`, {
+      method: "POST",
+      body: JSON.stringify({ members }),
+    }),
+  uploadRecipientListCsv: async (listId: string, file: File) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    const form = new FormData();
+    form.append("file", file);
+    const headers = new Headers();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${BACKEND_URL}/v1/recipient-lists/${listId}/members`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Upload failed (${res.status})`);
+    }
+    return (await res.json()) as MemberInsertResult;
+  },
+  listRecipientListMembers: (listId: string, params?: { limit?: number; cursor?: string | null }) => {
+    const sp = new URLSearchParams();
+    sp.set("limit", String(params?.limit ?? 50));
+    if (params?.cursor) sp.set("cursor", params.cursor);
+    return authedJson<RecipientMembersPage>(`/v1/recipient-lists/${listId}/members?${sp}`);
+  },
+  patchRecipientListMember: (
+    listId: string,
+    memberId: string,
+    body: { phone?: string; phone_number?: string; variables?: Record<string, unknown> },
+  ) =>
+    authedJson<RecipientListMember>(`/v1/recipient-lists/${listId}/members/${memberId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteRecipientListMember: (listId: string, memberId: string) =>
+    authedJson<void>(`/v1/recipient-lists/${listId}/members/${memberId}`, { method: "DELETE" }),
   startBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/start`, { method: "POST" }),
   pauseBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/pause`, { method: "POST" }),
   resumeBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/resume`, { method: "POST" }),
   cancelBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/cancel`, { method: "POST" }),
   updateBatchSchedule: (batchId: string, schedule: BatchSchedule) =>
     authedJson<Batch>(`/v1/batches/${batchId}/schedule`, { method: "PATCH", body: JSON.stringify(schedule) }),
+
+  listInbound: (orgId: string, projectId: string, params?: ListParams) =>
+    authedJson<Page<InboundDeployment>>(`/v1/orgs/${orgId}/projects/${projectId}/inbound${qs(params)}`),
+  createInbound: (body: InboundCreateBody) =>
+    authedJson<InboundDeployment>("/v1/inbound", { method: "POST", body: JSON.stringify(body) }),
+  getInbound: (deploymentId: string) => authedJson<InboundDeployment>(`/v1/inbound/${deploymentId}`),
+  patchInbound: (deploymentId: string, body: InboundPatchBody) =>
+    authedJson<InboundDeployment>(`/v1/inbound/${deploymentId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteInbound: (deploymentId: string) => authedJson<void>(`/v1/inbound/${deploymentId}`, { method: "DELETE" }),
 
   listComposioToolkits: (orgId: string, params?: { category?: string; cursor?: string }) => {
     const sp = new URLSearchParams();
