@@ -529,7 +529,7 @@ export type ApiKey = {
 
 export type CreatedApiKey = ApiKey & { api_key: string };
 
-export type ToolKind = "custom_webhook" | "composio";
+export type ToolKind = "custom_webhook" | "composio" | "mcp";
 
 export type CatalogTool = {
   id: string;
@@ -547,6 +547,7 @@ export type CatalogTool = {
   composio_toolkit_slug: string | null;
   composio_tool_slug: string | null;
   composio_connection_id: string | null;
+  mcp_tool_name: string | null;
 };
 
 export type AgentTool = CatalogTool & { enabled: boolean };

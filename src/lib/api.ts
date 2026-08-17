@@ -218,6 +218,7 @@ export const api = {
     authedJson<ApiKey>(`/v1/projects/${projectId}/api-keys/${keyId}`, { method: "DELETE" }),
   createSession: (body: CreateSessionBody) =>
     authedJson<SessionInfo>("/v1/sessions", { method: "POST", body: JSON.stringify(body) }),
+  getSession: (sessionId: string) => authedJson<SessionInfo>(`/v1/sessions/${sessionId}`),
   endSession: (sessionId: string) => authedJson<SessionInfo>(`/v1/sessions/${sessionId}/end`, { method: "POST" }),
   listSessions: (orgId: string, params?: ListParams) =>
     authedJson<Page<SessionInfo>>(`/v1/orgs/${orgId}/sessions${qs(params)}`),
