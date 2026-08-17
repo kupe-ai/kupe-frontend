@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Matrix } from "@/components/ui/matrix";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +20,6 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { openRazorpayCheckout, preloadRazorpayCheckout } from "@/lib/razorpay";
 import type { BillingPlan, BillingSubscription } from "@/types";
-
-const PLAN_BAR_HEIGHTS = ["40%", "56%", "74%", "92%"] as const;
 
 const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4; showDiscount?: boolean }> = {
   payg: { blurb: "No commitment — prepay and draw down.", bars: 1, showDiscount: true },
@@ -63,6 +62,7 @@ export function BillingPlanCards({
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [amount, setAmount] = useState("1000");
+  const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -191,8 +191,10 @@ export function BillingPlanCards({
                 "relative flex h-full flex-col rounded-2xl border bg-card p-5 shadow-elevated",
                 isCurrent ? "border-primary/55 ring-1 ring-primary/35" : "border-border",
               )}
+              onMouseEnter={() => setHoveredPlan(plan.code)}
+              onMouseLeave={() => setHoveredPlan((code) => (code === plan.code ? null : code))}
             >
-              <PlanArt bars={meta.bars} title={plan.display_name} />
+              <PlanArt bars={meta.bars} title={plan.display_name} hovered={hoveredPlan === plan.code} />
               <div className="relative mt-4 flex min-h-6 items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{plan.display_name}</p>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -313,25 +315,83 @@ export function BillingPlanCards({
   );
 }
 
-function PlanArt({ bars, title }: { bars: 1 | 2 | 3 | 4; title: string }) {
-  const shown = PLAN_BAR_HEIGHTS.slice(0, bars);
+const MATRIX_GAP = 3;
+const MATRIX_TARGET = 7;
+const PLAN_BAR_HEIGHTS = [0.4, 0.56, 0.74, 0.92] as const;
+
+function planBarPattern(rows: number, cols: number, barCount: 1 | 2 | 3 | 4): number[][] {
+  const frame = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
+  const shown = PLAN_BAR_HEIGHTS.slice(0, barCount);
+  const gapCols = 1;
+  let barWidth = Math.max(1, Math.round(cols * 0.12));
+  const maxWidth = Math.max(1, Math.floor((cols - (barCount - 1) * gapCols - 1) / barCount));
+  barWidth = Math.min(barWidth, maxWidth);
+  const total = barCount * barWidth + Math.max(0, barCount - 1) * gapCols;
+  const start = Math.max(0, Math.min(1, cols - total));
+
+  shown.forEach((h, i) => {
+    const barRows = Math.max(2, Math.round(h * rows));
+    const col0 = start + i * (barWidth + gapCols);
+    for (let r = rows - barRows; r < rows; r++) {
+      const t = (r - (rows - barRows) + 1) / barRows;
+      const value = 0.72 + 0.28 * t;
+      for (let c = 0; c < barWidth; c++) {
+        const col = col0 + c;
+        if (col >= 0 && col < cols) frame[r]![col] = value;
+      }
+    }
+  });
+  return frame;
+}
+
+function PlanArt({ bars, title, hovered }: { bars: 1 | 2 | 3 | 4; title: string; hovered: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = (width: number, height: number) => {
+      const w = Math.round(width);
+      const h = Math.round(height);
+      setBox((prev) => (prev.w === w && prev.h === h ? prev : { w, h }));
+    };
+    update(el.clientWidth, el.clientHeight);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      update(entry.contentRect.width, entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const grid = useMemo(() => {
+    const { w, h } = box;
+    if (w < 8 || h < 8) return null;
+    const cols = Math.max(6, Math.round((w + MATRIX_GAP) / (MATRIX_TARGET + MATRIX_GAP)));
+    const size = (w - MATRIX_GAP * (cols - 1)) / cols;
+    const rows = Math.max(4, Math.floor((h + MATRIX_GAP) / (size + MATRIX_GAP)));
+    return { cols, rows, size, pattern: planBarPattern(rows, cols, bars) };
+  }, [box, bars]);
 
   return (
-    <div
-      role="img"
-      aria-label={title}
-      className="group/bars flex h-28 items-end gap-1.5 px-1"
-    >
-      {shown.map((height, i) => (
-        <div
-          key={height}
-          className="min-w-4 w-[18%] max-w-7 origin-bottom rounded-t-md kupe-theme-gradient transition-transform duration-500 ease-[var(--ease-out-soft)] group-hover/bars:scale-y-125"
-          style={{
-            height,
-            transitionDelay: `${i * 55}ms`,
-          }}
+    <div ref={ref} className="flex h-28 w-full items-center justify-center overflow-hidden">
+      {grid ? (
+        <Matrix
+          rows={grid.rows}
+          cols={grid.cols}
+          size={grid.size}
+          gap={MATRIX_GAP}
+          pattern={grid.pattern}
+          scrambleOnHover
+          showOffDots
+          hovered={hovered}
+          className="flex h-full w-full items-center justify-center"
+          palette={{ on: "var(--primary)", off: "var(--muted-foreground)" }}
+          ariaLabel={title}
         />
-      ))}
+      ) : null}
     </div>
   );
 }

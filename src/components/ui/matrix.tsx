@@ -34,6 +34,10 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   levels?: number[]
   /** Shuffle dots on hover, then settle back to the original pattern (700ms). */
   scrambleOnHover?: boolean
+  /** Keep off cells visible as a muted grid, including during scramble. */
+  showOffDots?: boolean
+  /** When set, scramble on this becoming true instead of the matrix's own hover. */
+  hovered?: boolean
 }
 
 function clamp(value: number): number {
@@ -504,6 +508,8 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       mode = "default",
       levels,
       scrambleOnHover = false,
+      showOffDots = false,
+      hovered,
       className,
       ...props
     },
@@ -608,6 +614,10 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       scrambleRafRef.current = requestAnimationFrame(tick)
     }
 
+    useEffect(() => {
+      if (hovered) startScramble()
+    }, [hovered])
+
     return (
       <div
         ref={ref}
@@ -626,7 +636,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
         }
         {...props}
         onMouseEnter={(e) => {
-          startScramble()
+          if (hovered === undefined) startScramble()
           props.onMouseEnter?.(e)
         }}
         onMouseLeave={props.onMouseLeave}
@@ -702,17 +712,19 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
               const opacity = clamp(brightness * value)
               const isActive = opacity > 0.5
               const isOn = opacity > 0.05
-              const hideOff =
-                !scrambleOnHover &&
-                (palette.off === "transparent" || palette.off === "none")
-              if (!isOn && hideOff) {
+              const offHidden =
+                palette.off === "transparent" || palette.off === "none"
+              if (!isOn && !showOffDots && offHidden && !scrambling) {
                 return null
               }
               const fill =
-                isOn || scrambleOnHover ? `url(#${onFillId})` : `url(#${offFillId})`
+                isOn || (scrambleOnHover && !showOffDots)
+                  ? `url(#${onFillId})`
+                  : `url(#${offFillId})`
 
               const scale = isActive ? 1.1 : 1
               const radius = (size / 2) * 0.9
+              const offOpacity = showOffDots ? 0.22 : scrambleOnHover ? 0 : 0.1
 
               return (
                 <circle
@@ -720,13 +732,16 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
                   className={cn(
                     "matrix-pixel",
                     isActive && "matrix-pixel-active",
-                    !isOn && !scrambleOnHover && "opacity-20 dark:opacity-[0.1]"
+                    !isOn &&
+                      !scrambleOnHover &&
+                      !showOffDots &&
+                      "opacity-20 dark:opacity-[0.1]"
                   )}
                   cx={pos.x + size / 2}
                   cy={pos.y + size / 2}
                   r={radius}
                   fill={fill}
-                  opacity={isOn ? opacity : scrambleOnHover ? 0 : 0.1}
+                  opacity={isOn ? opacity : offOpacity}
                   style={{
                     transform: `scale(${scale})`,
                   }}
