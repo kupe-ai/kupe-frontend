@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { safeNextPath } from "@/lib/safe-next";
 
 /**
  * Google OAuth lands here (redirectTo set in components/auth/google-button.tsx).
@@ -11,7 +12,7 @@ import { supabase } from "@/lib/supabase";
  */
 export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams();
-  const next = searchParams.get("next") || "/";
+  const next = safeNextPath(searchParams.get("next"));
   const [ready, setReady] = useState(false);
   const [ok, setOk] = useState(false);
 

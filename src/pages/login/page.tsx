@@ -1,10 +1,13 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/useAuth";
 import { LoginLanding } from "@/components/auth/login-landing";
 import { LoginForm } from "@/pages/login/login-form";
+import { safeNextPath } from "@/lib/safe-next";
 
 export default function LoginPage() {
   const { session, loading } = useAuth();
+  const [params] = useSearchParams();
+  const next = safeNextPath(params.get("next"));
 
   if (loading) {
     return (
@@ -15,7 +18,7 @@ export default function LoginPage() {
   }
 
   if (session) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={next} replace />;
   }
 
   return (

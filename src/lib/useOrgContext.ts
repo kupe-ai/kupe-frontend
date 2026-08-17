@@ -12,6 +12,7 @@ export function useOrgContext(enabled: boolean) {
   const [project, setProject] = useState<Project | null>(null);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [loading, setLoading] = useState(true);
+  const [fetched, setFetched] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (preferredOrgId?: string | null, preferredProjectId?: string | null) => {
@@ -52,13 +53,18 @@ export function useOrgContext(enabled: boolean) {
       setError(err instanceof Error ? err.message : "Failed to load organization");
     } finally {
       setLoading(false);
+      setFetched(true);
     }
   }, []);
 
   useEffect(() => {
     if (!enabled) {
       setOrg(null);
+      setOrgs([]);
       setProject(null);
+      setProjects([]);
+      setMembership(null);
+      setFetched(false);
       setLoading(false);
       return;
     }
@@ -85,7 +91,7 @@ export function useOrgContext(enabled: boolean) {
     projects,
     project,
     membership,
-    loading,
+    loading: enabled ? !fetched || loading : false,
     error,
     selectOrg,
     selectProject,

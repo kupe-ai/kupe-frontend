@@ -271,6 +271,7 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
       "Billing amounts are converted at the latest exchange rate for the currency you request. APIs default to USD; pass currency=INR to match the dashboard. Call-session costs stay grouped on /usage/sessions — click through /v1/sessions/{id}/usage for the per-metric breakdown. Voice Library TTS and similar extras are listed separately on /usage/standalone.",
     endpoints: [
       { method: "GET", path: "/v1/orgs/{org_id}/billing/wallet", summary: "Wallet balance and credits. Default currency USD." },
+      { method: "GET", path: "/v1/billing/plans", summary: "Plan catalog in the requested currency. Default USD." },
       { method: "GET", path: "/v1/orgs/{org_id}/billing/invoices", summary: "List invoices, paginated." },
       { method: "GET", path: "/v1/orgs/{org_id}/usage/cost-summary", summary: "Period usage total in the requested currency." },
     ],

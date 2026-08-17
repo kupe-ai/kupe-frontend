@@ -28,12 +28,38 @@ const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4; showDiscou
   enterprise: { blurb: "Custom pricing at volume, dedicated support.", bars: 4 },
 };
 
-/** Shared optical list price so every plan’s “was” rate lines up. Charged rates stay as-is. */
-const VOICE_LIST_RUPEES = 4;
+function planCurrency(plan: BillingPlan, fallback: DisplayCurrency): DisplayCurrency {
+  return plan.currency === "USD" || plan.currency === "INR" ? plan.currency : fallback;
+}
 
-function money(rupees: number | null | undefined, digits = 2) {
-  if (rupees == null) return "Custom";
-  return `₹${rupees.toLocaleString("en-IN", { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
+function planAmount(plan: BillingPlan, key: "voice" | "telephony" | "rental" | "monthly" | "topup" | "list"): number | null {
+  const generic = {
+    voice: plan.voice_rate,
+    telephony: plan.telephony_rate,
+    rental: plan.phone_rental_per_month,
+    monthly: plan.monthly_commitment,
+    topup: plan.min_topup,
+    list: plan.list_voice_rate,
+  }[key];
+  if (generic != null) return generic;
+  const legacy = {
+    voice: plan.voice_rate_rupees,
+    telephony: plan.telephony_rate_rupees,
+    rental: plan.phone_rental_rupees_per_month,
+    monthly: plan.monthly_commitment_rupees,
+    topup: plan.min_topup_rupees ?? null,
+    list: null,
+  }[key];
+  return legacy ?? null;
+}
+
+function money(amount: number | null | undefined, currency: DisplayCurrency, digits?: number) {
+  if (amount == null) return "Custom";
+  const symbol = currency === "USD" ? "$" : "₹";
+  const locale = currency === "INR" ? "en-IN" : "en-US";
+  const max = digits ?? (currency === "USD" ? 4 : 2);
+  const min = digits === 0 ? 0 : Math.min(2, max);
+  return `${symbol}${amount.toLocaleString(locale, { maximumFractionDigits: max, minimumFractionDigits: min })}`;
 }
 
 /** Nearest 5% from list → charged (optical only). */
@@ -56,7 +82,7 @@ export function BillingPlanCards({
   orgId: string | null | undefined;
   canManage: boolean;
   onChanged?: () => void;
-  /** Drives the PAYG matrix currency glyph (₹ / $). */
+  /** Display currency for plan rates (API converts INR storage). */
   currency?: DisplayCurrency;
 }) {
   const [plans, setPlans] = useState<BillingPlan[]>([]);
@@ -71,7 +97,7 @@ export function BillingPlanCards({
     setLoading(true);
     try {
       const [p, s] = await Promise.all([
-        api.getPlans(),
+        api.getPlans({ currency }),
         orgId ? api.getBillingSubscription(orgId) : Promise.resolve(null),
       ]);
       setPlans(p);
@@ -83,7 +109,7 @@ export function BillingPlanCards({
     } finally {
       setLoading(false);
     }
-  }, [orgId]);
+  }, [orgId, currency]);
 
   useEffect(() => {
     void load();
@@ -178,15 +204,23 @@ export function BillingPlanCards({
                 : plan.code === "enterprise"
                   ? "Talk to sales"
                   : "Subscribe";
+          const shownCurrency = planCurrency(plan, currency);
+          const voiceRate = planAmount(plan, "voice");
+          const telephonyRate = planAmount(plan, "telephony");
+          const rentalRate = planAmount(plan, "rental");
+          const monthly = planAmount(plan, "monthly");
+          const minTopup = planAmount(plan, "topup");
+          const listVoice = planAmount(plan, "list");
           const discountPct =
-            meta.showDiscount && plan.voice_rate_rupees != null
-              ? approxOffPct(plan.voice_rate_rupees, VOICE_LIST_RUPEES)
+            meta.showDiscount && voiceRate != null && listVoice != null
+              ? approxOffPct(voiceRate, listVoice)
               : undefined;
           const listMonthly =
-            discountPct && plan.monthly_commitment_rupees
-              ? Math.round(listFromDiscount(plan.monthly_commitment_rupees, discountPct) / 1000) * 1000
+            discountPct && monthly
+              ? shownCurrency === "INR"
+                ? Math.round(listFromDiscount(monthly, discountPct) / 1000) * 1000
+                : Math.round(listFromDiscount(monthly, discountPct) * 100) / 100
               : null;
-          const listVoice = discountPct ? VOICE_LIST_RUPEES : null;
           return (
             <div
               key={plan.code}
@@ -218,11 +252,11 @@ export function BillingPlanCards({
               <div className="relative mt-1 min-h-7">
                 {listMonthly ? (
                   <p className="text-xs text-muted-foreground line-through decoration-muted-foreground/70">
-                    {money(listMonthly, 0)} /month
+                    {money(listMonthly, shownCurrency, shownCurrency === "INR" ? 0 : 2)} /month
                   </p>
                 ) : null}
                 <p className="text-xl leading-7 font-semibold tracking-tight">
-                  {plan.monthly_commitment_rupees ? `${money(plan.monthly_commitment_rupees, 0)} /month` : "Pay as you go"}
+                  {monthly ? `${money(monthly, shownCurrency, shownCurrency === "INR" ? 0 : 2)} /month` : "Pay as you go"}
                 </p>
               </div>
               <p className="relative mt-1 h-8 line-clamp-2 text-xs leading-4 text-muted-foreground">{meta.blurb}</p>
@@ -250,23 +284,23 @@ export function BillingPlanCards({
 
               <ul className="relative mt-5 flex-1 space-y-3">
                 <PlanFeature
-                  text={`~${money(plan.voice_rate_rupees)} / minute`}
-                  was={listVoice != null ? `~${money(listVoice)} / minute` : undefined}
+                  text={`~${money(voiceRate, shownCurrency)} / minute`}
+                  was={discountPct && listVoice != null ? `~${money(listVoice, shownCurrency)} / minute` : undefined}
                   note="Voice calls"
-                  show={plan.voice_rate_rupees != null}
+                  show={voiceRate != null}
                 />
-                <PlanFeature text={`₹${plan.telephony_rate_rupees ?? "—"} / minute`} note="Telephony" show={plan.telephony_rate_rupees != null} />
+                <PlanFeature text={`${money(telephonyRate, shownCurrency)} / minute`} note="Telephony" show={telephonyRate != null} />
                 <PlanFeature
-                  text={`₹${plan.phone_rental_rupees_per_month ?? "—"} / month`}
+                  text={`${money(rentalRate, shownCurrency)} / month`}
                   note="Phone number rental"
-                  show={plan.phone_rental_rupees_per_month != null}
+                  show={rentalRate != null}
                 />
                 {plan.code === "enterprise" && (
                   <>
                     <PlanFeature text="Custom concurrency & rate limits" show />
                     <PlanFeature text="Forward-deployed engineering support" show />
                     <PlanFeature text="Available on 1,00,000+ minutes/month" show />
-                    <PlanFeature text={`Renewals from ${money(plan.min_topup_rupees)}`} show={plan.min_topup_rupees != null} />
+                    <PlanFeature text={`Renewals from ${money(minTopup, shownCurrency, shownCurrency === "INR" ? 0 : 2)}`} show={minTopup != null} />
                     {isCurrent && (
                       <li>
                         <Button size="sm" variant="outline" className="w-full rounded-full" disabled={!canManage} onClick={() => setAddOpen(true)}>
@@ -329,52 +363,43 @@ const MATRIX_TARGET = 7;
 const PLAN_BAR_HEIGHTS = [0.4, 0.56, 0.74, 0.92] as const;
 const ICON_VALUE = 0.92;
 
-/** Pixel glyphs stamped into the muted right zone of each plan matrix. */
+/** Compact pixel glyphs stamped into the muted right zone. */
 const ICON_RUPEE: number[][] = [
-  [0, 1, 1, 1, 0],
-  [1, 0, 0, 0, 0],
-  [1, 1, 1, 1, 0],
-  [1, 0, 0, 0, 0],
-  [0, 1, 1, 1, 0],
-  [0, 0, 1, 0, 0],
-  [0, 0, 1, 0, 0],
+  [1, 1, 1],
+  [1, 0, 0],
+  [1, 1, 0],
+  [1, 0, 0],
+  [0, 1, 0],
 ];
 const ICON_DOLLAR: number[][] = [
-  [0, 0, 1, 0, 0],
-  [0, 1, 1, 1, 0],
-  [1, 0, 1, 0, 0],
-  [0, 1, 1, 1, 0],
-  [0, 0, 1, 0, 1],
-  [0, 1, 1, 1, 0],
-  [0, 0, 1, 0, 0],
+  [0, 1, 0],
+  [1, 1, 1],
+  [1, 1, 0],
+  [0, 1, 1],
+  [1, 1, 1],
+  [0, 1, 0],
 ];
 /** Briefcase — starter / business. */
 const ICON_BRIEFCASE: number[][] = [
-  [0, 1, 1, 1, 0],
-  [1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1],
-  [1, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1],
+  [0, 1, 0],
+  [1, 1, 1],
+  [1, 0, 1],
+  [1, 1, 1],
 ];
 /** Rising stairs — scale. */
 const ICON_SCALE: number[][] = [
-  [0, 0, 0, 0, 1],
-  [0, 0, 0, 1, 1],
-  [0, 0, 1, 0, 1],
-  [0, 1, 0, 0, 1],
-  [1, 0, 0, 0, 1],
-  [1, 1, 1, 1, 1],
+  [0, 0, 1],
+  [0, 1, 1],
+  [1, 0, 1],
+  [1, 1, 1],
 ];
 /** Building — enterprise. */
 const ICON_BUILDING: number[][] = [
-  [0, 1, 1, 1, 0],
-  [1, 0, 1, 0, 1],
-  [1, 1, 1, 1, 1],
-  [1, 0, 1, 0, 1],
-  [1, 1, 1, 1, 1],
-  [1, 0, 1, 0, 1],
-  [1, 1, 1, 1, 1],
+  [0, 1, 0],
+  [1, 0, 1],
+  [1, 1, 1],
+  [1, 0, 1],
+  [1, 1, 1],
 ];
 
 function planIcon(planCode: string, currency: DisplayCurrency): number[][] {
@@ -408,10 +433,10 @@ function planArtPattern(
 ): number[][] {
   const frame = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
   const icon = planIcon(planCode, currency);
-  const iconW = icon[0]?.length ?? 5;
+  const iconW = icon[0]?.length ?? 3;
   const iconH = icon.length;
   // Keep a muted gutter + icon zone on the right so bars never eat the glyph.
-  const iconZone = Math.min(cols, iconW + 2);
+  const iconZone = Math.min(cols, iconW + 3);
   const barZone = Math.max(barCount * 2, cols - iconZone - 1);
 
   const shown = PLAN_BAR_HEIGHTS.slice(0, barCount);
@@ -435,8 +460,8 @@ function planArtPattern(
     }
   });
 
-  if (cols >= iconW + 2 && rows >= iconH) {
-    const originCol = Math.max(barZone + 1, cols - iconW - 1);
+  if (cols >= iconW + 3 && rows >= iconH + 1) {
+    const originCol = Math.max(barZone + 1, cols - iconW - 2);
     const originRow = Math.max(0, Math.floor((rows - iconH) / 2));
     stampIcon(frame, icon, originRow, originCol);
   }

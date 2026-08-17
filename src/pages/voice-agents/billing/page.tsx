@@ -346,6 +346,7 @@ export default function BillingPage() {
           open={manageOpen}
           onOpenChange={setManageOpen}
           orgId={org.id}
+          currency={currency}
           onChanged={() => setRefreshKey((k) => k + 1)}
         />
       )}

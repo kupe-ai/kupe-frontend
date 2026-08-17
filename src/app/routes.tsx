@@ -7,7 +7,8 @@ import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import { useFeatureFlags } from "@/context/feature-flags-context";
 
 function Flagged({ flag, children }: { flag: string; children: ReactNode }) {
-  const { isEnabled } = useFeatureFlags();
+  const { isEnabled, loading } = useFeatureFlags();
+  if (loading) return null;
   if (!isEnabled(flag)) return <Navigate to="/" replace />;
   return children;
 }

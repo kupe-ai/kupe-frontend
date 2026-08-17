@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/useAuth";
+import { safeNextPath, withNextParam } from "@/lib/safe-next";
 import { useWorkspace } from "@/context/workspace-context";
 import { api } from "@/lib/api";
 import { BrandLockup } from "@/components/brand/wordmark";
@@ -19,6 +20,8 @@ export default function OnboardingPage() {
   const { session, loading: authLoading } = useAuth();
   const workspace = useWorkspace();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const next = safeNextPath(params.get("next"));
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -31,12 +34,12 @@ export default function OnboardingPage() {
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={withNextParam("/login", next)} replace />;
   }
 
   // Already has an org — nothing to onboard.
   if (workspace.orgs.length > 0) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={next} replace />;
   }
 
   const suggestedName =
@@ -53,7 +56,7 @@ export default function OnboardingPage() {
       await api.createProject(org.id, "Default");
       localStorage.setItem("kupe.orgId", org.id);
       workspace.refresh();
-      navigate("/", { replace: true });
+      navigate(next, { replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not create your workspace");
       setSubmitting(false);

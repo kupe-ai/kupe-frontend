@@ -279,7 +279,8 @@ export const api = {
     }
   },
   getBillingConfig: () => authedJson<{ key_id: string }>("/v1/billing/config"),
-  getPlans: () => authedJson<BillingPlan[]>("/v1/billing/plans"),
+  getPlans: (params?: { currency?: string }) =>
+    authedJson<BillingPlan[]>(`/v1/billing/plans${usageQuery(params)}`),
   getBillingSubscription: (orgId: string) =>
     authedJson<BillingSubscription>(`/v1/orgs/${orgId}/billing/subscription`),
   createTopupOrder: (orgId: string, amountMinorUnits: number, planCode = "payg") =>

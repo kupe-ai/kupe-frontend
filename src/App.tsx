@@ -2,6 +2,7 @@ import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import AppRoutes from "@/app/routes";
+import { AuthProvider } from "@/lib/useAuth";
 import { WorkspaceProvider } from "@/context/workspace-context";
 import { FeatureFlagsProvider } from "@/context/feature-flags-context";
 import { SessionBridgeProvider } from "@/context/session-context";
@@ -20,6 +21,7 @@ export default function App() {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+          <AuthProvider>
           <WorkspaceProvider>
             <FeatureFlagsProvider>
             <SessionBridgeProvider>
@@ -32,6 +34,7 @@ export default function App() {
             </SessionBridgeProvider>
             </FeatureFlagsProvider>
           </WorkspaceProvider>
+          </AuthProvider>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

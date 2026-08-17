@@ -202,6 +202,13 @@ export type Invoice = {
 export type BillingPlan = {
   code: "payg" | "business" | "scale" | "enterprise";
   display_name: string;
+  currency?: string;
+  voice_rate?: number | null;
+  telephony_rate?: number | null;
+  phone_rental_per_month?: number | null;
+  monthly_commitment?: number | null;
+  min_topup?: number | null;
+  list_voice_rate?: number | null;
   voice_rate_rupees: number | null;
   telephony_rate_rupees: number | null;
   phone_rental_rupees_per_month: number | null;

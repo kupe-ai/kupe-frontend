@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
-/** Tracks the current Supabase auth session, kept in one place since both
- * the auth gate (App.tsx) and any component needing the current user
- * (e.g. showing their email) would otherwise each subscribe separately.
+type AuthValue = {
+  session: Session | null;
+  loading: boolean;
+  signOut: () => Promise<void>;
+};
+
+const AuthContext = createContext<AuthValue | null>(null);
+
+/** One session for the whole tree — per-component `useAuth()` used to each
+ * call `getSession()` on its own, so a refresh could see "logged in" in the
+ * layout while workspace still thought there was no user and bounce home.
  */
-export function useAuth() {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,5 +29,22 @@ export function useAuth() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  return { session, loading, signOut: () => supabase.auth.signOut() };
+  const value = useMemo<AuthValue>(
+    () => ({
+      session,
+      loading,
+      signOut: async () => {
+        await supabase.auth.signOut();
+      },
+    }),
+    [session, loading],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  return ctx;
 }

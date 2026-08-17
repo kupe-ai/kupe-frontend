@@ -1,6 +1,14 @@
 "use client";
 
-import { Room, RoomEvent, Track, type LocalTrackPublication, type RemoteTrack } from "livekit-client";
+import {
+  ParticipantKind,
+  Room,
+  RoomEvent,
+  Track,
+  type LocalTrackPublication,
+  type Participant,
+  type RemoteTrack,
+} from "livekit-client";
 import { api } from "@/lib/api";
 import { captureEvent } from "@/lib/posthog";
 import { createWebCall } from "@/lib/api/voice/calls";
@@ -55,6 +63,10 @@ function emitLocalMic(
   const cloned = pub.track.mediaStreamTrack.clone();
   clones.push(cloned);
   callbacks.onLocalTrack?.(cloned);
+}
+
+function isAgentParticipant(participant: Participant) {
+  return participant.kind === ParticipantKind.AGENT || participant.identity.startsWith("agent-");
 }
 
 /** Connects the browser mic to a LiveKit room for a "Test Agent" call:
@@ -155,6 +167,18 @@ export async function startWebCall(
       await room.disconnect();
       await hangUpSession(callId);
     };
+
+    // end_call drops the agent out of the room; hang up here so the timer
+    // and WebRTC connection don't keep running after the bot said goodbye.
+    let seenAgent = [...room.remoteParticipants.values()].some(isAgentParticipant);
+    room.on(RoomEvent.ParticipantConnected, (participant: Participant) => {
+      if (isAgentParticipant(participant)) seenAgent = true;
+    });
+    room.on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
+      if (isAgentParticipant(participant) && seenAgent) {
+        void hangUp();
+      }
+    });
 
     return {
       room,

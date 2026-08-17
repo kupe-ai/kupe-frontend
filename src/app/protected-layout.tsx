@@ -1,13 +1,16 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { useAuth } from "@/lib/useAuth";
 import { useWorkspace } from "@/context/workspace-context";
 import { useFeatureFlags } from "@/context/feature-flags-context";
+import { withNextParam } from "@/lib/safe-next";
 
 export default function ProtectedLayout() {
   const { session, loading, signOut } = useAuth();
   const workspace = useWorkspace();
   const flags = useFeatureFlags();
+  const location = useLocation();
+  const here = `${location.pathname}${location.search}`;
 
   if (loading || workspace.loading || flags.loading) {
     return (
@@ -18,7 +21,7 @@ export default function ProtectedLayout() {
   }
 
   if (!session) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={withNextParam("/login", here)} replace />;
   }
 
   if (!flags.isEnabled("account_access")) {
@@ -36,7 +39,7 @@ export default function ProtectedLayout() {
   }
 
   if (!workspace.org && workspace.orgs.length === 0) {
-    return <Navigate to="/onboarding" replace />;
+    return <Navigate to={withNextParam("/onboarding", here)} replace />;
   }
 
   return (

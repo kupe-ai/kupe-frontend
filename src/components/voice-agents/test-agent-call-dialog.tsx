@@ -428,7 +428,7 @@ export function TestAgentCallDialog({
                 <p className="truncate text-sm font-semibold">{agentName}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground capitalize">
                   {statusLabel}
-                  {status === "connected" && (
+                  {(status === "connected" || status === "ended") && elapsedSec > 0 && (
                     <span className="font-mono normal-case"> · {formatDuration(elapsedSec)}</span>
                   )}
                 </p>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { api } from "@/lib/api";
+import { api, type DisplayCurrency } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,11 +42,13 @@ export function ManageSubscriptionModal({
   onOpenChange,
   orgId,
   onChanged,
+  currency = "INR",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orgId: string;
   onChanged?: () => void;
+  currency?: DisplayCurrency;
 }) {
   const [sub, setSub] = useState<BillingSubscription | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
@@ -57,7 +59,7 @@ export function ManageSubscriptionModal({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, p] = await Promise.all([api.getBillingSubscription(orgId), api.getPlans()]);
+      const [s, p] = await Promise.all([api.getBillingSubscription(orgId), api.getPlans({ currency })]);
       setSub(s);
       setPlans(p.filter((pl) => pl.is_self_serve));
       setTargetPlan(s.plan_code);
@@ -66,7 +68,7 @@ export function ManageSubscriptionModal({
     } finally {
       setLoading(false);
     }
-  }, [orgId]);
+  }, [orgId, currency]);
 
   useEffect(() => {
     if (open) void load();
@@ -187,7 +189,9 @@ export function ManageSubscriptionModal({
                     {changeableTargets.map((p) => (
                       <SelectItem key={p.code} value={p.code}>
                         {p.display_name}
-                        {p.monthly_commitment_rupees ? ` — ₹${p.monthly_commitment_rupees.toLocaleString("en-IN")}/mo` : ""}
+                        {p.monthly_commitment || p.monthly_commitment_rupees
+                          ? ` — ${currency === "USD" ? "$" : "₹"}${(p.monthly_commitment ?? p.monthly_commitment_rupees)!.toLocaleString(currency === "INR" ? "en-IN" : "en-US")}/mo`
+                          : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>

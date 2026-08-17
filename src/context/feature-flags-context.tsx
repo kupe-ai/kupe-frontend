@@ -45,6 +45,7 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const orgId = workspace?.org?.id;
   const [flags, setFlags] = useState<Record<string, boolean>>(DEFAULT_FLAGS);
   const [loading, setLoading] = useState(true);
+  const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
     if (!isPosthogConfigured()) return;
@@ -68,6 +69,7 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
 
   const load = async () => {
     if (!session) {
+      setFetched(false);
       setLoading(false);
       return;
     }
@@ -80,6 +82,7 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
       setFlags(DEFAULT_FLAGS);
     } finally {
       setLoading(false);
+      setFetched(true);
     }
   };
 
@@ -91,11 +94,11 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<FlagsValue>(
     () => ({
       flags,
-      loading,
+      loading: session ? !fetched || loading : false,
       isEnabled: (flag) => flags[flag] !== false,
       refresh: () => void load(),
     }),
-    [flags, loading],
+    [flags, loading, session, fetched],
   );
 
   return <FlagsContext.Provider value={value}>{children}</FlagsContext.Provider>;
