@@ -58,6 +58,15 @@ export function identifyGroup(orgId: string, properties?: Record<string, string 
   posthog.group("organization", orgId, properties);
 }
 
+export function captureEvent(
+  event: string,
+  properties?: Record<string, unknown>,
+): void {
+  if (!KEY) return;
+  initPosthog();
+  posthog.capture(event, properties);
+}
+
 export function captureException(
   error: unknown,
   properties?: Record<string, unknown>,
