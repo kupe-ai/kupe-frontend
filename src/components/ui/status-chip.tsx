@@ -16,6 +16,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   complete: "success",
   success: "success",
   approved: "success",
+  accepted: "success",
   ended: "success",
   done: "success",
   passed: "success",

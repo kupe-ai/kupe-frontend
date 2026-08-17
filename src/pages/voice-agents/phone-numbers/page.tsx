@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import { api } from "@/lib/api";
+import { flagForNumber } from "@/lib/country-flag";
 import { requireScope } from "@/lib/api/workspace-scope";
 import type { TelephonyAccount } from "@/types";
 
@@ -121,7 +122,10 @@ export default function VoiceAgentsPhoneNumbersPage() {
                 ]}
               >
                 <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
-                  <span className="font-mono text-sm">{n.from_number}</span>
+                  <span className="flex items-center gap-2 font-mono text-sm">
+                    <span aria-hidden>{flagForNumber(n.from_number, n.country_iso)}</span>
+                    {n.from_number}
+                  </span>
                   <span className="text-sm capitalize text-muted-foreground">{n.provider}</span>
                   <StatusChip status={n.managed_by_kupe ? "active" : "info"}>
                     {n.managed_by_kupe ? "Kupe managed" : "Your own"}

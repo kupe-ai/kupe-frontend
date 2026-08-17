@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronLeft, Loader2, PhoneCall } from "lucide-react";
+import { Check, ChevronLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { StatusChip } from "@/components/ui/status-chip";
+import { StatusChip, formatStatusLabel } from "@/components/ui/status-chip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { flagForNumber } from "@/lib/country-flag";
 import type {
   PlivoComplianceApplication,
   PlivoCountry,
@@ -32,6 +33,12 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+}
+
+function kycStatusLabel(status: string): string {
+  if (status === "submitted") return "Under Review";
+  if (status === "accepted") return "Approved";
+  return formatStatusLabel(status);
 }
 
 export function AddNumberDialog({
@@ -291,14 +298,56 @@ function PlivoNumbersStep({
       .catch(() => toast.error("Couldn't load available numbers"))
       .finally(() => !cancelled && setLoading(false));
     if (country === "IN") {
-      api.getPlivoComplianceStatus(orgId).then((a) => !cancelled && setComplianceApp(a)).catch(() => {});
+      api
+        .refreshPlivoCompliance(orgId)
+        .then((a) => {
+          if (cancelled) return;
+          setComplianceApp(a);
+          if (a) setComplianceStatus(a.status);
+        })
+        .catch(() => {
+          api.getPlivoComplianceStatus(orgId).then((a) => {
+            if (cancelled) return;
+            setComplianceApp(a);
+            if (a) setComplianceStatus(a.status);
+          }).catch(() => {});
+        });
     }
     return () => {
       cancelled = true;
     };
   }, [orgId, country]);
 
-  const canBuy = country === "US" || complianceStatus === "accepted";
+  const kycStatus = complianceApp?.status ?? complianceStatus;
+  const reviewing = kycStatus === "submitted" || kycStatus === "draft";
+  const canBuy = country === "US" || kycStatus === "accepted";
+
+  useEffect(() => {
+    if (country !== "IN" || !reviewing) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const app = await api.refreshPlivoCompliance(orgId);
+        if (cancelled) return;
+        setComplianceApp(app);
+        if (app) {
+          setComplianceStatus((prev) => {
+            if (prev !== "accepted" && app.status === "accepted") {
+              toast.message("Business verification approved — you can buy India numbers now");
+            }
+            return app.status;
+          });
+        }
+      } catch {
+        /* keep polling; webhook/beat will catch it */
+      }
+    };
+    const id = window.setInterval(() => void tick(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [orgId, country, reviewing]);
 
   async function buy(number: string) {
     setBuying(number);
@@ -321,13 +370,24 @@ function PlivoNumbersStep({
 
       {country === "IN" && !canBuy && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950/30">
-          <p className="font-medium">Business verification required</p>
-          <p className="mt-0.5 text-muted-foreground">
-            India numbers need KYC under your own business before they can be purchased.
-          </p>
-          <Button size="sm" variant="outline" className="mt-2 rounded-full" onClick={onStartKyc}>
-            {complianceApp ? "Resume verification" : "Start verification"}
-          </Button>
+          {reviewing ? (
+            <>
+              <p className="font-medium">Verification under review</p>
+              <p className="mt-0.5 text-muted-foreground">
+                Plivo typically approves this in a few minutes. Buy unlocks automatically once they accept it.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium">Business verification required</p>
+              <p className="mt-0.5 text-muted-foreground">
+                India numbers need KYC under your own business before they can be purchased.
+              </p>
+              <Button size="sm" variant="outline" className="mt-2 rounded-full" onClick={onStartKyc}>
+                {complianceApp ? "Resume verification" : "Start verification"}
+              </Button>
+            </>
+          )}
         </div>
       )}
 
@@ -342,7 +402,9 @@ function PlivoNumbersStep({
           {numbers.map((n) => (
             <li key={n.number} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="flex items-center gap-2">
-                <PhoneCall className="size-4 text-muted-foreground" />
+                <span className="text-base leading-none" aria-hidden>
+                  {flagForNumber(n.number, n.country_iso || country)}
+                </span>
                 <span className="font-mono text-sm">{n.number}</span>
               </div>
               <Button
@@ -368,7 +430,11 @@ function PlivoNumbersStep({
         <TabsTrigger value="numbers">Numbers</TabsTrigger>
         <TabsTrigger value="kyc">
           KYC status
-          {complianceApp && <StatusChip status={complianceApp.status} className="ml-1.5" />}
+          {complianceApp && (
+            <StatusChip status={complianceApp.status} className="ml-1.5">
+              {kycStatusLabel(complianceApp.status)}
+            </StatusChip>
+          )}
         </TabsTrigger>
       </TabsList>
       <TabsContent value="numbers">{body}</TabsContent>
@@ -379,10 +445,21 @@ function PlivoNumbersStep({
               <div className="flex items-center justify-between rounded-lg border border-border p-3">
                 <div>
                   <p className="text-sm font-medium">{complianceApp.business_name}</p>
-                  <p className="text-xs text-muted-foreground">Submitted {new Date(complianceApp.created_at).toLocaleDateString()}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {complianceApp.status === "submitted" ? "Under review since" : "Submitted"}{" "}
+                    {new Date(complianceApp.created_at).toLocaleDateString()}
+                  </p>
                 </div>
-                <StatusChip status={complianceApp.status} />
+                <StatusChip status={complianceApp.status}>{kycStatusLabel(complianceApp.status)}</StatusChip>
               </div>
+              {complianceApp.status === "submitted" && (
+                <p className="text-sm text-muted-foreground">
+                  Plivo is reviewing this. Status updates automatically — usually within a few minutes.
+                </p>
+              )}
+              {complianceApp.status === "accepted" && (
+                <p className="text-sm text-muted-foreground">Approved — you can buy India numbers now.</p>
+              )}
               {complianceApp.status === "rejected" && complianceApp.rejection_reason && (
                 <p className="text-sm text-destructive">{complianceApp.rejection_reason}</p>
               )}

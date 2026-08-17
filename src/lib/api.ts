@@ -1,5 +1,6 @@
 import { BACKEND_URL } from "../config";
 import { supabase } from "./supabase";
+import { captureException } from "./posthog";
 import type {
   Agent,
   AgentAnalysis,
@@ -107,19 +108,30 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
 
   try {
     return await fetch(`${BACKEND_URL}${path}`, { ...init, headers });
-  } catch {
+  } catch (err) {
+    captureException(err, { source: "api.network", path, method: init?.method ?? "GET" });
     throw new Error(
       `Cannot reach API at ${BACKEND_URL} — is kupe-backend running (uvicorn on :8000)?`,
     );
   }
 }
 
+async function throwIfNotOk(res: Response, path: string, method: string): Promise<void> {
+  if (res.ok) return;
+  const body = await res.json().catch(() => ({}));
+  const detail = (body as { detail?: unknown }).detail;
+  const message =
+    typeof detail === "string" ? detail : detail != null ? JSON.stringify(detail) : `Backend returned ${res.status}`;
+  const err = new Error(message);
+  if (res.status !== 401 && res.status !== 403) {
+    captureException(err, { source: "api.http", path, method, status: res.status });
+  }
+  throw err;
+}
+
 async function authedJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await authedFetch(path, init);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `Backend returned ${res.status}`);
-  }
+  await throwIfNotOk(res, path, init?.method ?? "GET");
   if (res.status === 204) return undefined as T;
   return res.json();
 }
@@ -165,16 +177,14 @@ export const api = {
       }),
     });
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `Backend returned ${res.status}`);
+      await throwIfNotOk(res, `/v1/voices/${voiceId}/speak`, "POST");
     }
     return res.blob();
   },
   getVoicePreview: async (voiceId: string): Promise<Blob> => {
     const res = await authedFetch(`/v1/voices/${voiceId}/preview`);
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.detail || `Backend returned ${res.status}`);
+      await throwIfNotOk(res, `/v1/voices/${voiceId}/preview`, "GET");
     }
     return res.blob();
   },
@@ -255,9 +265,7 @@ export const api = {
   downloadInvoicePdf: async (orgId: string, invoiceId: string, invoiceNumber: string) => {
     const res = await authedFetch(`/v1/orgs/${orgId}/billing/invoices/${invoiceId}/pdf`);
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const detail = (body as { detail?: string }).detail;
-      throw new Error(detail || `Backend returned ${res.status}`);
+      await throwIfNotOk(res, `/v1/orgs/${orgId}/billing/invoices/${invoiceId}/pdf`, "GET");
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);

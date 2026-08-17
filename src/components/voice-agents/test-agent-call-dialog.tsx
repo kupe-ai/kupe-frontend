@@ -303,33 +303,11 @@ export function TestAgentCallDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[min(90vh,680px)] flex-col gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-3xl">
+      <DialogContent className="flex max-h-[min(90vh,720px)] flex-col gap-0 overflow-hidden rounded-3xl p-0 sm:max-w-3xl">
         <DialogTitle className="sr-only">Test call with {agentName}</DialogTitle>
-        <div className="flex shrink-0 flex-col items-center gap-2 px-6 pt-10 pb-4 text-center">
-          <div className="relative size-16">
-            <AgentAvatar seed={seed} size={64} className="size-full rounded-2xl" />
-            {(status === "connecting" || preparing) && (
-              <span className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-background shadow-sm">
-                <Matrix rows={7} cols={7} frames={loader} fps={12} size={1.4} gap={0.4} palette={{ on: "var(--primary)", off: "transparent" }} ariaLabel="Connecting" />
-              </span>
-            )}
-            {status === "connected" && (
-              <span className="absolute -right-1 -bottom-1 size-3 rounded-full bg-emerald-500 ring-2 ring-background" />
-            )}
-          </div>
-          <div>
-            <p className="text-sm font-semibold">{agentName}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-              {statusLabel}
-              {status === "connected" && (
-                <span className="font-mono normal-case"> · {formatDuration(elapsedSec)}</span>
-              )}
-            </p>
-          </div>
-        </div>
 
         <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-          <div className="flex shrink-0 flex-col items-center justify-center gap-5 px-6 pb-5 sm:w-[280px] sm:justify-start sm:border-r sm:border-border sm:pt-2 sm:pb-6">
+          <div className="flex shrink-0 flex-col items-center gap-4 px-6 pt-10 pb-5 sm:w-[300px] sm:overflow-y-auto sm:border-r sm:border-border sm:pt-8 sm:pb-6">
             {errorCopy ? (
               <div className="w-full rounded-2xl border border-border bg-muted/40 px-4 py-4 text-left">
                 <div className="flex items-start gap-3">
@@ -363,7 +341,7 @@ export function TestAgentCallDialog({
                 demo={!vizStream && (status === "connecting" || preparing)}
                 flat
                 barCount={15}
-                className="w-full sm:h-48"
+                className="w-full sm:h-44"
               />
             )}
 
@@ -390,11 +368,9 @@ export function TestAgentCallDialog({
                 <PhoneOff className="size-4" />
               </Button>
             </div>
-          </div>
 
-          <div className="flex min-h-0 flex-1 flex-col border-t border-border sm:border-t-0">
             {demoKeys.length > 0 && (
-              <div className="shrink-0 border-b border-border px-3 py-2">
+              <div className="w-full">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">Demo values</p>
                   {demoDirty && (
@@ -433,37 +409,62 @@ export function TestAgentCallDialog({
                 </div>
               </div>
             )}
-          <div
-            ref={transcriptRef}
-            className="h-56 min-h-0 overflow-y-scroll overscroll-contain p-3 sm:h-auto sm:flex-1"
-          >
-            {turns.length === 0 ? (
-              <ConversationEmptyState
-                title="Transcript"
-                description={status === "connected" ? "Listening…" : "Starts once the call connects."}
-                className="h-full min-h-48"
-              />
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                {turns.map((t) => (
-                  <div key={t.id} className={t.role === "user" ? "flex flex-col items-end" : "flex flex-col items-start"}>
-                    <Message from={t.role === "user" ? "user" : "assistant"}>
-                      <MessageContent variant="contained">{t.text}</MessageContent>
-                    </Message>
-                    {t.latencyMs !== undefined && (
-                      <span
-                        className={`mt-0.5 px-1 text-[10px] ${
-                          t.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
-                        }`}
-                      >
-                        responded in {Math.round(t.latencyMs)} ms
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+
+          <div className="flex min-h-0 flex-1 flex-col border-t border-border sm:border-t-0">
+            <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3 pr-12">
+              <div className="relative size-11 shrink-0">
+                <AgentAvatar seed={seed} size={44} className="size-full rounded-xl" />
+                {(status === "connecting" || preparing) && (
+                  <span className="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-background shadow-sm">
+                    <Matrix rows={7} cols={7} frames={loader} fps={12} size={1.2} gap={0.35} palette={{ on: "var(--primary)", off: "transparent" }} ariaLabel="Connecting" />
+                  </span>
+                )}
+                {status === "connected" && (
+                  <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{agentName}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground capitalize">
+                  {statusLabel}
+                  {status === "connected" && (
+                    <span className="font-mono normal-case"> · {formatDuration(elapsedSec)}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <div
+              ref={transcriptRef}
+              className="h-56 min-h-0 overflow-y-scroll overscroll-contain p-3 sm:h-auto sm:flex-1"
+            >
+              {turns.length === 0 ? (
+                <ConversationEmptyState
+                  title="Transcript"
+                  description={status === "connected" ? "Listening…" : "Starts once the call connects."}
+                  className="h-full min-h-48"
+                />
+              ) : (
+                <div className="flex flex-col gap-0.5">
+                  {turns.map((t) => (
+                    <div key={t.id} className={t.role === "user" ? "flex flex-col items-end" : "flex flex-col items-start"}>
+                      <Message from={t.role === "user" ? "user" : "assistant"}>
+                        <MessageContent variant="contained">{t.text}</MessageContent>
+                      </Message>
+                      {t.latencyMs !== undefined && (
+                        <span
+                          className={`mt-0.5 px-1 text-[10px] ${
+                            t.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
+                          }`}
+                        >
+                          responded in {Math.round(t.latencyMs)} ms
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
