@@ -465,7 +465,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
       ? config.llm.allowed_languages
       : config?.llm.language
         ? [config.llm.language]
-        : ["en"],
+        : ["en", "hi", "gu"],
     multilingual_enabled: config?.llm.multilingual_enabled,
     auto_detect_language: config?.llm.auto_detect_language,
     switch_after_seconds: config?.llm.switch_after_seconds ?? null,
@@ -506,9 +506,9 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
       language: data.starting_language ?? agent.config.llm.language,
       allowed_languages: data.allowed_languages?.length
         ? data.allowed_languages
-        : [data.starting_language ?? agent.config.llm.language ?? "en"],
-      multilingual_enabled: data.multilingual_enabled ?? agent.config.llm.multilingual_enabled ?? false,
-      auto_detect_language: data.auto_detect_language ?? agent.config.llm.auto_detect_language ?? false,
+        : [data.starting_language ?? agent.config.llm.language ?? "hi"],
+      multilingual_enabled: data.multilingual_enabled ?? agent.config.llm.multilingual_enabled ?? true,
+      auto_detect_language: data.auto_detect_language ?? agent.config.llm.auto_detect_language ?? true,
       output_numbers_indic: data.output_numbers_indic ?? agent.config.llm.output_numbers_indic ?? false,
       switch_after_seconds:
         data.switch_after_seconds === undefined

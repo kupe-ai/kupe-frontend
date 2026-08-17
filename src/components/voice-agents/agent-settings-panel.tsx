@@ -135,11 +135,11 @@ const DEFAULTS: Required<
   volume_threshold_db: -30,
   background_sound: "none",
   background_volume: 0,
-  multilingual_enabled: false,
-  allowed_languages: ["en"],
-  auto_detect_language: false,
+  multilingual_enabled: true,
+  allowed_languages: ["en", "hi", "gu"],
+  auto_detect_language: true,
   switch_after_seconds: null,
-  starting_language: "en",
+  starting_language: "hi",
   output_numbers_indic: false,
   nudges: [],
   hangup_after_unanswered_nudges: false,
@@ -226,8 +226,8 @@ export function AgentSettingsPanel({
           ...DEFAULTS,
           ...s,
           voicemail_message: s.voicemail_message ?? "",
-          allowed_languages: s.allowed_languages?.length ? s.allowed_languages : ["en"],
-          starting_language: s.starting_language || "en",
+          allowed_languages: s.allowed_languages?.length ? s.allowed_languages : ["en", "hi", "gu"],
+          starting_language: s.starting_language || "hi",
         });
         setLlmProviders(catalog.llms);
         setTtsProviders(catalog.tts);
@@ -625,7 +625,7 @@ export function AgentSettingsPanel({
             <SearchableMultiSelect
               values={settings.allowed_languages}
               onChange={(next) => {
-                const langs = next.length ? next : [settings.starting_language || "en"];
+                const langs = next.length ? next : [settings.starting_language || "hi"];
                 set("allowed_languages", langs);
                 if (!langs.includes(settings.starting_language)) {
                   set("starting_language", langs[0]);
