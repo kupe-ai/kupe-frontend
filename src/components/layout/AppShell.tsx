@@ -366,7 +366,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             <div
               key={pathname}
               className={cn(
-                "animate-fade-in-up h-full w-full p-0",
+                "animate-fade-in-up mx-auto h-full w-full max-w-none p-0",
                 isEditor ? "overflow-hidden" : "overflow-y-auto",
               )}
             >

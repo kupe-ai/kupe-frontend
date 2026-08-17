@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function VoiceAgentsPageShimmer() {
   return (
-    <div className="w-full space-y-6 px-4 py-5 md:px-6 md:py-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-5 md:px-6 md:py-6">
       <div className="space-y-2">
         <Skeleton className="h-3.5 w-16" />
         <Skeleton className="h-5 w-48 max-w-full" />

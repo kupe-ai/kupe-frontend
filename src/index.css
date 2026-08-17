@@ -884,8 +884,8 @@
 
   .voice-page {
     width: 100%;
-    max-width: none;
-    margin-inline: 0;
+    max-width: 64rem;
+    margin-inline: auto;
     padding: 1.25rem 1rem 2rem;
     display: flex;
     flex-direction: column;
@@ -896,10 +896,14 @@
       padding: 1.25rem 1.5rem 2.5rem;
     }
   }
-  .voice-page-wide,
-  .voice-page-md,
+  .voice-page-wide {
+    max-width: 72rem;
+  }
+  .voice-page-md {
+    max-width: 56rem;
+  }
   .voice-page-narrow {
-    max-width: none;
+    max-width: 48rem;
   }
 
   .text-display {

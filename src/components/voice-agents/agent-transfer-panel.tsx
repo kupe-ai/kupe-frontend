@@ -119,7 +119,7 @@ export function AgentTransferPanel({ agentId }: { agentId: string }) {
 
   if (loading) {
     return (
-      <div className="w-full space-y-4 px-6 py-6">
+      <div className="mx-auto w-full max-w-3xl space-y-4 px-6 py-6">
         <div className="h-6 w-40 animate-pulse rounded bg-muted" />
         <div className="h-32 animate-pulse rounded-xl bg-muted" />
       </div>
@@ -127,7 +127,7 @@ export function AgentTransferPanel({ agentId }: { agentId: string }) {
   }
 
   return (
-    <div className="w-full space-y-5 px-6 py-6">
+    <div className="mx-auto w-full max-w-3xl space-y-5 px-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold">Call transfer</p>

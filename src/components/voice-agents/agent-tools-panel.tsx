@@ -69,7 +69,7 @@ export function AgentToolsPanel({ agentId }: { agentId: string }) {
   const filteredSystem = systemTools.filter((t) => !q || t.name.toLowerCase().includes(q) || t.description.toLowerCase().includes(q));
 
   return (
-    <div className="w-full space-y-4 px-6 py-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-full bg-muted/70 p-1">
           {(

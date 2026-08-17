@@ -130,7 +130,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
 
   if (loading) {
     return (
-      <div className="w-full space-y-3 px-6 py-6">
+      <div className="mx-auto w-full max-w-3xl space-y-3 px-6 py-6">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex items-center gap-3 rounded-xl border border-border px-4 py-3">
             <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -164,7 +164,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
   }
 
   return (
-    <div className="w-full space-y-4 px-6 py-6">
+    <div className="mx-auto w-full max-w-5xl space-y-4 px-6 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="inline-flex rounded-full bg-muted/70 p-1">
           {(

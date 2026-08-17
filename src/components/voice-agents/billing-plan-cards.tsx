@@ -19,23 +19,23 @@ import { api } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import type { BillingPlan, BillingSubscription } from "@/types";
 
-const PLAN_BARS = [
-  { color: "#2f5bd7", height: "40%" },
-  { color: "#e2b93b", height: "56%" },
-  { color: "#e07a3a", height: "74%" },
-  { color: "#3aa76d", height: "92%" },
-] as const;
+const PLAN_BAR_HEIGHTS = ["40%", "56%", "74%", "92%"] as const;
 
-const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4 }> = {
-  payg: { blurb: "No commitment — prepay and draw down.", bars: 1 },
-  business: { blurb: "Lower per-minute rate with monthly autopay.", bars: 2 },
-  scale: { blurb: "Our best self-serve rate, autopay.", bars: 3 },
+const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4; discountPct?: number }> = {
+  payg: { blurb: "No commitment — prepay and draw down.", bars: 1, discountPct: 15 },
+  business: { blurb: "Lower per-minute rate with monthly autopay.", bars: 2, discountPct: 30 },
+  scale: { blurb: "Our best self-serve rate, autopay.", bars: 3, discountPct: 50 },
   enterprise: { blurb: "Custom pricing at volume, dedicated support.", bars: 4 },
 };
 
-function money(rupees: number | null | undefined) {
+function money(rupees: number | null | undefined, digits = 2) {
   if (rupees == null) return "Custom";
-  return `₹${rupees.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  return `₹${rupees.toLocaleString("en-IN", { maximumFractionDigits: digits, minimumFractionDigits: 0 })}`;
+}
+
+/** Inflate a charged price so the UI can show `pct` off while keeping the real rate. */
+function listPrice(final: number, pct: number) {
+  return final / (1 - pct / 100);
 }
 
 export function BillingPlanCards({
@@ -161,26 +161,64 @@ export function BillingPlanCards({
                 : plan.code === "enterprise"
                   ? "Talk to sales"
                   : "Subscribe";
+          const discountPct = meta.discountPct;
+          const listMonthly =
+            discountPct && plan.monthly_commitment_rupees
+              ? listPrice(plan.monthly_commitment_rupees, discountPct)
+              : null;
+          const listVoice =
+            discountPct && plan.voice_rate_rupees != null
+              ? listPrice(plan.voice_rate_rupees, discountPct)
+              : null;
           return (
             <div
               key={plan.code}
               className={cn(
-                "flex h-full flex-col rounded-2xl border bg-card p-5 shadow-elevated group/nav",
-                isCurrent ? "border-primary/60 ring-1 ring-primary/30" : "border-border",
+                "group/plan relative flex h-full flex-col overflow-hidden rounded-2xl border bg-card p-5 shadow-elevated",
+                "transition-[transform,box-shadow,border-color] duration-300 ease-[var(--ease-out-soft)]",
+                "hover:-translate-y-1 hover:shadow-[0_16px_44px_rgb(64_72_255_/_0.22)]",
+                isCurrent
+                  ? "border-primary/55 ring-1 ring-primary/35"
+                  : "border-border hover:border-primary/45",
               )}
             >
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 h-36 opacity-0 transition-opacity duration-300 group-hover/plan:opacity-100"
+                style={{
+                  background:
+                    "linear-gradient(180deg, color-mix(in srgb, var(--primary) 16%, transparent), transparent)",
+                }}
+              />
               <PlanArt bars={meta.bars} title={plan.display_name} />
-              <div className="mt-4 flex h-6 items-center justify-between gap-2">
+              <div className="relative mt-4 flex min-h-6 items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{plan.display_name}</p>
-                {isCurrent && <Badge variant="success">Current</Badge>}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {discountPct ? (
+                    <Badge variant="default" className="h-5 px-1.5 text-[10px] font-semibold">
+                      {discountPct}% off
+                    </Badge>
+                  ) : null}
+                  {isCurrent && <Badge variant="success">Current</Badge>}
+                </div>
               </div>
-              <p className="mt-1 h-7 text-xl leading-7 font-semibold tracking-tight">
-                {plan.monthly_commitment_rupees ? `${money(plan.monthly_commitment_rupees)} /month` : "Pay as you go"}
-              </p>
-              <p className="mt-1 h-8 line-clamp-2 text-xs leading-4 text-muted-foreground">{meta.blurb}</p>
+              <div className="relative mt-1 min-h-7">
+                {listMonthly ? (
+                  <p className="text-xs text-muted-foreground line-through decoration-muted-foreground/70">
+                    {money(listMonthly, 0)} /month
+                  </p>
+                ) : null}
+                <p className="text-xl leading-7 font-semibold tracking-tight">
+                  {plan.monthly_commitment_rupees ? `${money(plan.monthly_commitment_rupees, 0)} /month` : "Pay as you go"}
+                </p>
+              </div>
+              <p className="relative mt-1 h-8 line-clamp-2 text-xs leading-4 text-muted-foreground">{meta.blurb}</p>
 
               <Button
-                className="mt-4 h-9 w-full rounded-full"
+                className={cn(
+                  "relative mt-4 h-9 w-full rounded-full",
+                  !(isCurrent && plan.code !== "payg") && "hover:brightness-110",
+                )}
                 variant={isCurrent && plan.code !== "payg" ? "outline" : "default"}
                 disabled={isBusy || !canManage || (isCurrent && plan.code !== "payg")}
                 onClick={() => {
@@ -197,8 +235,13 @@ export function BillingPlanCards({
                 <p className="mt-2 text-center text-xs text-muted-foreground">Owner/admin only</p>
               )}
 
-              <ul className="mt-5 flex-1 space-y-3">
-                <PlanFeature text={`~${money(plan.voice_rate_rupees)} / minute`} note="Voice calls" show={plan.voice_rate_rupees != null} />
+              <ul className="relative mt-5 flex-1 space-y-3">
+                <PlanFeature
+                  text={`~${money(plan.voice_rate_rupees)} / minute`}
+                  was={listVoice != null ? `~${money(listVoice)} / minute` : undefined}
+                  note="Voice calls"
+                  show={plan.voice_rate_rupees != null}
+                />
                 <PlanFeature text={`₹${plan.telephony_rate_rupees ?? "—"} / minute`} note="Telephony" show={plan.telephony_rate_rupees != null} />
                 <PlanFeature
                   text={`₹${plan.phone_rental_rupees_per_month ?? "—"} / month`}
@@ -270,25 +313,24 @@ export function BillingPlanCards({
 
 function PlanArt({ bars, title }: { bars: 1 | 2 | 3 | 4; title: string }) {
   const uid = useId().replace(/:/g, "");
-  const shown = PLAN_BARS.slice(0, bars);
+  const shown = PLAN_BAR_HEIGHTS.slice(0, bars);
 
   return (
     <div
       role="img"
       aria-label={title}
-      className="relative h-28 overflow-hidden rounded-xl bg-neutral-300 dark:bg-neutral-800"
+      className="relative h-28 overflow-hidden rounded-xl kupe-hero-fill"
     >
+      <div className="absolute inset-0 bg-black/20" />
       <div className="absolute inset-x-0 bottom-0 flex h-full items-end gap-1.5 px-6">
-        {shown.map((bar) => (
+        {shown.map((height, i) => (
           <div
-            key={bar.color}
-            className="min-w-4 w-[18%] max-w-7"
+            key={height}
+            className="min-w-4 w-[18%] max-w-7 origin-bottom rounded-t-sm kupe-theme-gradient transition-transform duration-300 ease-[var(--ease-out-soft)] group-hover/plan:scale-y-110"
             style={{
-              height: bar.height,
-              backgroundColor: bar.color,
-              backgroundImage:
-                "repeating-linear-gradient(0deg, rgb(0 0 0 / 0.14) 0 2px, transparent 2px 4px), repeating-linear-gradient(90deg, rgb(0 0 0 / 0.1) 0 2px, transparent 2px 4px)",
-              boxShadow: "inset 0 0 0 1px rgb(0 0 0 / 0.2)",
+              height,
+              transitionDelay: `${i * 40}ms`,
+              boxShadow: "inset 0 0 0 1px rgb(255 255 255 / 0.18)",
             }}
           />
         ))}
@@ -298,18 +340,31 @@ function PlanArt({ bars, title }: { bars: 1 | 2 | 3 | 4; title: string }) {
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" />
           <feColorMatrix type="saturate" values="0" />
         </filter>
-        <rect width="100%" height="100%" filter={`url(#${uid}-grain)`} opacity="0.7" />
+        <rect width="100%" height="100%" filter={`url(#${uid}-grain)`} opacity="0.45" />
       </svg>
     </div>
   );
 }
 
-function PlanFeature({ text, note, show }: { text: string; note?: string; show: boolean }) {
+function PlanFeature({
+  text,
+  was,
+  note,
+  show,
+}: {
+  text: string;
+  was?: string;
+  note?: string;
+  show: boolean;
+}) {
   if (!show) return null;
   return (
     <li className="flex gap-2 text-sm">
       <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
       <div className="min-w-0">
+        {was ? (
+          <p className="text-xs text-muted-foreground line-through decoration-muted-foreground/70">{was}</p>
+        ) : null}
         <span>{text}</span>
         {note ? <p className="text-xs text-muted-foreground">{note}</p> : null}
       </div>

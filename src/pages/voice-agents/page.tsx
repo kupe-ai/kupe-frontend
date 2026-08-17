@@ -167,7 +167,7 @@ export default function VoiceAgentsHomePage() {
   if (loading) return <VoiceAgentsPageShimmer />;
 
   return (
-    <div className="w-full px-4 py-5 md:px-6 md:py-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-6 md:py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Home</p>
