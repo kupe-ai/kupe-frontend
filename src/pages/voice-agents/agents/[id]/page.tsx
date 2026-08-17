@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VoiceEditorShimmer } from "@/components/ui/shimmer";
 import { AgentAskKoriPanel } from "@/components/voice-agents/agent-ask-kori-panel";
+import { CommitAgentDialog } from "@/components/voice-agents/commit-agent-dialog";
+import { VersionHistoryPanel, type VersionHistoryEntry } from "@/components/voice-agents/version-history-panel";
 import { SystemPromptSection } from "@/components/voice-agents/system-prompt-section";
 import { AgentSettingsPanel } from "@/components/voice-agents/agent-settings-panel";
 import { AgentTestsPanel } from "@/components/voice-agents/agent-tests-panel";
@@ -37,13 +39,13 @@ import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { AGENT_EDITOR_NAV, type AgentEditorSection } from "@/lib/voice-agent-editor-data";
 import { useFeatureFlags } from "@/context/feature-flags-context";
 import {
-  commitVoiceAgentVersion,
   duplicateVoiceAgent,
   exportVoiceAgent,
   getVoiceAgent,
+  listVoiceAgentVersions,
   updateVoiceAgent,
 } from "@/lib/api/voice/agents";
-import { orgSupportsCallTransfer } from "@/lib/api/voice/agent-builder";
+import { orgSupportsCallTransfer, syncDeclaredVariablesFromText } from "@/lib/api/voice/agent-builder";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
 const AUTO_SAVE_MS = 1000;
@@ -54,6 +56,8 @@ export default function VoiceAgentEditorPage() {
   const { isEnabled } = useFeatureFlags();
   const [section, setSection] = useState<AgentEditorSection>("instructions");
   const [testOpen, setTestOpen] = useState(false);
+  const [commitOpen, setCommitOpen] = useState(false);
+  const [previewVersion, setPreviewVersion] = useState<VersionHistoryEntry | null>(null);
   const [instructionsSeed, setInstructionsSeed] = useState(0);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [transferVisible, setTransferVisible] = useState(true);
@@ -71,6 +75,13 @@ export default function VoiceAgentEditorPage() {
 
   const agent = agentQuery.data ?? null;
 
+  const versionsQuery = useKoriQuery({
+    queryKey: ["agent-versions", id],
+    queryFn: () => listVoiceAgentVersions(id),
+    enabled: Boolean(id),
+  });
+  const versions = versionsQuery.data ?? [];
+
   useEffect(() => {
     const data = agentQuery.data;
     if (!data || data.id !== id) return;
@@ -79,7 +90,10 @@ export default function VoiceAgentEditorPage() {
   }, [id, instructionsSeed, agentQuery.data?.id]);
 
   const refresh = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ["voice-agent", id] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["voice-agent", id] }),
+      queryClient.invalidateQueries({ queryKey: ["agent-versions", id] }),
+    ]);
     setInstructionsSeed((n) => n + 1);
   }, [queryClient, id]);
 
@@ -116,6 +130,14 @@ export default function VoiceAgentEditorPage() {
       queryClient.setQueryData<VoiceAgent>(["voice-agent", id], (prev) =>
         prev ? { ...prev, ...patch } : prev,
       );
+      // Keep the Variables tab honest: any new {{token}} typed into the
+      // prompt/first message gets a real row instead of silently doing
+      // nothing at call time. Scan the full current text (not just this
+      // patch) so a token in the field that didn't change this save still
+      // gets picked up eventually.
+      const nextSystemPrompt = patch.system_prompt ?? current?.system_prompt;
+      const nextFirstMessage = patch.first_message !== undefined ? patch.first_message : current?.first_message;
+      void syncDeclaredVariablesFromText(id, nextSystemPrompt, nextFirstMessage).catch(() => {});
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't save prompt"));
     } finally {
@@ -148,16 +170,6 @@ export default function VoiceAgentEditorPage() {
       void flushPromptSaveRef.current();
     };
   }, []);
-
-  async function commit() {
-    try {
-      const version = await commitVoiceAgentVersion(id);
-      toast.success(`Committed as v${(version as { version?: number }).version ?? ""}`);
-      void refresh();
-    } catch (err) {
-      toast.error(friendlyVoiceError(err, "Couldn't commit agent"));
-    }
-  }
 
   async function duplicate() {
     try {
@@ -227,12 +239,37 @@ export default function VoiceAgentEditorPage() {
                   <ChevronDown className="size-3.5" />
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                <DropdownMenuItem onClick={() => void commit()}>
+              <DropdownMenuContent align="start" className="w-72">
+                <DropdownMenuItem onClick={() => setCommitOpen(true)}>
                   <Plus className="size-4" />
-                  Commit agent
+                  Commit…
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <div className="max-h-72 overflow-y-auto py-1">
+                  {versions.length === 0 ? (
+                    <p className="px-2 py-2 text-xs text-muted-foreground">
+                      No commits yet — edits autosave as a draft, nothing shows here until you commit.
+                    </p>
+                  ) : (
+                    versions.map((v) => (
+                      <DropdownMenuItem
+                        key={v.id}
+                        className="flex-col items-start gap-0.5"
+                        onClick={() => setPreviewVersion(v)}
+                      >
+                        <span className="flex w-full items-center justify-between text-sm font-medium">
+                          v{v.version}
+                          <span className="text-xs font-normal text-muted-foreground">
+                            {new Date(v.created_at).toLocaleDateString()}
+                          </span>
+                        </span>
+                        {v.message ? (
+                          <span className="truncate text-xs text-muted-foreground">{v.message}</span>
+                        ) : null}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
             {savingPrompt ? (
@@ -320,13 +357,24 @@ export default function VoiceAgentEditorPage() {
         <div className="hidden h-full min-h-0 w-[320px] shrink-0 md:flex xl:w-[360px]">
           <AgentAskKoriPanel
             agentId={id}
-            agentName={agent.name}
             onAgentChanged={() => void refresh()}
           />
         </div>
       </div>
 
       <TestAgentCallDialog open={testOpen} onOpenChange={setTestOpen} agentId={id} agentName={agent.name} seed={seed} />
+      <CommitAgentDialog
+        agentId={id}
+        open={commitOpen}
+        onOpenChange={setCommitOpen}
+        onCommitted={() => void refresh()}
+      />
+      <VersionHistoryPanel
+        agentId={id}
+        entry={previewVersion}
+        onOpenChange={(open) => !open && setPreviewVersion(null)}
+        onReverted={() => void refresh()}
+      />
     </div>
   );
 }

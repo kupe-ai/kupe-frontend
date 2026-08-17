@@ -445,6 +445,14 @@ export type PromptVariable = {
   example: string;
 };
 
+/** Scores every call on one field from the agent's attached post-call
+ * analysis (see AnalysisField.name in PostCallAnalysis.fields). */
+export type CallGoalConfig = {
+  output_field: string;
+  field_operator: "eq" | "neq" | "in" | "not_in" | "gt";
+  value: string;
+};
+
 export type AgentConfig = {
   llm: AgentLlmConfig;
   tts?: AgentTtsConfig;
@@ -457,6 +465,7 @@ export type AgentConfig = {
   auto_cut: AutoCutConfig;
   call_transfer: CallTransferConfig;
   variables: PromptVariable[];
+  call_goal?: CallGoalConfig | null;
 };
 
 export type AmbientPreset = {
@@ -517,6 +526,56 @@ export type AgentVersion = {
   snapshot: Record<string, unknown>;
   changed_by: string | null;
   created_at: string;
+  message: string | null;
+};
+
+// -- Agent tests (text-only LLM simulation) --------------------------------
+
+export type ExpectedToolCall = { tool_name: string; args_expectation?: string | null };
+
+export type AgentTest = {
+  id: string;
+  agent_id: string;
+  name: string;
+  scenario: string;
+  behaviors: string[];
+  expected_tool_calls: ExpectedToolCall[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ToolCallMade = { name: string; args: Record<string, unknown>; mock_response: Record<string, unknown> };
+export type BehaviorResult = { behavior: string; met: boolean; evidence: string };
+export type TranscriptSimTurn = { role: "caller" | "agent"; content: string };
+
+export type AgentTestRunResult = {
+  id: string;
+  test_id: string | null;
+  test_name: string;
+  attempt_number: number;
+  status: "queued" | "running" | "passed" | "failed" | "errored";
+  passed: boolean | null;
+  transcript: TranscriptSimTurn[];
+  tool_calls_made: ToolCallMade[];
+  behavior_results: BehaviorResult[];
+  judge_reasoning: string | null;
+  error: string | null;
+};
+
+export type AgentTestRun = {
+  id: string;
+  agent_id: string;
+  agent_version: number;
+  run_name: string | null;
+  multiplier: number;
+  status: "queued" | "running" | "completed" | "failed";
+  total_test_count: number;
+  completed_test_count: number;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  error: string | null;
+  results: AgentTestRunResult[] | null;
 };
 
 export type TranscriptTurn = { role: string; text: string; ts?: string | null };

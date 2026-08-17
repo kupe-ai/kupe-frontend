@@ -31,6 +31,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { CurrencyToggle, UI_DEFAULT_CURRENCY, formatMoney } from "@/components/voice-agents/currency-toggle";
+import { formatProviderModel } from "@/lib/voice/provider-brand";
 import type { SessionUsage, SessionUsageMetric, StandaloneUsageRow, UsageCostSummary, UsageDailyRow } from "@/types";
 
 const RANGE_OPTIONS = [
@@ -340,7 +341,7 @@ export default function UsagePage() {
               <td className="px-5 py-2.5">{SOURCE_LABEL[row.source] ?? row.source}</td>
               <td className="px-5 py-2.5">{METRIC_LABEL[row.metric_type] ?? row.metric_type}</td>
               <td className="px-5 py-2.5 text-muted-foreground">
-                {row.provider_name} / {row.model_name}
+                {formatProviderModel(row.provider_name, row.model_name)}
               </td>
               <td className="px-5 py-2.5 text-right font-mono tabular-nums">
                 {row.total_quantity.toLocaleString()}
@@ -385,7 +386,7 @@ export default function UsagePage() {
                     <tr key={`${m.metric_type}-${m.provider_name}-${m.model_name}`} className="border-b border-border last:border-0">
                       <td className="py-2 pr-3">{METRIC_LABEL[m.metric_type] ?? m.metric_type}</td>
                       <td className="py-2 pr-3 text-muted-foreground">
-                        {m.provider_name} / {m.model_name}
+                        {formatProviderModel(m.provider_name, m.model_name)}
                       </td>
                       <td className="py-2 text-right font-mono tabular-nums">{m.total_quantity.toLocaleString()}</td>
                       <td className="py-2 text-right font-mono tabular-nums">

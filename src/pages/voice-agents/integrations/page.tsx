@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ExternalLink, Loader2, Plug, Search, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
-import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
+import {
+  parameterHintForMethod,
+  paramRowsToSchema,
+  schemaToParamRows,
+  ToolParametersEditor,
+  type ToolParamRow,
+} from "@/components/voice-agents/tool-parameters-editor";
 import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
 import type { Agent, CatalogTool, ComposioConnection, ComposioTool, ComposioToolkit } from "@/types";
@@ -28,7 +35,7 @@ type AddMode = "custom" | "mcp" | null;
 
 export default function VoiceAgentsIntegrationsPage() {
   const { orgId } = requireScope();
-  const [tab, setTab] = useState<"browse" | "connected">("connected");
+  const [tab, setTab] = useState<"browse" | "connected">("browse");
   const [toolkits, setToolkits] = useState<ComposioToolkit[]>([]);
   const [connections, setConnections] = useState<ComposioConnection[]>([]);
   const [catalogTools, setCatalogTools] = useState<CatalogTool[]>([]);
@@ -37,6 +44,8 @@ export default function VoiceAgentsIntegrationsPage() {
   const [manageToolkit, setManageToolkit] = useState<ComposioToolkit | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<AddMode>(null);
+  const [editingTool, setEditingTool] = useState<CatalogTool | null>(null);
+  const autoTabbed = useRef(false);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -72,6 +81,26 @@ export default function VoiceAgentsIntegrationsPage() {
       return name.toLowerCase().includes(q);
     });
   }, [connections, customTools, mcpTools, q]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (!autoTabbed.current) {
+      autoTabbed.current = true;
+      setTab(rowCount > 0 ? "connected" : "browse");
+      return;
+    }
+    if (rowCount === 0) setTab("browse");
+  }, [loading, rowCount]);
+
+  function openAdd(mode: AddMode) {
+    setEditingTool(null);
+    setAddMode(mode);
+  }
+
+  function openEdit(tool: CatalogTool) {
+    setEditingTool(tool);
+    setAddMode(tool.kind === "mcp" ? "mcp" : "custom");
+  }
 
   async function connect(toolkit: ComposioToolkit) {
     setConnecting(toolkit.slug);
@@ -145,7 +174,7 @@ export default function VoiceAgentsIntegrationsPage() {
     <div className="voice-page voice-page-md">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-display flex items-center gap-2">Integrations</h1>
+          <h1 className="text-title flex items-center gap-2">Integrations</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
@@ -159,34 +188,32 @@ export default function VoiceAgentsIntegrationsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setTab("browse")}>Browse Composio apps</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAddMode("custom")}>Custom API / Webhook</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAddMode("mcp")}>MCP server</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTab("browse")}>Plugin</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openAdd("custom")}>Custom API / Webhook</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openAdd("mcp")}>MCP server</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mt-6">
+      <Tabs
+        value={rowCount === 0 ? "browse" : tab}
+        onValueChange={(v) => setTab(v as typeof tab)}
+        className="mt-6"
+      >
         <TabsList>
-          <TabsTrigger value="connected">
-            Connected
-            {rowCount > 0 && <Badge variant="secondary" className="ml-1.5">{rowCount}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="browse">Browse Composio apps</TabsTrigger>
+          {rowCount > 0 && (
+            <TabsTrigger value="connected">
+              Connected
+              <Badge variant="secondary" className="ml-1.5">{rowCount}</Badge>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="browse">Plugins</TabsTrigger>
         </TabsList>
 
         <TabsContent value="connected">
           {loading ? (
             <VoiceTableShimmer rows={4} />
-          ) : filteredRows.length === 0 ? (
-            <AsciiEmptyState
-              kind="folder"
-              tone="coral"
-              title="Nothing connected yet"
-              description="Connect a Composio app, or add a Custom API, webhook, or MCP server from the Add menu above."
-              className="mt-4 min-h-[240px]"
-            />
           ) : (
             <Table className="mt-2">
               <TableHeader>
@@ -214,7 +241,7 @@ export default function VoiceAgentsIntegrationsPage() {
                             <span className="font-medium">{c.toolkit_name || c.toolkit_slug}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">Composio app</TableCell>
+                        <TableCell className="text-muted-foreground">Plugin</TableCell>
                         <TableCell><StatusChip status={c.status} /></TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
@@ -249,13 +276,25 @@ export default function VoiceAgentsIntegrationsPage() {
                       <TableCell className="text-muted-foreground">{row.type === "mcp" ? "MCP tool" : "Custom API / Webhook"}</TableCell>
                       <TableCell><StatusChip status="active" /></TableCell>
                       <TableCell className="text-right">
-                        <Button size="sm" variant="ghost" className="rounded-full text-destructive" onClick={() => void deleteCatalogTool(t)}>
-                          Delete
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="outline" className="rounded-full" onClick={() => openEdit(t)}>
+                            Edit
+                          </Button>
+                          <Button size="sm" variant="ghost" className="rounded-full text-destructive" onClick={() => void deleteCatalogTool(t)}>
+                            Delete
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
                 })}
+                {filteredRows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="py-10 text-center text-sm text-muted-foreground">
+                      No connections match “{search}”.
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
@@ -288,7 +327,7 @@ export default function VoiceAgentsIntegrationsPage() {
                 </div>
               ))}
               {filteredToolkits.length === 0 && (
-                <p className="col-span-full py-10 text-center text-sm text-muted-foreground">No apps match “{search}”.</p>
+                <p className="col-span-full py-10 text-center text-sm text-muted-foreground">No plugins match “{search}”.</p>
               )}
             </div>
           )}
@@ -307,19 +346,35 @@ export default function VoiceAgentsIntegrationsPage() {
 
       <AddCustomToolDialog
         open={addMode === "custom"}
-        onOpenChange={(open) => setAddMode(open ? "custom" : null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddMode(null);
+            setEditingTool(null);
+          }
+        }}
         orgId={orgId}
+        tool={addMode === "custom" ? editingTool : null}
         onCreated={() => {
           setAddMode(null);
+          setEditingTool(null);
+          setTab("connected");
           refresh();
         }}
       />
       <AddMcpToolDialog
         open={addMode === "mcp"}
-        onOpenChange={(open) => setAddMode(open ? "mcp" : null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAddMode(null);
+            setEditingTool(null);
+          }
+        }}
         orgId={orgId}
+        tool={addMode === "mcp" ? editingTool : null}
         onCreated={() => {
           setAddMode(null);
+          setEditingTool(null);
+          setTab("connected");
           refresh();
         }}
       />
@@ -331,18 +386,22 @@ function AddCustomToolDialog({
   open,
   onOpenChange,
   orgId,
+  tool,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orgId: string;
+  tool: CatalogTool | null;
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [method, setMethod] = useState("POST");
   const [url, setUrl] = useState("");
+  const [params, setParams] = useState<ToolParamRow[]>([]);
   const [saving, setSaving] = useState(false);
+  const editing = !!tool;
 
   useEffect(() => {
     if (!open) {
@@ -350,27 +409,45 @@ function AddCustomToolDialog({
       setDescription("");
       setMethod("POST");
       setUrl("");
+      setParams([]);
+      return;
     }
-  }, [open]);
+    if (tool) {
+      setName(tool.name);
+      setDescription(tool.description ?? "");
+      setMethod((tool.http_method || "POST").toUpperCase());
+      setUrl(tool.http_url ?? "");
+      setParams(schemaToParamRows(tool.parameters, tool.required));
+    }
+  }, [open, tool]);
 
   async function save() {
     if (!name.trim() || !url.trim()) {
       toast.message("Name and URL are required");
       return;
     }
+    const { parameters, required } = paramRowsToSchema(params);
     setSaving(true);
     try {
-      await api.createTool(orgId, {
+      const body = {
         name: name.trim(),
         description: description.trim(),
         http_url: url.trim(),
         http_method: method,
-        kind: "custom_webhook",
-      });
-      toast.message(`${name} added`);
+        kind: "custom_webhook" as const,
+        parameters,
+        required,
+      };
+      if (tool) {
+        await api.updateTool(tool.id, body);
+        toast.message(`${name} updated`);
+      } else {
+        await api.createTool(orgId, body);
+        toast.message(`${name} added`);
+      }
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add this tool");
+      toast.error(err instanceof Error ? err.message : "Couldn't save this tool");
     } finally {
       setSaving(false);
     }
@@ -378,9 +455,9 @@ function AddCustomToolDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add Custom API / Webhook</DialogTitle>
+          <DialogTitle>{editing ? "Edit Custom API / Webhook" : "Add Custom API / Webhook"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -389,7 +466,12 @@ function AddCustomToolDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Description</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What this tool does — the LLM reads this" />
+            <Textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this tool does — the LLM reads this"
+            />
           </div>
           <div className="flex gap-2">
             <div className="w-28 space-y-1.5">
@@ -412,8 +494,9 @@ function AddCustomToolDialog({
               <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
             </div>
           </div>
+          <ToolParametersEditor rows={params} onChange={setParams} hint={parameterHintForMethod(method)} />
           <p className="text-xs text-muted-foreground">
-            Once added, attach this tool to an agent from the agent editor's Tools tab.
+            Once saved, attach this tool to an agent from the agent editor's Tools tab.
           </p>
         </div>
         <DialogFooter>
@@ -421,7 +504,7 @@ function AddCustomToolDialog({
             Cancel
           </Button>
           <Button type="button" className="rounded-full" onClick={() => void save()} loading={saving}>
-            Add tool
+            {editing ? "Save" : "Add tool"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -433,11 +516,13 @@ function AddMcpToolDialog({
   open,
   onOpenChange,
   orgId,
+  tool,
   onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orgId: string;
+  tool: CatalogTool | null;
   onCreated: () => void;
 }) {
   const [name, setName] = useState("");
@@ -445,7 +530,9 @@ function AddMcpToolDialog({
   const [serverUrl, setServerUrl] = useState("");
   const [remoteToolName, setRemoteToolName] = useState("");
   const [authHeader, setAuthHeader] = useState("");
+  const [params, setParams] = useState<ToolParamRow[]>([]);
   const [saving, setSaving] = useState(false);
+  const editing = !!tool;
 
   useEffect(() => {
     if (!open) {
@@ -454,15 +541,24 @@ function AddMcpToolDialog({
       setServerUrl("");
       setRemoteToolName("");
       setAuthHeader("");
+      setParams([]);
+      return;
     }
-  }, [open]);
+    if (tool) {
+      setName(tool.name);
+      setDescription(tool.description ?? "");
+      setServerUrl(tool.http_url ?? "");
+      setRemoteToolName(tool.mcp_tool_name ?? "");
+      setParams(schemaToParamRows(tool.parameters, tool.required));
+    }
+  }, [open, tool]);
 
   async function save() {
     if (!name.trim() || !serverUrl.trim() || !remoteToolName.trim()) {
       toast.message("Name, MCP server URL, and remote tool name are required");
       return;
     }
-    let headers: Record<string, string> = {};
+    let headers: Record<string, string> | undefined;
     if (authHeader.trim()) {
       const idx = authHeader.indexOf(":");
       if (idx === -1) {
@@ -471,20 +567,29 @@ function AddMcpToolDialog({
       }
       headers = { [authHeader.slice(0, idx).trim()]: authHeader.slice(idx + 1).trim() };
     }
+    const { parameters, required } = paramRowsToSchema(params);
     setSaving(true);
     try {
-      await api.createTool(orgId, {
+      const body = {
         name: name.trim(),
         description: description.trim(),
         http_url: serverUrl.trim(),
-        kind: "mcp",
+        kind: "mcp" as const,
         mcp_tool_name: remoteToolName.trim(),
-        http_headers: headers,
-      });
-      toast.message(`${name} added`);
+        parameters,
+        required,
+        ...(headers ? { http_headers: headers } : {}),
+      };
+      if (tool) {
+        await api.updateTool(tool.id, body);
+        toast.message(`${name} updated`);
+      } else {
+        await api.createTool(orgId, body);
+        toast.message(`${name} added`);
+      }
       onCreated();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add this MCP tool");
+      toast.error(err instanceof Error ? err.message : "Couldn't save this MCP tool");
     } finally {
       setSaving(false);
     }
@@ -492,9 +597,9 @@ function AddMcpToolDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Add MCP server tool</DialogTitle>
+          <DialogTitle>{editing ? "Edit MCP server tool" : "Add MCP server tool"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">
@@ -503,7 +608,12 @@ function AddMcpToolDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Description</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What this tool does — the LLM reads this" />
+            <Textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this tool does — the LLM reads this"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>MCP server URL</Label>
@@ -517,6 +627,11 @@ function AddMcpToolDialog({
             <Label>Auth header (optional)</Label>
             <Input value={authHeader} onChange={(e) => setAuthHeader(e.target.value)} placeholder="Authorization: Bearer sk-…" />
           </div>
+          <ToolParametersEditor
+            rows={params}
+            onChange={setParams}
+            hint="Sent as arguments to the remote MCP tool. The LLM fills these from the conversation."
+          />
           <p className="text-xs text-muted-foreground">
             Supports MCP servers reachable over plain HTTP JSON-RPC (no live discovery yet — enter the exact remote tool name).
           </p>
@@ -526,7 +641,7 @@ function AddMcpToolDialog({
             Cancel
           </Button>
           <Button type="button" className="rounded-full" onClick={() => void save()} loading={saving}>
-            Add tool
+            {editing ? "Save" : "Add tool"}
           </Button>
         </DialogFooter>
       </DialogContent>

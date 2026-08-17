@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { toast } from "sonner";
-import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Matrix, pulse } from "@/components/ui/matrix";
@@ -43,21 +42,14 @@ const LATENCY_TARGET_MS = 800;
  */
 export function AgentAskKoriPanel({
   agentId,
-  agentName,
   onAgentChanged,
   className,
 }: {
   agentId: string;
-  agentName: string;
   /** Fired when copilot mutates the agent so the editor can refetch without a full page reload. */
   onAgentChanged?: () => void;
   className?: string;
 }) {
-  const title = useMemo(() => {
-    const short = agentName.replace(/^Conversation Agent\s+/i, "Agent ");
-    return `Ask AI · ${short.slice(0, 22)}${short.length > 22 ? "…" : ""}`;
-  }, [agentName]);
-
   const [messages, setMessages] = useState<ChatBubble[]>([
     {
       id: "k1",
@@ -100,21 +92,6 @@ export function AgentAskKoriPanel({
     }, 1000);
     return () => window.clearInterval(id);
   }, [callStatus]);
-
-  function resetChat() {
-    void hangUp();
-    setMessages([
-      {
-        id: `k-${Date.now()}`,
-        role: "kori",
-        text: "Talk to try this agent, or type to customize instructions, variables, and tests.",
-        choices: STARTER_OPTIONS,
-      },
-    ]);
-    setDraft("");
-    setOtherOpen(false);
-    setOtherText("");
-  }
 
   async function hangUp() {
     await handleRef.current?.disconnect();
@@ -276,22 +253,6 @@ export function AgentAskKoriPanel({
         className,
       )}
     >
-      <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <AiStar size={18} />
-          <h2 className="truncate text-sm font-semibold">{title}</h2>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="New chat"
-          onClick={resetChat}
-        >
-          <Plus className="size-4" />
-        </Button>
-      </header>
-
       <div className="shrink-0 border-b border-border px-3 py-3">
         <BarVisualizer
           state={visualizerState}
@@ -358,15 +319,10 @@ export function AgentAskKoriPanel({
             </div>
           ) : (
             <div key={m.id} className="animate-pop-in-up space-y-3">
-              <div className="flex items-start gap-2">
-                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <AiStar size={14} />
-                </span>
-                <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
-              </div>
+              <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
               {m.latencyMs !== undefined && (
                 <span
-                  className={`ml-9 block text-[10px] ${
+                  className={`block text-[10px] ${
                     m.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
                   }`}
                 >
@@ -374,7 +330,7 @@ export function AgentAskKoriPanel({
                 </span>
               )}
               {m.actions && m.actions.length > 0 && (
-                <ul className="ml-9 space-y-1">
+                <ul className="space-y-1">
                   {m.actions.map((a, i) => (
                     <li key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       <span className="size-1 rounded-full bg-emerald-500" />
@@ -384,7 +340,7 @@ export function AgentAskKoriPanel({
                 </ul>
               )}
               {m.choices && (
-                <div className="ml-9 space-y-2">
+                <div className="space-y-2">
                   {m.choices.map((c) => (
                     <button
                       key={c}
@@ -418,7 +374,7 @@ export function AgentAskKoriPanel({
           ),
         )}
         {sending && (
-          <div className="ml-9 space-y-2">
+          <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs">
               <Matrix
                 rows={7}

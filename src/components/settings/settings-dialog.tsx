@@ -30,10 +30,7 @@ type NavGroup = {
 const NAV_GROUPS: NavGroup[] = [
   {
     label: "Preferences",
-    items: [
-      { id: "appearance", label: "Appearance", icon: "palette" },
-      { id: "account", label: "Account", icon: "gear" },
-    ],
+    items: [{ id: "account", label: "Account", icon: "gear" }],
   },
   {
     label: "Workspace",
@@ -45,13 +42,9 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const SECTION_META: Record<SettingsSectionId, { title: string; description: string }> = {
-  appearance: {
-    title: "Appearance",
-    description: "Theme and display.",
-  },
   account: {
     title: "Account",
-    description: "Your account details.",
+    description: "Your account details and appearance.",
   },
   workspace: {
     title: "Workspace",
@@ -141,7 +134,7 @@ export function SettingsDialog() {
       >
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
-          Appearance, account, workspace, and API keys.
+          Account, appearance, workspace, and API keys.
         </DialogDescription>
 
         <div className="flex min-h-0 flex-1">

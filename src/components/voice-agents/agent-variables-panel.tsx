@@ -255,52 +255,84 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
       )}
 
       {tab === "input" ? (
-        <div className="overflow-hidden rounded-xl border border-border">
-          <div className="grid grid-cols-[1fr_1fr_40px] gap-3 border-b border-border bg-muted/20 px-4 py-2.5 text-xs font-medium text-muted-foreground">
-            <span>Variable name</span>
-            <span>Default value</span>
-            <span />
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Fill placeholders before the call.</span> Type{" "}
+            <code className="rounded bg-muted px-1 py-0.5">{"{{variable_name}}"}</code> anywhere in the system prompt
+            or first message and it'll appear here automatically once saved. The <span className="font-medium">default value</span>{" "}
+            is used whenever a call doesn't supply its own (e.g. an inbound or test call) — outbound campaigns can
+            override it per contact.
+          </p>
+          <div className="overflow-hidden rounded-xl border border-border">
+            <div className="grid grid-cols-[1fr_1fr_40px] gap-3 border-b border-border bg-muted/20 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+              <span>Variable name</span>
+              <span>Default value</span>
+              <span />
+            </div>
+            {filteredInputs.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                No input variables yet — add one below, or type <code className="rounded bg-muted px-1 py-0.5">{"{{name}}"}</code>{" "}
+                in your prompt.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {filteredInputs.map((v) => (
+                  <li key={v.id} className="grid grid-cols-[1fr_1fr_40px] items-center gap-3 px-4 py-3">
+                    <code className="truncate text-sm">{v.name}</code>
+                    <span className="truncate text-sm text-muted-foreground">{v.default_value}</span>
+                    <RowMenu
+                      onEdit={() => setEditingVar(v)}
+                      onDelete={async () => {
+                        await deleteInputVariable(agentId, v.id);
+                        void refresh();
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <ul className="divide-y divide-border">
-            {filteredInputs.map((v) => (
-              <li key={v.id} className="grid grid-cols-[1fr_1fr_40px] items-center gap-3 px-4 py-3">
-                <code className="truncate text-sm">{v.name}</code>
-                <span className="truncate text-sm text-muted-foreground">{v.default_value}</span>
-                <RowMenu
-                  onEdit={() => setEditingVar(v)}
-                  onDelete={async () => {
-                    await deleteInputVariable(agentId, v.id);
-                    void refresh();
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
-          <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_40px] gap-3 border-b border-border bg-muted/20 px-4 py-2.5 text-xs font-medium text-muted-foreground">
-            <span>Variable name</span>
-            <span>Data type</span>
-            <span>Extraction prompt</span>
-            <span />
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Pull structured data out after the call.</span> Each row
+            asks the model to extract one field (name, type, and what to look for) from the transcript once the call
+            ends — the result is saved to that call's analysis and sent to any webhook. Use{" "}
+            <span className="font-medium">Set call goal</span> above to mark calls a win/loss based on one of these
+            fields.
+          </p>
+          <div className="overflow-hidden rounded-xl border border-border">
+            <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_40px] gap-3 border-b border-border bg-muted/20 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+              <span>Variable name</span>
+              <span>Data type</span>
+              <span>Extraction prompt</span>
+              <span />
+            </div>
+            {filteredOutputs.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                No output variables yet — add one below, e.g. <code className="rounded bg-muted px-1 py-0.5">call_outcome</code>{" "}
+                with "Whether the customer agreed to book an appointment."
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {filteredOutputs.map((v) => (
+                  <li key={v.id} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_40px] items-center gap-3 px-4 py-3">
+                    <code className="truncate text-sm">{v.name}</code>
+                    <span className="truncate text-sm text-muted-foreground">{v.data_type}</span>
+                    <span className="truncate text-sm text-muted-foreground">{v.extraction_prompt}</span>
+                    <RowMenu
+                      onEdit={() => setEditingVar(v)}
+                      onDelete={async () => {
+                        await deleteOutputVariable(agentId, v.id);
+                        void refresh();
+                      }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <ul className="divide-y divide-border">
-            {filteredOutputs.map((v) => (
-              <li key={v.id} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.6fr)_40px] items-center gap-3 px-4 py-3">
-                <code className="truncate text-sm">{v.name}</code>
-                <span className="truncate text-sm text-muted-foreground">{v.data_type}</span>
-                <span className="truncate text-sm text-muted-foreground">{v.extraction_prompt}</span>
-                <RowMenu
-                  onEdit={() => setEditingVar(v)}
-                  onDelete={async () => {
-                    await deleteOutputVariable(agentId, v.id);
-                    void refresh();
-                  }}
-                />
-              </li>
-            ))}
-          </ul>
         </div>
       )}
 

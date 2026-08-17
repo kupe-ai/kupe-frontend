@@ -1,7 +1,21 @@
 import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
 import { readStore, scopedKey, writeStore } from "@/lib/api/local-store";
-import type { AgentConfig, CallTransferConfig, PromptVariable } from "@/types";
+import { extractVariableNames } from "@/lib/prompt-variables";
+import type {
+  AgentConfig,
+  AgentTest,
+  AgentTestRun,
+  AnalysisField,
+  CallGoalConfig,
+  CallTransferConfig,
+  ExpectedToolCall,
+  PromptVariable,
+} from "@/types";
+
+// Aliased for call-site continuity with the rest of this file/agent-tests-panel.tsx.
+export type AgentTestCase = AgentTest;
+export type { AgentTestRun, ExpectedToolCall };
 
 export interface InputVariable {
   id: string;
@@ -11,6 +25,10 @@ export interface InputVariable {
 }
 
 export interface OutputVariable {
+  /** `${postCallAnalysisId}::${fieldName}` -- output variables are backed
+   * for real by one AnalysisField inside the agent's attached
+   * post-call-analysis (see ensureOutputVarsAnalysis below), not a
+   * standalone table, so there's no independent row id. */
   id: string;
   agent_id: string;
   name: string;
@@ -37,28 +55,8 @@ export interface AgentTool {
   mcp_tool_name?: string;
   runs_on: "before_response" | "during_call" | "on_end";
   enabled: boolean;
-}
-
-export interface AgentTestCase {
-  id: string;
-  agent_id: string;
-  name: string;
-  scenario: string;
-  behaviors: string[];
-}
-
-export interface AgentTestRun {
-  id: string;
-  agent_id: string;
-  run_name: string | null;
-  multiplier: number;
-  status: "queued" | "running" | "completed" | "failed";
-  results?: Array<{
-    test_case_id: string;
-    passed: boolean;
-    behavior_results: Array<{ behavior: string; met: boolean; evidence: string }>;
-    transcript_summary: string;
-  }>;
+  parameters?: Record<string, unknown>;
+  required?: string[];
 }
 
 export interface AgentSettings {
@@ -144,55 +142,185 @@ export async function deleteInputVariable(agentId: string, id: string) {
   await api.updateAgent(agentId, { config: { ...agent.config, variables } });
 }
 
-export async function listOutputVariables(agentId: string) {
-  return readList<OutputVariable>(agentId, "outputs");
-}
-export async function createOutputVariable(agentId: string, data: Partial<OutputVariable>) {
-  const row: OutputVariable = {
-    id: crypto.randomUUID(),
-    agent_id: agentId,
-    name: data.name ?? "output",
-    data_type: data.data_type ?? "string",
-    extraction_prompt: data.extraction_prompt ?? "",
-  };
-  writeList(agentId, "outputs", [row, ...readList<OutputVariable>(agentId, "outputs")]);
-  return row;
-}
-export async function updateOutputVariable(agentId: string, id: string, data: Partial<OutputVariable>) {
-  const rows = readList<OutputVariable>(agentId, "outputs").map((r) => (r.id === id ? { ...r, ...data } : r));
-  writeList(agentId, "outputs", rows);
-  const row = rows.find((r) => r.id === id);
-  if (!row) throw new Error("Output variable not found");
-  return row;
-}
-export async function deleteOutputVariable(agentId: string, id: string) {
-  writeList(
-    agentId,
-    "outputs",
-    readList<OutputVariable>(agentId, "outputs").filter((r) => r.id !== id),
-  );
+/**
+ * Adds an Input Variable row for every `{{name}}` token typed into the
+ * prompt/first message that doesn't already have one, so the Variables tab
+ * stays in sync with what's actually written in the prompt instead of
+ * requiring a manual, easy-to-forget duplicate entry. Never removes or
+ * edits existing rows (a variable can be declared but not yet used in
+ * these two fields -- e.g. only in the flow or voicemail message).
+ */
+export async function syncDeclaredVariablesFromText(agentId: string, ...texts: (string | null | undefined)[]) {
+  const names = extractVariableNames(...texts);
+  if (!names.length) return;
+  const agent = await api.getAgent(agentId);
+  const existing = new Set((agent.config?.variables ?? []).map((v) => v.key));
+  const missing = names.filter((n) => !existing.has(n));
+  if (!missing.length) return;
+  const variables = [
+    ...(agent.config?.variables ?? []),
+    ...missing.map((key) => ({ key, description: "", example: "" })),
+  ];
+  await api.updateAgent(agentId, { config: { ...agent.config, variables } });
 }
 
-export async function listCallGoals(agentId: string) {
-  return readList<CallGoal>(agentId, "goals");
+// Output variables are real: each row is one AnalysisField inside a single
+// post-call-analysis this agent owns and has attached (auto-provisioned on
+// first write). That analysis actually runs at call end -- unlike the old
+// localStorage-only version, values here are extracted from real calls and
+// show up in call analysis results / webhooks, matching what Input
+// Variables already do for prompts.
+const OUTPUT_VARS_MARKER = "__kupe_agent_output_variables__";
+const OUTPUT_VARS_PROMPT =
+  "Extract the requested fields from this call's transcript and audio, for reporting and automation.";
+
+function splitOutputVariableId(id: string): { analysisId: string; fieldName: string } {
+  const sep = id.indexOf("::");
+  if (sep < 0) throw new Error("Invalid output variable id");
+  return { analysisId: id.slice(0, sep), fieldName: id.slice(sep + 2) };
 }
-export async function createCallGoal(agentId: string, data: Partial<CallGoal>) {
-  const row: CallGoal = {
-    id: crypto.randomUUID(),
+
+async function findOutputVarsAnalysis(agentId: string) {
+  const page = await api.listAgentAnalyses(agentId, { limit: 100 });
+  return page.items.find((a) => a.description === OUTPUT_VARS_MARKER) ?? null;
+}
+
+async function ensureOutputVarsAnalysis(agentId: string) {
+  const existing = await findOutputVarsAnalysis(agentId);
+  if (existing) return existing;
+  const { orgId } = requireScope();
+  const agent = await api.getAgent(agentId);
+  const created = await api.createAnalysis(orgId, {
+    name: `${agent.name || "Agent"} — output variables`,
+    description: OUTPUT_VARS_MARKER,
+    prompt: OUTPUT_VARS_PROMPT,
+    eval_llm_id: agent.llm_id,
+    fields: [],
+  });
+  await api.attachAnalysis(agentId, created.id, true);
+  return { ...created, enabled: true };
+}
+
+function toOutputVariable(agentId: string, analysisId: string, field: AnalysisField): OutputVariable {
+  return {
+    id: `${analysisId}::${field.name}`,
     agent_id: agentId,
-    output_variable_id: data.output_variable_id ?? "",
+    name: field.name,
+    data_type: field.type,
+    extraction_prompt: field.description,
+  };
+}
+
+export async function listOutputVariables(agentId: string): Promise<OutputVariable[]> {
+  const analysis = await findOutputVarsAnalysis(agentId);
+  if (!analysis) return [];
+  return analysis.fields.map((f) => toOutputVariable(agentId, analysis.id, f));
+}
+
+export async function createOutputVariable(agentId: string, data: Partial<OutputVariable>): Promise<OutputVariable> {
+  const analysis = await ensureOutputVarsAnalysis(agentId);
+  const name = data.name?.trim();
+  if (!name) throw new Error("Name is required");
+  if (analysis.fields.some((f) => f.name === name)) {
+    throw new Error(`Output variable "${name}" already exists`);
+  }
+  const field: AnalysisField = { name, type: data.data_type ?? "string", description: data.extraction_prompt ?? "" };
+  const fields = [...analysis.fields, field];
+  await api.updateAnalysis(analysis.id, { fields });
+  return toOutputVariable(agentId, analysis.id, field);
+}
+
+export async function updateOutputVariable(
+  agentId: string,
+  id: string,
+  data: Partial<OutputVariable>,
+): Promise<OutputVariable> {
+  const { analysisId, fieldName } = splitOutputVariableId(id);
+  const analysis = await findOutputVarsAnalysis(agentId);
+  if (!analysis || analysis.id !== analysisId) throw new Error("Output variable not found");
+  const newName = data.name?.trim() || fieldName;
+  if (newName !== fieldName && analysis.fields.some((f) => f.name === newName)) {
+    throw new Error(`Output variable "${newName}" already exists`);
+  }
+  let updatedField: AnalysisField | null = null;
+  const fields = analysis.fields.map((f) => {
+    if (f.name !== fieldName) return f;
+    updatedField = {
+      ...f,
+      name: newName,
+      type: data.data_type ?? f.type,
+      description: data.extraction_prompt ?? f.description,
+    };
+    return updatedField;
+  });
+  if (!updatedField) throw new Error("Output variable not found");
+  await api.updateAnalysis(analysisId, { fields });
+  // Field renamed: keep the agent's call goal pointed at the right field.
+  if (newName !== fieldName) {
+    const agent = await api.getAgent(agentId);
+    if (agent.config?.call_goal?.output_field === fieldName) {
+      await api.updateAgent(agentId, {
+        config: { ...agent.config, call_goal: { ...agent.config.call_goal, output_field: newName } },
+      });
+    }
+  }
+  return toOutputVariable(agentId, analysisId, updatedField);
+}
+
+export async function deleteOutputVariable(agentId: string, id: string): Promise<void> {
+  const { analysisId, fieldName } = splitOutputVariableId(id);
+  const analysis = await findOutputVarsAnalysis(agentId);
+  if (!analysis || analysis.id !== analysisId) return;
+  const fields = analysis.fields.filter((f) => f.name !== fieldName);
+  await api.updateAnalysis(analysisId, { fields });
+  const agent = await api.getAgent(agentId);
+  if (agent.config?.call_goal?.output_field === fieldName) {
+    await api.updateAgent(agentId, { config: { ...agent.config, call_goal: null } });
+  }
+}
+
+// Call goal is one field on the agent's own config (real backend field --
+// see CallGoalConfig in app/schemas/agent_config.py). At most one per
+// agent, so list/create act like a singleton "slot" to match the panel's
+// existing UI, which only ever edits activeGoal = goals[0].
+export async function listCallGoals(agentId: string): Promise<CallGoal[]> {
+  const [agent, outputs] = await Promise.all([api.getAgent(agentId), listOutputVariables(agentId)]);
+  const goal = agent.config?.call_goal;
+  if (!goal) return [];
+  const matchingVar = outputs.find((v) => v.name === goal.output_field);
+  return [
+    {
+      id: matchingVar?.id ?? goal.output_field,
+      agent_id: agentId,
+      output_variable_id: matchingVar?.id ?? goal.output_field,
+      field_operator: goal.field_operator,
+      value: goal.value,
+    },
+  ];
+}
+
+export async function createCallGoal(agentId: string, data: Partial<CallGoal>): Promise<CallGoal> {
+  if (!data.output_variable_id) throw new Error("Pick an output variable for the call goal");
+  const { fieldName } = splitOutputVariableId(data.output_variable_id);
+  const agent = await api.getAgent(agentId);
+  const call_goal: CallGoalConfig = {
+    output_field: fieldName,
     field_operator: data.field_operator ?? "eq",
     value: data.value ?? "",
   };
-  writeList(agentId, "goals", [row, ...readList<CallGoal>(agentId, "goals")]);
-  return row;
+  await api.updateAgent(agentId, { config: { ...agent.config, call_goal } });
+  return {
+    id: data.output_variable_id,
+    agent_id: agentId,
+    output_variable_id: data.output_variable_id,
+    field_operator: call_goal.field_operator,
+    value: call_goal.value,
+  };
 }
-export async function deleteCallGoal(agentId: string, id: string) {
-  writeList(
-    agentId,
-    "goals",
-    readList<CallGoal>(agentId, "goals").filter((r) => r.id !== id),
-  );
+
+export async function deleteCallGoal(agentId: string, _id: string): Promise<void> {
+  const agent = await api.getAgent(agentId);
+  await api.updateAgent(agentId, { config: { ...agent.config, call_goal: null } });
 }
 
 export async function listAgentTools(agentId: string): Promise<AgentTool[]> {
@@ -217,6 +345,8 @@ export async function createAgentTool(agentId: string, data: Partial<AgentTool>)
     description: data.description ?? "",
     http_url: data.url ?? null,
     http_method: data.method ?? "POST",
+    parameters: data.parameters ?? {},
+    required: data.required ?? [],
   });
   await api.attachAgentTool(agentId, tool.id, true);
   return {
@@ -229,6 +359,8 @@ export async function createAgentTool(agentId: string, data: Partial<AgentTool>)
     url: tool.http_url ?? undefined,
     runs_on: "during_call" as const,
     enabled: true,
+    parameters: tool.parameters,
+    required: tool.required,
   };
 }
 
@@ -420,89 +552,54 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
   return data;
 }
 
+// Text-only (LLM simulation) agent tests + background test runs -- real
+// backend-persisted endpoints (see kupe-backend app/routers/agent_tests.py),
+// not the browser-local mock this used to be. A run never drives a real
+// voice call or hits a real tool/webhook: the backend's AgentTestRunner
+// intercepts tool calls in-process and grades the simulated transcript with
+// an LLM judge.
+
 export async function listTestCases(agentId: string) {
-  return readList<AgentTestCase>(agentId, "tests");
+  const page = await api.listAgentTests(agentId, { limit: 100 });
+  return page.items;
 }
-export async function createTestCase(agentId: string, data: Partial<AgentTestCase>) {
-  const row: AgentTestCase = {
-    id: crypto.randomUUID(),
-    agent_id: agentId,
+export async function createTestCase(
+  agentId: string,
+  data: { name?: string; scenario?: string; behaviors?: string[]; expected_tool_calls?: ExpectedToolCall[] },
+) {
+  return api.createAgentTest(agentId, {
     name: data.name ?? "New test",
     scenario: data.scenario ?? "",
     behaviors: data.behaviors ?? [],
-  };
-  writeList(agentId, "tests", [row, ...readList<AgentTestCase>(agentId, "tests")]);
-  return row;
+    expected_tool_calls: data.expected_tool_calls ?? [],
+  });
 }
-export async function updateTestCase(agentId: string, id: string, data: Partial<AgentTestCase>) {
-  const rows = readList<AgentTestCase>(agentId, "tests").map((r) => (r.id === id ? { ...r, ...data } : r));
-  writeList(agentId, "tests", rows);
-  const row = rows.find((r) => r.id === id);
-  if (!row) throw new Error("Test not found");
-  return row;
+export async function updateTestCase(
+  agentId: string,
+  id: string,
+  data: Partial<{ name: string; scenario: string; behaviors: string[]; expected_tool_calls: ExpectedToolCall[] }>,
+) {
+  return api.updateAgentTest(agentId, id, data);
 }
 export async function deleteTestCase(agentId: string, id: string) {
-  writeList(
-    agentId,
-    "tests",
-    readList<AgentTestCase>(agentId, "tests").filter((r) => r.id !== id),
-  );
+  await api.deleteAgentTest(agentId, id);
 }
 
 export async function runTestCase(agentId: string, testId: string, multiplier = 1, runName?: string) {
-  const test = readList<AgentTestCase>(agentId, "tests").find((t) => t.id === testId);
-  const run: AgentTestRun = {
-    id: crypto.randomUUID(),
-    agent_id: agentId,
-    run_name: runName ?? null,
-    multiplier,
-    status: "completed",
-    results: test
-      ? [
-          {
-            test_case_id: test.id,
-            passed: true,
-            behavior_results: test.behaviors.map((b) => ({
-              behavior: b,
-              met: true,
-              evidence: "Local preview — automated eval is not wired yet.",
-            })),
-            transcript_summary: test.scenario || "No scenario provided.",
-          },
-        ]
-      : [],
-  };
-  writeList(agentId, "test-runs", [run, ...readList<AgentTestRun>(agentId, "test-runs")]);
-  return run;
+  return api.startAgentTestRun(agentId, { test_id: testId, multiplier, run_name: runName || null });
 }
 
 export async function runAllTests(agentId: string, multiplier = 1, runName?: string) {
-  const tests = readList<AgentTestCase>(agentId, "tests");
-  const run: AgentTestRun = {
-    id: crypto.randomUUID(),
-    agent_id: agentId,
-    run_name: runName ?? null,
-    multiplier,
-    status: "completed",
-    results: tests.map((t) => ({
-      test_case_id: t.id,
-      passed: true,
-      behavior_results: t.behaviors.map((b) => ({
-        behavior: b,
-        met: true,
-        evidence: "Local preview — automated eval is not wired yet.",
-      })),
-      transcript_summary: t.scenario || "No scenario provided.",
-    })),
-  };
-  writeList(agentId, "test-runs", [run, ...readList<AgentTestRun>(agentId, "test-runs")]);
-  return run;
+  return api.startAgentTestRun(agentId, { multiplier, run_name: runName || null });
+}
+
+export async function listTestRuns(agentId: string) {
+  const page = await api.listAgentTestRuns(agentId, { limit: 50 });
+  return page.items;
 }
 
 export async function getTestRun(agentId: string, runId: string) {
-  const run = readList<AgentTestRun>(agentId, "test-runs").find((r) => r.id === runId);
-  if (!run) throw new Error("Test run not found");
-  return run;
+  return api.getAgentTestRun(agentId, runId);
 }
 
 /**

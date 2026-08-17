@@ -22,7 +22,6 @@ import {
   SettingsDialogProvider,
   useSettingsDialog,
   useSettingsDialogOptional,
-  type SettingsSectionId,
 } from "@/components/settings/settings-dialog-context";
 import { SettingsDialog } from "@/components/settings/settings-dialog";
 import {
@@ -149,17 +148,7 @@ function SettingsDeepLink() {
     const section = searchParams.get("openSettings");
     if (legacy == null && section == null) return;
 
-    const allowed = new Set<SettingsSectionId>([
-      "appearance",
-      "account",
-      "workspace",
-      "keys",
-    ]);
-    if (section && allowed.has(section as SettingsSectionId)) {
-      openSettings(section as SettingsSectionId);
-    } else {
-      openSettings();
-    }
+    openSettings(section ?? undefined);
 
     const next = new URLSearchParams(searchParams);
     next.delete("settings");

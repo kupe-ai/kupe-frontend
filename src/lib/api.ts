@@ -3,6 +3,8 @@ import { supabase } from "./supabase";
 import type {
   Agent,
   AgentAnalysis,
+  AgentTest,
+  AgentTestRun,
   AgentTool,
   AgentVersion,
   AnalysisResult,
@@ -307,6 +309,36 @@ export const api = {
     authedJson<Page<AgentVersion>>(`/v1/agents/${agentId}/versions${qs(params)}`),
   revertAgent: (agentId: string, version: number) =>
     authedJson<Agent>(`/v1/agents/${agentId}/revert/${version}`, { method: "POST" }),
+  commitAgent: (agentId: string, message?: string) =>
+    authedJson<Agent>(`/v1/agents/${agentId}/commit`, {
+      method: "POST",
+      body: JSON.stringify({ message: message || null }),
+    }),
+
+  // Agent tests (text-only LLM simulation) + background test runs
+  listAgentTests: (agentId: string, params?: ListParams) =>
+    authedJson<Page<AgentTest>>(`/v1/agents/${agentId}/tests${qs(params)}`),
+  createAgentTest: (
+    agentId: string,
+    body: { name: string; scenario?: string; behaviors?: string[]; expected_tool_calls?: AgentTest["expected_tool_calls"] },
+  ) => authedJson<AgentTest>(`/v1/agents/${agentId}/tests`, { method: "POST", body: JSON.stringify(body) }),
+  updateAgentTest: (
+    agentId: string,
+    testId: string,
+    body: Partial<{ name: string; scenario: string; behaviors: string[]; expected_tool_calls: AgentTest["expected_tool_calls"] }>,
+  ) =>
+    authedJson<AgentTest>(`/v1/agents/${agentId}/tests/${testId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteAgentTest: (agentId: string, testId: string) =>
+    authedJson<void>(`/v1/agents/${agentId}/tests/${testId}`, { method: "DELETE" }),
+  startAgentTestRun: (agentId: string, body: { test_id?: string | null; multiplier?: number; run_name?: string | null }) =>
+    authedJson<AgentTestRun>(`/v1/agents/${agentId}/test-runs`, { method: "POST", body: JSON.stringify(body) }),
+  listAgentTestRuns: (agentId: string, params?: ListParams) =>
+    authedJson<Page<AgentTestRun>>(`/v1/agents/${agentId}/test-runs${qs(params)}`),
+  getAgentTestRun: (agentId: string, runId: string) =>
+    authedJson<AgentTestRun>(`/v1/agents/${agentId}/test-runs/${runId}`),
   attachAnalysis: (agentId: string, postCallAnalysisId: string, enabled = true) =>
     authedJson(`/v1/agents/${agentId}/post-call-analyses`, {
       method: "POST",

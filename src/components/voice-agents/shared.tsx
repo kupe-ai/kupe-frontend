@@ -58,7 +58,7 @@ export function VoicePageHeader({
         className,
       )}
     >
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      <h1 className="text-title">{title}</h1>
       {actions}
     </div>
   );

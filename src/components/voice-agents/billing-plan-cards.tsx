@@ -1,13 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  AsciiIcon,
-  type AsciiIconKind,
-  type AsciiIconTone,
-} from "@/components/voice-agents/ascii-icons";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,14 +19,18 @@ import { api } from "@/lib/api";
 import { openRazorpayCheckout } from "@/lib/razorpay";
 import type { BillingPlan, BillingSubscription } from "@/types";
 
-const PLAN_META: Record<
-  string,
-  { kind: AsciiIconKind; tone: AsciiIconTone; blurb: string }
-> = {
-  payg: { kind: "planStarter", tone: "slate", blurb: "No commitment — prepay and draw down." },
-  business: { kind: "planBusiness", tone: "amber", blurb: "Lower per-minute rate with monthly autopay." },
-  scale: { kind: "planScale", tone: "coral", blurb: "Our best self-serve rate, autopay." },
-  enterprise: { kind: "planEnterprise", tone: "emerald", blurb: "Custom pricing at volume, dedicated support." },
+const PLAN_BARS = [
+  { color: "#2f5bd7", height: "40%" },
+  { color: "#e2b93b", height: "56%" },
+  { color: "#e07a3a", height: "74%" },
+  { color: "#3aa76d", height: "92%" },
+] as const;
+
+const PLAN_META: Record<string, { blurb: string; bars: 1 | 2 | 3 | 4 }> = {
+  payg: { blurb: "No commitment — prepay and draw down.", bars: 1 },
+  business: { blurb: "Lower per-minute rate with monthly autopay.", bars: 2 },
+  scale: { blurb: "Our best self-serve rate, autopay.", bars: 3 },
+  enterprise: { blurb: "Custom pricing at volume, dedicated support.", bars: 4 },
 };
 
 function money(rupees: number | null | undefined) {
@@ -147,57 +146,56 @@ export function BillingPlanCards({
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {(loading ? [] : plans).map((plan) => {
           const meta = PLAN_META[plan.code] ?? PLAN_META.payg;
           const isBusy = busyPlan === plan.code;
           const isCurrent = plan.code === currentPlanCode;
+          const ctaLabel =
+            isCurrent && plan.code !== "payg"
+              ? "Current plan"
+              : plan.code === "payg"
+                ? isCurrent
+                  ? "Add credits"
+                  : "Switch & add credits"
+                : plan.code === "enterprise"
+                  ? "Talk to sales"
+                  : "Subscribe";
           return (
             <div
               key={plan.code}
               className={cn(
-                "flex flex-col rounded-2xl border bg-card p-5 shadow-elevated group/nav",
+                "flex h-full flex-col rounded-2xl border bg-card p-5 shadow-elevated group/nav",
                 isCurrent ? "border-primary/60 ring-1 ring-primary/30" : "border-border",
               )}
             >
-              <div className="flex h-20 items-center justify-center rounded-xl bg-muted/50">
-                <AsciiIcon kind={meta.kind} tone={meta.tone} size="lg" title={plan.display_name} />
-              </div>
-              <div className="mt-4 flex items-center justify-between gap-2">
-                <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{plan.display_name}</p>
+              <PlanArt bars={meta.bars} title={plan.display_name} />
+              <div className="mt-4 flex h-6 items-center justify-between gap-2">
+                <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{plan.display_name}</p>
                 {isCurrent && <Badge variant="success">Current</Badge>}
               </div>
-              <p className="mt-1 text-xl font-semibold tracking-tight">
+              <p className="mt-1 h-7 text-xl leading-7 font-semibold tracking-tight">
                 {plan.monthly_commitment_rupees ? `${money(plan.monthly_commitment_rupees)} /month` : "Pay as you go"}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{meta.blurb}</p>
+              <p className="mt-1 h-8 line-clamp-2 text-xs leading-4 text-muted-foreground">{meta.blurb}</p>
 
-              {isCurrent && plan.code !== "payg" ? (
-                <Button className="mt-4 w-full rounded-full" variant="outline" disabled>
-                  Current plan
-                </Button>
-              ) : (
-                <Button
-                  className="mt-4 w-full rounded-full"
-                  variant={plan.code === "business" || plan.code === "scale" ? "secondary" : "default"}
-                  disabled={isBusy || !canManage}
-                  onClick={() => {
-                    if (plan.code === "payg") return setAddOpen(true);
-                    if (plan.code === "enterprise") return talkToSales();
-                    return subscribeToPlan(plan.code as "business" | "scale");
-                  }}
-                >
-                  {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
-                  {plan.code === "payg"
-                    ? isCurrent
-                      ? "Add credits"
-                      : "Switch & add credits"
-                    : plan.code === "enterprise"
-                      ? "Talk to sales"
-                      : `Subscribe — ${money(plan.monthly_commitment_rupees)}/mo`}
-                </Button>
+              <Button
+                className="mt-4 h-9 w-full rounded-full"
+                variant={isCurrent && plan.code !== "payg" ? "outline" : "default"}
+                disabled={isBusy || !canManage || (isCurrent && plan.code !== "payg")}
+                onClick={() => {
+                  if (isCurrent && plan.code !== "payg") return;
+                  if (plan.code === "payg") return setAddOpen(true);
+                  if (plan.code === "enterprise") return talkToSales();
+                  return subscribeToPlan(plan.code as "business" | "scale");
+                }}
+              >
+                {isBusy ? <Loader2 className="size-4 animate-spin" /> : null}
+                {ctaLabel}
+              </Button>
+              {!canManage && (
+                <p className="mt-2 text-center text-xs text-muted-foreground">Owner/admin only</p>
               )}
-              {!canManage && <p className="mt-2 text-center text-xs text-muted-foreground">Owner/admin only</p>}
 
               <ul className="mt-5 flex-1 space-y-3">
                 <PlanFeature text={`~${money(plan.voice_rate_rupees)} / minute`} note="Voice calls" show={plan.voice_rate_rupees != null} />
@@ -267,6 +265,42 @@ export function BillingPlanCards({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function PlanArt({ bars, title }: { bars: 1 | 2 | 3 | 4; title: string }) {
+  const uid = useId().replace(/:/g, "");
+  const shown = PLAN_BARS.slice(0, bars);
+
+  return (
+    <div
+      role="img"
+      aria-label={title}
+      className="relative h-28 overflow-hidden rounded-xl bg-neutral-300 dark:bg-neutral-800"
+    >
+      <div className="absolute inset-x-0 bottom-0 flex h-full items-end gap-1.5 px-6">
+        {shown.map((bar) => (
+          <div
+            key={bar.color}
+            className="min-w-4 w-[18%] max-w-7"
+            style={{
+              height: bar.height,
+              backgroundColor: bar.color,
+              backgroundImage:
+                "repeating-linear-gradient(0deg, rgb(0 0 0 / 0.14) 0 2px, transparent 2px 4px), repeating-linear-gradient(90deg, rgb(0 0 0 / 0.1) 0 2px, transparent 2px 4px)",
+              boxShadow: "inset 0 0 0 1px rgb(0 0 0 / 0.2)",
+            }}
+          />
+        ))}
+      </div>
+      <svg className="pointer-events-none absolute inset-0 size-full mix-blend-overlay" aria-hidden>
+        <filter id={`${uid}-grain`} x="0%" y="0%" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="4" stitchTiles="stitch" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <rect width="100%" height="100%" filter={`url(#${uid}-grain)`} opacity="0.7" />
+      </svg>
+    </div>
   );
 }
 

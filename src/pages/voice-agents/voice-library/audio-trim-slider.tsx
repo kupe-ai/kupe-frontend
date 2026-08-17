@@ -5,9 +5,27 @@ import { Loader2, Pause, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const BAR_COUNT = 80;
 const MIN_CLIP_SEC = 0.5;
 const FULL_FILE_SLOP = 0.08;
+const PX_PER_SEC = 32;
+const MIN_BAR_PX = 3;
+const BAR_GAP_PX = 1;
+const MIN_BARS = 48;
+const MAX_BARS = 360;
+
+function trackWidthFor(duration: number, containerWidth: number): number {
+  if (!containerWidth) return 0;
+  if (!duration) return containerWidth;
+  return Math.max(containerWidth, Math.round(duration * PX_PER_SEC));
+}
+
+function barCountFor(trackWidth: number): number {
+  if (trackWidth <= 0) return MIN_BARS;
+  return Math.max(
+    MIN_BARS,
+    Math.min(MAX_BARS, Math.floor(trackWidth / (MIN_BAR_PX + BAR_GAP_PX))),
+  );
+}
 
 export function formatClipTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -112,17 +130,38 @@ export function AudioTrimSlider({
   const [failed, setFailed] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState<number | null>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const bufferRef = useRef<AudioBuffer | null>(null);
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const trackRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<Handle | null>(null);
   const rangeRef = useRef({ start, end });
   rangeRef.current = { start, end };
+
+  const trackWidth = trackWidthFor(duration, containerWidth);
+  const barCount = barCountFor(trackWidth);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const apply = () => {
+      const style = getComputedStyle(el);
+      const pad = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      setContainerWidth(Math.max(0, Math.round(el.clientWidth - pad)));
+    };
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const url = URL.createObjectURL(file);
     const audio = new Audio(url);
     audioRef.current = audio;
+    bufferRef.current = null;
     setLoading(true);
     setFailed(false);
     setPeaks(null);
@@ -137,7 +176,7 @@ export function AudioTrimSlider({
       .then((bytes) => ctx.decodeAudioData(bytes.slice(0)))
       .then((buffer) => {
         if (cancelled) return;
-        setPeaks(computePeaks(buffer, BAR_COUNT));
+        bufferRef.current = buffer;
         setDuration(buffer.duration);
         onDecoded(buffer);
         onChange(0, buffer.duration);
@@ -156,12 +195,19 @@ export function AudioTrimSlider({
       cancelled = true;
       audio.pause();
       audioRef.current = null;
+      bufferRef.current = null;
       URL.revokeObjectURL(url);
       void ctx.close();
     };
     // Decode once per file; parent callbacks are stable enough for this dialog.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
+
+  useEffect(() => {
+    const buffer = bufferRef.current;
+    if (!buffer || !barCount) return;
+    setPeaks(computePeaks(buffer, barCount));
+  }, [barCount, duration]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -271,15 +317,20 @@ export function AudioTrimSlider({
   const selected = Math.max(0, end - start);
 
   return (
-    <div className="rounded-xl border border-border bg-muted/20 p-3">
-      <div className="flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate text-sm font-medium">{file.name}</p>
+    <div
+      ref={shellRef}
+      className="min-w-0 w-full overflow-hidden rounded-xl border border-border bg-muted/20 p-3"
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <p className="min-w-0 flex-1 truncate text-sm font-medium" title={file.name}>
+          {file.name}
+        </p>
         {onClear ? (
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            className="rounded-full"
+            className="shrink-0 rounded-full"
             onClick={onClear}
             aria-label="Remove clip"
           >
@@ -297,20 +348,23 @@ export function AudioTrimSlider({
           Couldn't preview this clip — we'll still clone the original file.
         </p>
       ) : (
-        <div className="mt-3 flex flex-col gap-2">
-          <div className="px-1.5">
-            <div
-              ref={trackRef}
-              className="relative cursor-ew-resize touch-none select-none"
-              onPointerDown={onTrackPointerDown}
-              onPointerMove={onTrackPointerMove}
-              onPointerUp={onTrackPointerUp}
-              onPointerCancel={onTrackPointerUp}
-            >
+        <div className="mt-3 flex min-w-0 flex-col gap-2">
+          <div className="min-w-0 overflow-x-auto overscroll-x-contain pb-1">
+            <div className="px-2" style={{ width: trackWidth ? trackWidth + 16 : "100%" }}>
+              <div
+                ref={trackRef}
+                className="relative cursor-ew-resize touch-none select-none"
+                style={{ width: trackWidth || "100%" }}
+                onPointerDown={onTrackPointerDown}
+                onPointerMove={onTrackPointerMove}
+                onPointerUp={onTrackPointerUp}
+                onPointerCancel={onTrackPointerUp}
+              >
               <div className="relative h-24 overflow-hidden rounded-lg bg-background ring-1 ring-border">
                 <div className="absolute inset-0 flex items-center gap-px px-2">
                   {(peaks ?? []).map((p, i) => {
-                    const t = ((i + 0.5) / BAR_COUNT) * duration;
+                    const count = peaks?.length || barCount;
+                    const t = ((i + 0.5) / count) * duration;
                     const active = t >= start && t <= end;
                     return (
                       <div
@@ -353,6 +407,7 @@ export function AudioTrimSlider({
                 <Thumb pct={startPct} label="Trim start" time={formatClipTime(start)} />
                 <Thumb pct={endPct} label="Trim end" time={formatClipTime(end)} />
               </div>
+              </div>
             </div>
           </div>
 
@@ -361,19 +416,19 @@ export function AudioTrimSlider({
             <span>{formatClipTime(end)}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full"
+              className="shrink-0 rounded-full"
               onClick={() => void togglePlay()}
               aria-label={playing ? "Pause clip" : "Play selected clip"}
             >
               {playing ? <Pause /> : <Play />}
               {playing ? "Pause" : "Play"}
             </Button>
-            <p className="text-xs text-muted-foreground">
+            <p className="min-w-0 truncate text-xs text-muted-foreground">
               {formatClipTime(selected)} selected
               {duration >= 30 && selected < 30 ? " · 30s+ recommended" : ""}
             </p>

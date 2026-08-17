@@ -114,15 +114,9 @@ export async function exportVoiceAgent(agentId: string) {
   return (await api.getAgent(agentId)) as unknown as Record<string, unknown>;
 }
 
-export async function commitVoiceAgentVersion(agentId: string, label?: string) {
-  const agent = await api.getAgent(agentId);
-  const versions = await api.listAgentVersions(agentId, { limit: 1 });
-  return {
-    id: agent.id,
-    version: agent.version,
-    label: label ?? versions.items[0]?.changed_by ?? null,
-    created_at: agent.updated_at,
-  };
+export async function commitVoiceAgentVersion(agentId: string, message?: string) {
+  const agent = await api.commitAgent(agentId, message);
+  return { id: agent.id, version: agent.version, message: message ?? null, created_at: agent.updated_at };
 }
 
 export async function listVoiceAgentVersions(agentId: string) {
@@ -131,8 +125,14 @@ export async function listVoiceAgentVersions(agentId: string) {
     id: `${agentId}-v${v.version}`,
     version: v.version,
     label: v.changed_by,
+    message: v.message,
     created_at: v.created_at,
+    snapshot: v.snapshot,
   }));
+}
+
+export async function revertVoiceAgent(agentId: string, version: number) {
+  return toVoiceAgent(await api.revertAgent(agentId, version));
 }
 
 export async function listVoiceAgentTemplates(category = "all"): Promise<VoiceAgentTemplate[]> {

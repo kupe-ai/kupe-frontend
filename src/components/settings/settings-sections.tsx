@@ -2,22 +2,13 @@
 
 import { ThemeSelector } from "@/components/theme-selector";
 import { ApiKeysSection } from "@/components/settings/api-keys-section";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KupeWorkspaceSettings } from "@/pages/voice-agents/settings/workspace-sections";
 import { useAuth } from "@/lib/useAuth";
 import { useWorkspaceOptional } from "@/context/workspace-context";
 import type { SettingsSectionId } from "@/components/settings/settings-dialog-context";
 
 export function SettingsSectionBody({ section }: { section: SettingsSectionId }) {
-  if (section === "appearance") {
-    return (
-      <div className="space-y-4">
-        <SettingRow label="Theme" description="Theme preference.">
-          <ThemeSelector />
-        </SettingRow>
-      </div>
-    );
-  }
-
   if (section === "workspace") {
     return <KupeWorkspaceSettings />;
   }
@@ -41,13 +32,7 @@ function AccountSection() {
     (session?.user.user_metadata?.full_name as string | undefined)?.trim() ||
     email.split("@")[0] ||
     "Account";
-  const initials =
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("") || "?";
+  const avatarSeed = session?.user.id || email || name;
   const role = workspace?.membership?.role ?? "member";
   const orgName = workspace?.org?.name ?? "Kupe";
 
@@ -63,9 +48,12 @@ function AccountSection() {
           className="pointer-events-none absolute -right-8 -top-10 size-40 rounded-full bg-primary/10 blur-2xl"
         />
         <div className="relative flex items-start gap-4">
-          <div className="kupe-hero-fill flex size-14 shrink-0 items-center justify-center rounded-2xl text-lg font-semibold tracking-tight text-primary-foreground shadow-sm shadow-primary/25">
-            {initials}
-          </div>
+          <AgentAvatar
+            seed={avatarSeed}
+            size={56}
+            alt={name}
+            className="shrink-0"
+          />
           <div className="min-w-0 flex-1 pt-0.5">
             <p className="truncate text-lg font-semibold tracking-tight text-foreground">
               {name}
@@ -106,6 +94,12 @@ function AccountSection() {
           <span className="font-medium text-foreground">{name}</span>
           <span className="truncate text-muted-foreground">{email}</span>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-card px-4 py-1 shadow-sm shadow-black/[0.02]">
+        <SettingRow label="Theme" description="Light, dark, or match the system.">
+          <ThemeSelector />
+        </SettingRow>
       </div>
     </div>
   );

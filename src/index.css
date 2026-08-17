@@ -885,7 +885,7 @@
   .voice-page {
     width: 100%;
     max-width: 64rem;
-    margin-inline: auto;
+    margin-inline: 0 auto;
     padding: 1.25rem 1rem 2rem;
     display: flex;
     flex-direction: column;
@@ -893,7 +893,7 @@
   }
   @media (min-width: 768px) {
     .voice-page {
-      padding: 1.5rem 2rem 2.5rem;
+      padding: 1.25rem 1.5rem 2.5rem;
     }
   }
   .voice-page-wide {
@@ -914,10 +914,10 @@
     font-optical-sizing: auto;
   }
   .text-title {
-    font-size: 1.75rem;
+    font-size: 1.125rem;
     font-weight: 600;
-    letter-spacing: -0.018em;
-    line-height: 1.12;
+    letter-spacing: -0.016em;
+    line-height: 1.3;
     font-optical-sizing: auto;
   }
   .text-headline {

@@ -72,6 +72,17 @@ export function displayModelName(name: string): string {
     .join(" ");
 }
 
+/** Soniox STT/TTS keep internal ids in storage; UI always shows k-STT / k-TTS. */
+export function brandedModelName(provider: string, model: string): string {
+  const p = providerKey(provider);
+  const m = model.trim().toLowerCase();
+  if (p === "soniox" || p === "kupe") {
+    if (m.startsWith("tts") || m === "k-tts") return "k-TTS";
+    if (m.startsWith("stt") || m === "k-stt") return "k-STT";
+  }
+  return displayModelName(model);
+}
+
 function formatModelToken(token: string): string {
   if (/^v\d+(\.\d+)*$/i.test(token)) return `v${token.slice(1)}`;
   if (/^\d+(\.\d+)+$/.test(token) || /^\d{4}$/.test(token)) return token;
@@ -82,10 +93,10 @@ function formatModelToken(token: string): string {
   return token.charAt(0).toUpperCase() + token.slice(1).toLowerCase();
 }
 
-/** `ElevenLabs / Multilingual v2` — provider display name, then humanized model. */
+/** `Kupe / k-TTS` — provider display name, then branded/humanized model. */
 export function formatProviderModel(provider: string, model: string): string {
   const p = displayProviderName(provider);
-  const m = displayModelName(model);
+  const m = brandedModelName(provider, model);
   if (!p) return m;
   if (!m) return p;
   return `${p} / ${m}`;

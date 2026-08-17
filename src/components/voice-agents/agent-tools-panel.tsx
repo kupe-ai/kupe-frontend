@@ -36,6 +36,13 @@ import {
   type AgentTool,
   type SystemTool,
 } from "@/lib/api/voice/agent-builder";
+import {
+  parameterHintForMethod,
+  paramRowsToSchema,
+  ToolParametersEditor,
+  type ToolParamRow,
+} from "@/components/voice-agents/tool-parameters-editor";
+import { Textarea } from "@/components/ui/textarea";
 
 type ToolsTab = "custom" | "system";
 
@@ -217,13 +224,22 @@ function AddToolDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (data: { name: string; description: string; method: string; url: string; runs_on: AgentTool["runs_on"] }) => Promise<void>;
+  onCreate: (data: {
+    name: string;
+    description: string;
+    method: string;
+    url: string;
+    runs_on: AgentTool["runs_on"];
+    parameters: Record<string, unknown>;
+    required: string[];
+  }) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [method, setMethod] = useState("POST");
   const [url, setUrl] = useState("");
   const [runsOn, setRunsOn] = useState<AgentTool["runs_on"]>("during_call");
+  const [params, setParams] = useState<ToolParamRow[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -233,6 +249,7 @@ function AddToolDialog({
       setMethod("POST");
       setUrl("");
       setRunsOn("during_call");
+      setParams([]);
     }
   }, [open]);
 
@@ -241,9 +258,10 @@ function AddToolDialog({
       toast.message("Name and URL are required");
       return;
     }
+    const { parameters, required } = paramRowsToSchema(params);
     setSaving(true);
     try {
-      await onCreate({ name, description, method, url, runs_on: runsOn });
+      await onCreate({ name, description, method, url, runs_on: runsOn, parameters, required });
     } finally {
       setSaving(false);
     }
@@ -251,7 +269,7 @@ function AddToolDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add custom tool</DialogTitle>
         </DialogHeader>
@@ -262,7 +280,12 @@ function AddToolDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Description</Label>
-            <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What this tool does" />
+            <Textarea
+              rows={2}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What this tool does — the LLM reads this"
+            />
           </div>
           <div className="flex gap-2">
             <div className="w-28 space-y-1.5">
@@ -285,6 +308,7 @@ function AddToolDialog({
               <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
             </div>
           </div>
+          <ToolParametersEditor rows={params} onChange={setParams} hint={parameterHintForMethod(method)} />
           <div className="space-y-1.5">
             <Label>Runs</Label>
             <Select value={runsOn} onValueChange={(v) => setRunsOn(v as AgentTool["runs_on"])}>

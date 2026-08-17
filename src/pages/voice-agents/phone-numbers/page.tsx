@@ -65,7 +65,7 @@ export default function VoiceAgentsPhoneNumbersPage() {
   return (
     <div className="voice-page voice-page-md">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-display">Phone numbers</h1>
+        <h1 className="text-title">Phone numbers</h1>
         <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
           <KupeIcon name="plus" className="size-4" />
           Add number

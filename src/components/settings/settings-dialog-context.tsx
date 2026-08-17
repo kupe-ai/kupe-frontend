@@ -10,13 +10,19 @@ import {
   type ReactNode,
 } from "react";
 
-export type SettingsSectionId = "appearance" | "account" | "workspace" | "keys";
+export type SettingsSectionId = "account" | "workspace" | "keys";
+
+/** Legacy `appearance` deep-links land on Account, where theme now lives. */
+export function normalizeSettingsSection(id?: string | null): SettingsSectionId {
+  if (id === "workspace" || id === "keys" || id === "account") return id;
+  return "account";
+}
 
 type SettingsDialogContextValue = {
   open: boolean;
   section: SettingsSectionId;
   /** Opens the dialog; returns false when settings are not available. */
-  openSettings: (section?: SettingsSectionId) => boolean;
+  openSettings: (section?: string) => boolean;
   closeSettings: () => void;
   setSection: (section: SettingsSectionId) => void;
 };
@@ -31,12 +37,16 @@ export function SettingsDialogProvider({
   enabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [section, setSection] = useState<SettingsSectionId>("appearance");
+  const [section, setSectionState] = useState<SettingsSectionId>("account");
+
+  const setSection = useCallback((next: SettingsSectionId) => {
+    setSectionState(normalizeSettingsSection(next));
+  }, []);
 
   const openSettings = useCallback(
-    (next?: SettingsSectionId) => {
+    (next?: string) => {
       if (!enabled) return false;
-      if (next) setSection(next);
+      if (next) setSectionState(normalizeSettingsSection(next));
       setOpen(true);
       return true;
     },
@@ -55,7 +65,7 @@ export function SettingsDialogProvider({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [enabled]);
+  }, [enabled, setSection]);
 
   useEffect(() => {
     if (!enabled) setOpen(false);
@@ -69,7 +79,7 @@ export function SettingsDialogProvider({
       closeSettings,
       setSection,
     }),
-    [open, section, openSettings, closeSettings],
+    [open, section, openSettings, closeSettings, setSection],
   );
 
   return (

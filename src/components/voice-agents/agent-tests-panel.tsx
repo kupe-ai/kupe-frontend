@@ -18,33 +18,36 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { TestRunDetailPanel } from "@/components/voice-agents/test-run-detail-panel";
 import { cn } from "@/lib/utils";
 import {
   createTestCase,
   deleteTestCase,
-  getTestRun,
   listTestCases,
+  listTestRuns,
   runAllTests,
   runTestCase,
   updateTestCase,
   type AgentTestCase,
-  type AgentTestRun,
 } from "@/lib/api/voice/agent-builder";
+import type { AgentTestRun, ExpectedToolCall } from "@/types";
 
 type TestsTab = "tests" | "runs";
+const RUN_LIST_POLL_MS = 2000;
 
 export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: string }) {
   const [tab, setTab] = useState<TestsTab>("tests");
   const [search, setSearch] = useState("");
   const [tests, setTests] = useState<AgentTestCase[]>([]);
+  const [runs, setRuns] = useState<AgentTestRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [runOpen, setRunOpen] = useState(false);
   const [runMultiplier, setRunMultiplier] = useState(1);
   const [runName, setRunName] = useState("");
   const [pendingRunTestId, setPendingRunTestId] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
-  const [activeRun, setActiveRun] = useState<AgentTestRun | null>(null);
-  const pollRef = useRef<number | null>(null);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const runsPollRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -57,13 +60,36 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
     }
   }, [agentId]);
 
+  const refreshRuns = useCallback(async () => {
+    try {
+      setRuns(await listTestRuns(agentId));
+    } catch {
+      // Runs list polling failures shouldn't spam toasts — the panel just
+      // keeps its last-known state until the next successful poll.
+    }
+  }, [agentId]);
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
 
-  useEffect(() => () => {
-    if (pollRef.current) window.clearInterval(pollRef.current);
-  }, []);
+  useEffect(() => {
+    void refreshRuns();
+  }, [refreshRuns]);
+
+  // Keep the runs list itself live (status/progress per row) while anything
+  // is queued/running, independent of whether the detail side panel is open
+  // — a page refresh or a second run started elsewhere still shows real state.
+  useEffect(() => {
+    const anyInFlight = runs.some((r) => r.status === "queued" || r.status === "running");
+    if (runsPollRef.current) window.clearTimeout(runsPollRef.current);
+    if (anyInFlight) {
+      runsPollRef.current = window.setTimeout(() => void refreshRuns(), RUN_LIST_POLL_MS);
+    }
+    return () => {
+      if (runsPollRef.current) window.clearTimeout(runsPollRef.current);
+    };
+  }, [runs, refreshRuns]);
 
   const editing = tests.find((t) => t.id === editId) ?? null;
   const q = search.trim().toLowerCase();
@@ -85,17 +111,6 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
     }
   }
 
-  function pollRun(runId: string) {
-    if (pollRef.current) window.clearInterval(pollRef.current);
-    pollRef.current = window.setInterval(async () => {
-      const run = await getTestRun(agentId, runId);
-      setActiveRun(run);
-      if (run.status === "completed" || run.status === "failed") {
-        if (pollRef.current) window.clearInterval(pollRef.current);
-      }
-    }, 2000);
-  }
-
   async function startRun() {
     setRunOpen(false);
     setTab("runs");
@@ -103,9 +118,9 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
       const run = pendingRunTestId
         ? await runTestCase(agentId, pendingRunTestId, runMultiplier, runName || undefined)
         : await runAllTests(agentId, runMultiplier, runName || undefined);
-      setActiveRun(run);
-      pollRun(run.id);
-      toast.success("Tests started");
+      setRuns((list) => [run, ...list]);
+      setOpenRunId(run.id);
+      toast.success("Test run started");
     } catch {
       toast.error("Couldn't start test run");
     } finally {
@@ -136,7 +151,8 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
           <h2 className="text-lg font-semibold tracking-tight">Know if your agent works</h2>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
             Write a test case, then run it — a text-only simulation against this agent&apos;s
-            real instructions and tools.
+            real instructions and tools. Tool calls are always intercepted and mocked, never sent
+            to a real integration.
           </p>
         </div>
         <Button type="button" className="rounded-full" onClick={() => void addTest()}>
@@ -156,14 +172,14 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
               ["tests", "Tests"],
               ["runs", "Runs"],
             ] as const
-          ).map(([id, label]) => (
+          ).map(([tid, label]) => (
             <button
-              key={id}
+              key={tid}
               type="button"
-              onClick={() => setTab(id)}
+              onClick={() => setTab(tid)}
               className={cn(
                 "pressable rounded-full px-3.5 py-1.5 text-sm",
-                tab === id
+                tab === tid
                   ? "bg-background font-medium text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -201,42 +217,44 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
       </div>
 
       {tab === "runs" ? (
-        activeRun ? (
-          <div className="overflow-hidden rounded-xl border border-border">
-            <div className="flex items-center justify-between border-b border-border bg-muted/20 px-4 py-2.5 text-sm">
-              <span className="font-medium">{activeRun.run_name || "Run"}</span>
-              <StatusChip status={activeRun.status} />
-            </div>
-            {activeRun.status === "running" || activeRun.status === "queued" ? (
-              <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin" />
-                Running…
-              </div>
-            ) : (
-              <ul className="divide-y divide-border">
-                {(activeRun.results ?? []).map((r, i) => (
-                  <li key={i} className="px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        {tests.find((t) => t.id === r.test_case_id)?.name ?? "Test"}
-                      </span>
-                      <StatusChip status={r.passed ? "passed" : "failed"} />
-                    </div>
-                    <ul className="mt-1.5 space-y-1">
-                      {r.behavior_results.map((b, j) => (
-                        <li key={j} className="text-xs text-muted-foreground">
-                          {b.met ? "✓" : "✗"} {b.behavior}
-                        </li>
-                      ))}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : (
+        runs.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center text-sm text-muted-foreground">
             No runs yet. Start one with Run all.
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-border">
+            <div className="grid grid-cols-[1fr_110px_100px_140px] gap-3 border-b border-border bg-muted/20 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+              <span>Run</span>
+              <span>Status</span>
+              <span>Progress</span>
+              <span>Started</span>
+            </div>
+            <ul className="divide-y divide-border">
+              {runs.map((r) => {
+                const inFlight = r.status === "queued" || r.status === "running";
+                return (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      onClick={() => setOpenRunId(r.id)}
+                      className="grid w-full grid-cols-[1fr_110px_100px_140px] items-center gap-3 px-4 py-3 text-left hover:bg-muted/30"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        {inFlight ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
+                        <span className="truncate text-sm font-medium">{r.run_name || `Run · v${r.agent_version}`}</span>
+                      </span>
+                      <StatusChip status={r.status} />
+                      <span className="text-sm text-muted-foreground">
+                        {r.completed_test_count}/{r.total_test_count}
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {r.created_at ? new Date(r.created_at).toLocaleString() : "—"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )
       ) : (
@@ -320,7 +338,8 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
                 {pendingRunTestId ? 1 : filtered.length} test{pendingRunTestId || filtered.length === 1 ? "" : "s"}
               </p>
               <p className="text-sm text-muted-foreground">
-                Each test runs as a text simulation against this agent's real instructions.
+                Each test runs as a text simulation against this agent's real instructions. Tool
+                calls are mocked, never sent to a real integration.
               </p>
             </div>
             <div>
@@ -386,6 +405,15 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
           )}
         </DialogContent>
       </Dialog>
+
+      <TestRunDetailPanel
+        agentId={agentId}
+        runId={openRunId}
+        onOpenChange={(open) => {
+          if (!open) setOpenRunId(null);
+          void refreshRuns();
+        }}
+      />
     </div>
   );
 }
@@ -404,12 +432,18 @@ function EditTestDialog({
   const [name, setName] = useState(test.name);
   const [scenario, setScenario] = useState(test.scenario);
   const [behaviors, setBehaviors] = useState(test.behaviors);
+  const [toolCalls, setToolCalls] = useState<ExpectedToolCall[]>(test.expected_tool_calls ?? []);
   const [saving, setSaving] = useState(false);
 
   async function save() {
     setSaving(true);
     try {
-      const updated = await updateTestCase(agentId, test.id, { name, scenario, behaviors });
+      const updated = await updateTestCase(agentId, test.id, {
+        name,
+        scenario,
+        behaviors,
+        expected_tool_calls: toolCalls,
+      });
       onSaved(updated);
       toast.success("Test saved");
     } catch {
@@ -469,6 +503,55 @@ function EditTestDialog({
                   className="shrink-0 self-start p-1 text-muted-foreground hover:text-foreground"
                   aria-label="Remove behavior"
                   onClick={() => setBehaviors((list) => list.filter((_, j) => j !== i))}
+                >
+                  <X className="size-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-xs text-muted-foreground">Expected tool calls</label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 rounded-full"
+              onClick={() => setToolCalls((list) => [...list, { tool_name: "", args_expectation: "" }])}
+            >
+              <Plus className="size-3.5" />
+              Add
+            </Button>
+          </div>
+          <ul className="space-y-2">
+            {toolCalls.map((c, i) => (
+              <li key={i} className="flex gap-2 rounded-xl bg-muted/40 px-3 py-2">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Input
+                    value={c.tool_name}
+                    onChange={(e) =>
+                      setToolCalls((list) => list.map((x, idx) => (idx === i ? { ...x, tool_name: e.target.value } : x)))
+                    }
+                    placeholder="Tool name, e.g. book_appointment"
+                    className="h-8 rounded-lg bg-background text-sm"
+                  />
+                  <Input
+                    value={c.args_expectation ?? ""}
+                    onChange={(e) =>
+                      setToolCalls((list) =>
+                        list.map((x, idx) => (idx === i ? { ...x, args_expectation: e.target.value } : x)),
+                      )
+                    }
+                    placeholder="What arguments to expect — optional"
+                    className="h-8 rounded-lg bg-background text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 self-start p-1 text-muted-foreground hover:text-foreground"
+                  aria-label="Remove expected tool call"
+                  onClick={() => setToolCalls((list) => list.filter((_, j) => j !== i))}
                 >
                   <X className="size-4" />
                 </button>

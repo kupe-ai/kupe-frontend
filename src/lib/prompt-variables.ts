@@ -31,6 +31,29 @@ export function vibgyorChipStyle(index: number): {
 
 const VARIABLE_RE = /\{\{([^{}]+)\}\}/g;
 
+const VAR_KEY_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+/** Every `{{name}}` token used across the given texts, deduped, in the
+ * order they first appear. Only valid identifiers are returned -- matches
+ * the backend's PromptVariable.key validation (app/schemas/agent_config.py). */
+export function extractVariableNames(...texts: (string | null | undefined)[]): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const text of texts) {
+    if (!text) continue;
+    const re = new RegExp(VARIABLE_RE.source, "g");
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(text))) {
+      const name = match[1].trim();
+      if (name && VAR_KEY_RE.test(name) && !seen.has(name)) {
+        seen.add(name);
+        names.push(name);
+      }
+    }
+  }
+  return names;
+}
+
 export function vibgyorMapForText(text: string): Map<string, VibgyorSwatch> {
   const map = new Map<string, VibgyorSwatch>();
   const re = new RegExp(VARIABLE_RE.source, "g");
