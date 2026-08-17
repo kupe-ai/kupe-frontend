@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
+import { api, type DisplayCurrency } from "@/lib/api";
 import { openRazorpayCheckout, preloadRazorpayCheckout } from "@/lib/razorpay";
 import type { BillingPlan, BillingSubscription } from "@/types";
 
@@ -51,10 +51,13 @@ export function BillingPlanCards({
   orgId,
   canManage,
   onChanged,
+  currency = "INR",
 }: {
   orgId: string | null | undefined;
   canManage: boolean;
   onChanged?: () => void;
+  /** Drives the PAYG matrix currency glyph (₹ / $). */
+  currency?: DisplayCurrency;
 }) {
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [sub, setSub] = useState<BillingSubscription | null>(null);
@@ -194,7 +197,13 @@ export function BillingPlanCards({
               onMouseEnter={() => setHoveredPlan(plan.code)}
               onMouseLeave={() => setHoveredPlan((code) => (code === plan.code ? null : code))}
             >
-              <PlanArt bars={meta.bars} title={plan.display_name} hovered={hoveredPlan === plan.code} />
+              <PlanArt
+                bars={meta.bars}
+                planCode={plan.code}
+                currency={currency}
+                title={plan.display_name}
+                hovered={hoveredPlan === plan.code}
+              />
               <div className="relative mt-4 flex min-h-6 items-center justify-between gap-2">
                 <p className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">{plan.display_name}</p>
                 <div className="flex shrink-0 items-center gap-1.5">
@@ -318,16 +327,100 @@ export function BillingPlanCards({
 const MATRIX_GAP = 3;
 const MATRIX_TARGET = 7;
 const PLAN_BAR_HEIGHTS = [0.4, 0.56, 0.74, 0.92] as const;
+const ICON_VALUE = 0.92;
 
-function planBarPattern(rows: number, cols: number, barCount: 1 | 2 | 3 | 4): number[][] {
+/** Pixel glyphs stamped into the muted right zone of each plan matrix. */
+const ICON_RUPEE: number[][] = [
+  [0, 1, 1, 1, 0],
+  [1, 0, 0, 0, 0],
+  [1, 1, 1, 1, 0],
+  [1, 0, 0, 0, 0],
+  [0, 1, 1, 1, 0],
+  [0, 0, 1, 0, 0],
+  [0, 0, 1, 0, 0],
+];
+const ICON_DOLLAR: number[][] = [
+  [0, 0, 1, 0, 0],
+  [0, 1, 1, 1, 0],
+  [1, 0, 1, 0, 0],
+  [0, 1, 1, 1, 0],
+  [0, 0, 1, 0, 1],
+  [0, 1, 1, 1, 0],
+  [0, 0, 1, 0, 0],
+];
+/** Briefcase — starter / business. */
+const ICON_BRIEFCASE: number[][] = [
+  [0, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1],
+  [1, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1],
+];
+/** Rising stairs — scale. */
+const ICON_SCALE: number[][] = [
+  [0, 0, 0, 0, 1],
+  [0, 0, 0, 1, 1],
+  [0, 0, 1, 0, 1],
+  [0, 1, 0, 0, 1],
+  [1, 0, 0, 0, 1],
+  [1, 1, 1, 1, 1],
+];
+/** Building — enterprise. */
+const ICON_BUILDING: number[][] = [
+  [0, 1, 1, 1, 0],
+  [1, 0, 1, 0, 1],
+  [1, 1, 1, 1, 1],
+  [1, 0, 1, 0, 1],
+  [1, 1, 1, 1, 1],
+  [1, 0, 1, 0, 1],
+  [1, 1, 1, 1, 1],
+];
+
+function planIcon(planCode: string, currency: DisplayCurrency): number[][] {
+  if (planCode === "payg") return currency === "USD" ? ICON_DOLLAR : ICON_RUPEE;
+  if (planCode === "business") return ICON_BRIEFCASE;
+  if (planCode === "scale") return ICON_SCALE;
+  return ICON_BUILDING;
+}
+
+function stampIcon(frame: number[][], icon: number[][], originRow: number, originCol: number) {
+  const rows = frame.length;
+  const cols = frame[0]?.length ?? 0;
+  for (let r = 0; r < icon.length; r++) {
+    for (let c = 0; c < (icon[r]?.length ?? 0); c++) {
+      if (!(icon[r]![c]! > 0)) continue;
+      const rr = originRow + r;
+      const cc = originCol + c;
+      if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+        frame[rr]![cc] = ICON_VALUE;
+      }
+    }
+  }
+}
+
+function planArtPattern(
+  rows: number,
+  cols: number,
+  barCount: 1 | 2 | 3 | 4,
+  planCode: string,
+  currency: DisplayCurrency,
+): number[][] {
   const frame = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
+  const icon = planIcon(planCode, currency);
+  const iconW = icon[0]?.length ?? 5;
+  const iconH = icon.length;
+  // Keep a muted gutter + icon zone on the right so bars never eat the glyph.
+  const iconZone = Math.min(cols, iconW + 2);
+  const barZone = Math.max(barCount * 2, cols - iconZone - 1);
+
   const shown = PLAN_BAR_HEIGHTS.slice(0, barCount);
   const gapCols = 1;
-  let barWidth = Math.max(1, Math.round(cols * 0.12));
-  const maxWidth = Math.max(1, Math.floor((cols - (barCount - 1) * gapCols - 1) / barCount));
+  let barWidth = Math.max(1, Math.round(barZone * 0.14));
+  const maxWidth = Math.max(1, Math.floor((barZone - (barCount - 1) * gapCols) / barCount));
   barWidth = Math.min(barWidth, maxWidth);
   const total = barCount * barWidth + Math.max(0, barCount - 1) * gapCols;
-  const start = Math.max(0, Math.min(1, cols - total));
+  const start = Math.max(0, Math.min(1, barZone - total));
 
   shown.forEach((h, i) => {
     const barRows = Math.max(2, Math.round(h * rows));
@@ -341,10 +434,29 @@ function planBarPattern(rows: number, cols: number, barCount: 1 | 2 | 3 | 4): nu
       }
     }
   });
+
+  if (cols >= iconW + 2 && rows >= iconH) {
+    const originCol = Math.max(barZone + 1, cols - iconW - 1);
+    const originRow = Math.max(0, Math.floor((rows - iconH) / 2));
+    stampIcon(frame, icon, originRow, originCol);
+  }
+
   return frame;
 }
 
-function PlanArt({ bars, title, hovered }: { bars: 1 | 2 | 3 | 4; title: string; hovered: boolean }) {
+function PlanArt({
+  bars,
+  planCode,
+  currency,
+  title,
+  hovered,
+}: {
+  bars: 1 | 2 | 3 | 4;
+  planCode: string;
+  currency: DisplayCurrency;
+  title: string;
+  hovered: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
 
@@ -372,8 +484,13 @@ function PlanArt({ bars, title, hovered }: { bars: 1 | 2 | 3 | 4; title: string;
     const cols = Math.max(6, Math.round((w + MATRIX_GAP) / (MATRIX_TARGET + MATRIX_GAP)));
     const size = (w - MATRIX_GAP * (cols - 1)) / cols;
     const rows = Math.max(4, Math.floor((h + MATRIX_GAP) / (size + MATRIX_GAP)));
-    return { cols, rows, size, pattern: planBarPattern(rows, cols, bars) };
-  }, [box, bars]);
+    return {
+      cols,
+      rows,
+      size,
+      pattern: planArtPattern(rows, cols, bars, planCode, currency),
+    };
+  }, [box, bars, planCode, currency]);
 
   return (
     <div ref={ref} className="flex h-28 w-full items-center justify-center overflow-hidden">

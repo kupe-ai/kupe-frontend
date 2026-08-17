@@ -225,7 +225,12 @@ export default function BillingPage() {
 
       <div className="mt-8">
         <h2 className="text-headline mb-4">Plans</h2>
-        <BillingPlanCards orgId={org?.id} canManage={canManageBalance} onChanged={() => setRefreshKey((k) => k + 1)} />
+        <BillingPlanCards
+          orgId={org?.id}
+          canManage={canManageBalance}
+          currency={currency}
+          onChanged={() => setRefreshKey((k) => k + 1)}
+        />
       </div>
 
       <div className="mt-6 rounded-2xl border border-border bg-card shadow-elevated">
