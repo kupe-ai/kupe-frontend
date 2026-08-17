@@ -323,7 +323,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
           ...(patch.silence_breaker ?? {}),
         },
         thinking_sounds: {
-          enabled: patch.thinking_sounds?.enabled ?? prev.config.thinking_sounds?.enabled ?? false,
+          enabled: patch.thinking_sounds?.enabled ?? prev.config.thinking_sounds.enabled,
         },
         voicemail_detection: {
           ...prev.config.voicemail_detection,

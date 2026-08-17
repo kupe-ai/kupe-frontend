@@ -473,7 +473,7 @@ export type AgentConfig = {
   audio: AgentAudioConfig;
   end_of_call_warning: EndOfCallWarningConfig;
   silence_breaker: SilenceBreakerConfig;
-  thinking_sounds?: ThinkingSoundsConfig;
+  thinking_sounds: ThinkingSoundsConfig;
   voicemail_detection: VoicemailDetectionConfig;
   auto_cut: AutoCutConfig;
   call_transfer: CallTransferConfig;
