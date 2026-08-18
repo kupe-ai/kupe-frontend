@@ -7,7 +7,7 @@ export type HarnessEvent =
   | { type: "message_delta"; text: string }
   | { type: "message"; text: string }
   | { type: "done"; finish_reason: string }
-  | { type: "error"; detail: string };
+  | { type: "error"; detail: string; code?: string };
 
 /** One step in a turn's timeline -- reasoning text or a tool call/result
  * pair, rendered as the collapsible "Agent steps" list. */

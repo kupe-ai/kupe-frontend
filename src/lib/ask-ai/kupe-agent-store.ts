@@ -268,11 +268,13 @@ function applyEvent(assistantId: string, event: HarnessEvent, patchAssistant: (p
       break;
     case "error": {
       const friendly = sanitizeChatError(event.detail);
-      captureException(new Error(event.detail), {
+      // Harness already captured the real LlmError. Do not open a second
+      // PostHog issue grouped on this public copy.
+      captureEvent("kupe_agent_turn_error", {
         source: "kupe-agent-store",
-        kind: "harness_sse_error",
+        code: event.code,
+        public_detail: friendly,
       });
-      captureEvent("kupe_agent_turn_error", { source: "kupe-agent-store", detail: event.detail });
       patchAssistant({ streaming: false, error: friendly, status: undefined });
       setState({ error: friendly });
       break;

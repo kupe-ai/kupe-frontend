@@ -78,8 +78,11 @@ function applyHarnessEvent(
           return { ...t, streaming: false, status: undefined };
         case "error": {
           const friendly = sanitizeChatError(event.detail);
-          captureException(new Error(event.detail), { source: "ask-ai", kind: "harness_sse_error" });
-          captureEvent("kupe_agent_turn_error", { source: "ask-ai", detail: event.detail });
+          captureEvent("kupe_agent_turn_error", {
+            source: "ask-ai",
+            code: event.code,
+            public_detail: friendly,
+          });
           return { ...t, streaming: false, error: friendly, status: undefined };
         }
         default:
