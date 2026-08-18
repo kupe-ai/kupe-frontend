@@ -1,25 +1,29 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff, Wrench } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Matrix, pulse } from "@/components/ui/matrix";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/context/workspace-context";
-import { enterAgentScope, sendForAgent } from "@/lib/ask-ai/kupe-agent-store";
+import { enterAgentScope, removeAttachment, sendForAgent, uploadAttachment } from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
-import type { AgentStep } from "@/lib/ask-ai/types";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
+import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
+import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
 
-const STARTER_OPTIONS = [
-  "Medical clinic / hospital (OPD, consultations)",
-  "Salon or spa",
-  "Home-service business (repair, cleaning, installation)",
-  "Something else",
+const EDITOR_SUGGESTIONS = [
+  "Rewrite the greeting / first message",
+  "Swap the voice to a warmer one",
+  "Run a simulated test of this agent",
+  "Commit this as a new version",
+  "Launch a campaign with this agent",
+  "Place a single outbound test call",
+  "Show today's call analytics",
 ];
 
 // Any tool call that plausibly changed the agent's saved config -- the
@@ -69,8 +73,6 @@ export function AgentAskKoriPanel({
   const { org, project } = useWorkspace();
   const kupeStore = useKupeAgentStore();
   const [draft, setDraft] = useState("");
-  const [otherOpen, setOtherOpen] = useState(false);
-  const [otherText, setOtherText] = useState("");
 
   const [voiceMessages, setVoiceMessages] = useState<VoiceBubble[]>([]);
   const [callStatus, setCallStatus] = useState<WebCallStatus>("idle");
@@ -224,23 +226,21 @@ export function AgentAskKoriPanel({
     await sendForAgent(org.id, project.id, agentId, trimmed);
   }
 
-  function onChoice(choice: string) {
-    if (choice === "Something else") {
-      setOtherOpen(true);
-      return;
-    }
-    void pushUser(choice);
-  }
-
   function onSend() {
-    if (otherOpen && otherText.trim()) {
-      void pushUser(otherText);
-      setOtherText("");
-      setOtherOpen(false);
-      return;
-    }
     void pushUser(draft);
     setDraft("");
+  }
+
+  async function onAttach(file: File) {
+    if (!org?.id) {
+      toast.error("Select an organization first");
+      return;
+    }
+    try {
+      await uploadAttachment(org.id, file);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    }
   }
 
   const agentSpeaking = live && callStatus === "connected" && level > 0.04;
@@ -361,35 +361,7 @@ export function AgentAskKoriPanel({
                 <p className="text-sm leading-relaxed text-foreground">
                   Talk to try this agent, or type to customize instructions, variables, and tests.
                 </p>
-                <div className="space-y-2">
-                  {STARTER_OPTIONS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      disabled={sending}
-                      onClick={() => onChoice(c)}
-                      className="pressable block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/60 disabled:opacity-50"
-                    >
-                      {c}
-                    </button>
-                  ))}
-                  {otherOpen && (
-                    <div className="flex gap-2 rounded-xl border border-border p-2">
-                      <input
-                        value={otherText}
-                        onChange={(e) => setOtherText(e.target.value)}
-                        placeholder="Describe your business…"
-                        className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") onSend();
-                        }}
-                      />
-                      <Button type="button" size="sm" onClick={onSend} disabled={sending}>
-                        Send
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <SuggestionChips items={EDITOR_SUGGESTIONS} onPick={(s) => void pushUser(s)} disabled={sending} />
               </div>
             )}
 
@@ -402,23 +374,11 @@ export function AgentAskKoriPanel({
                 </div>
               ) : (
                 <div key={t.id} className="animate-pop-in-up space-y-2">
-                  {t.steps.length > 0 && <StepsList steps={t.steps} streaming={t.streaming} />}
-                  {t.text && <p className="text-sm leading-relaxed text-foreground">{t.text}</p>}
+                  {t.steps.length > 0 && <AgentSteps steps={t.steps} streaming={t.streaming} />}
+                  {t.text && <MarkdownMessage text={t.text} />}
                   {t.error && <p className="text-xs text-destructive">{t.error}</p>}
                   {t.streaming && !t.text && t.steps.length === 0 && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <Matrix
-                        rows={7}
-                        cols={7}
-                        frames={pulse}
-                        fps={16}
-                        size={1.6}
-                        gap={0.5}
-                        palette={{ on: "var(--primary)", off: "transparent" }}
-                        ariaLabel=""
-                      />
-                      <span className="kori-shimmer-text font-medium">Kupe is thinking…</span>
-                    </div>
+                    <WorkingShimmer label={t.status || "Kupe is working…"} />
                   )}
                 </div>
               ),
@@ -428,57 +388,18 @@ export function AgentAskKoriPanel({
       </div>
 
       <div className="shrink-0 border-t border-border p-3">
-        <div className="flex items-end gap-2 rounded-2xl border border-border bg-muted/30 px-3 py-2">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={2}
-            placeholder={live ? "Talking — type to ask Kupe after the call…" : "Ask AI or describe a change…"}
-            disabled={sending || live}
-            className="min-h-[44px] max-h-28 w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:opacity-60"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
-              }
-            }}
-          />
-          <Button
-            type="button"
-            size="icon-sm"
-            className="mb-0.5 shrink-0 rounded-full"
-            onClick={onSend}
-            disabled={!draft.trim() || sending || live}
-            aria-label="Send"
-          >
-            {sending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-          </Button>
-        </div>
+        <ChatComposer
+          value={draft}
+          onChange={setDraft}
+          onSend={onSend}
+          placeholder={live ? "Talking — type to ask Kupe after the call…" : "Ask AI or describe a change…"}
+          disabled={live}
+          sending={sending}
+          attachments={kupeStore.attachments}
+          onAttach={(file) => void onAttach(file)}
+          onRemoveAttachment={removeAttachment}
+        />
       </div>
     </aside>
-  );
-}
-
-/** Collapsible-free inline step list -- "Agent steps" condensed to fit this
- * panel's compact chat bubbles: reasoning as an italic line, tool calls as
- * a small labeled row with a running/done state. */
-function StepsList({ steps, streaming }: { steps: AgentStep[]; streaming: boolean }) {
-  return (
-    <div className="space-y-1 rounded-lg border border-border bg-muted/30 px-2.5 py-2 text-xs">
-      {steps.map((step, i) =>
-        step.kind === "reasoning" ? (
-          <p key={i} className="italic text-muted-foreground">
-            {step.text}
-          </p>
-        ) : (
-          <div key={i} className="flex items-center gap-1.5">
-            <Wrench className={cn("size-3 shrink-0", step.isError ? "text-destructive" : "text-muted-foreground")} />
-            <span className={cn("font-mono", step.isError && "text-destructive")}>{step.name}</span>
-            {!step.done && <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />}
-          </div>
-        ),
-      )}
-      {streaming && <span className="sr-only">Kupe is still working…</span>}
-    </div>
   );
 }

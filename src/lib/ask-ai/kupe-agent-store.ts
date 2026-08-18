@@ -13,7 +13,8 @@
 import { HARNESS_URL } from "@/config";
 import { supabase } from "@/lib/supabase";
 import { captureException } from "@/lib/posthog";
-import type { AgentStep, ChatTurn, HarnessEvent } from "./types";
+import { readSse } from "./sse";
+import type { AgentStep, AttachedFile, ChatTurn, HarnessEvent } from "./types";
 
 type StoreState = {
   sessionId: string | null;
@@ -25,6 +26,7 @@ type StoreState = {
    * can navigate to it. Cleared by clearCreatedAgent() once consumed. */
   createdAgent: { id: string; name: string } | null;
   error: string | null;
+  attachments: AttachedFile[];
 };
 
 let state: StoreState = {
@@ -34,12 +36,15 @@ let state: StoreState = {
   busy: false,
   createdAgent: null,
   error: null,
+  attachments: [],
 };
 const listeners = new Set<() => void>();
 /** Bumped whenever we throw away the current session so an in-flight
  * runTurn (whose SSE fetch will then fail with TypeError: Failed to fetch)
  * does not patch the replacement state or report that abort to PostHog. */
 let turnEpoch = 0;
+let abortController: AbortController | null = null;
+let lastToken: string | null = null;
 
 function setState(patch: Partial<StoreState> | ((s: StoreState) => Partial<StoreState>)) {
   state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
@@ -61,6 +66,8 @@ export function clearCreatedAgent() {
 
 function abandonCurrentTurn() {
   turnEpoch += 1;
+  abortController?.abort();
+  abortController = null;
   void closeSession();
 }
 
@@ -78,7 +85,15 @@ export function enterAgentScope(agentId: string): boolean {
   const isSameCreation = state.createdAgent?.id === agentId || state.scopeAgentId === agentId;
   if (!isSameCreation) {
     abandonCurrentTurn();
-    state = { sessionId: null, scopeAgentId: agentId, turns: [], busy: false, createdAgent: null, error: null };
+    state = {
+      sessionId: null,
+      scopeAgentId: agentId,
+      turns: [],
+      busy: false,
+      createdAgent: null,
+      error: null,
+      attachments: [],
+    };
     for (const l of listeners) l();
     return false;
   }
@@ -86,35 +101,22 @@ export function enterAgentScope(agentId: string): boolean {
   return true;
 }
 
-async function authHeaders(): Promise<HeadersInit> {
+async function authHeaders(json = true): Promise<HeadersInit> {
   const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  const headers: HeadersInit = { "Content-Type": "application/json" };
-  if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}`;
+  const token = data.session?.access_token ?? null;
+  lastToken = token;
+  const headers: Record<string, string> = {};
+  if (json) headers["Content-Type"] = "application/json";
+  if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }
 
-async function* readSse(response: Response): AsyncGenerator<HarnessEvent> {
-  const reader = response.body?.getReader();
-  if (!reader) return;
-  const decoder = new TextDecoder();
-  let buffer = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      const dataLine = frame.split("\n").find((l) => l.startsWith("data:"));
-      if (!dataLine) continue;
-      try {
-        yield JSON.parse(dataLine.slice(5).trim()) as HarnessEvent;
-      } catch {
-        // malformed frame -- skip rather than kill the whole stream
-      }
-    }
-  }
+function sseHeaders(): Promise<HeadersInit> {
+  return authHeaders(true).then((h) => ({
+    ...h,
+    Accept: "text/event-stream",
+    "Cache-Control": "no-store",
+  }));
 }
 
 async function ensureSession(orgId: string): Promise<string> {
@@ -134,12 +136,29 @@ async function ensureSession(orgId: string): Promise<string> {
 export async function closeSession(): Promise<void> {
   const sid = state.sessionId;
   if (!sid) return;
+  setState({ sessionId: null });
   try {
     const headers = await authHeaders();
-    await fetch(`${HARNESS_URL}/v1/sessions/${sid}`, { method: "DELETE", headers });
+    await fetch(`${HARNESS_URL}/v1/sessions/${sid}`, { method: "DELETE", headers, keepalive: true });
   } catch {
     // best-effort -- kupe-harness's idle sweeper bills+cleans up either way
   }
+}
+
+function closeSessionSync() {
+  abortController?.abort();
+  abortController = null;
+  const sid = state.sessionId;
+  if (!sid || !lastToken) return;
+  void fetch(`${HARNESS_URL}/v1/sessions/${sid}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${lastToken}` },
+    keepalive: true,
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", closeSessionSync);
 }
 
 function newId() {
@@ -166,91 +185,163 @@ function editPrompt(orgId: string, projectId: string, agentId: string, userText:
   ].join("\n");
 }
 
+function applyEvent(assistantId: string, event: HarnessEvent, patchAssistant: (p: Partial<ChatTurn> | ((t: ChatTurn) => Partial<ChatTurn>)) => void) {
+  switch (event.type) {
+    case "status":
+      patchAssistant({ status: event.text });
+      break;
+    case "reasoning":
+      setState((s) => ({
+        turns: s.turns.map((t) => {
+          if (t.id !== assistantId) return t;
+          const last = t.steps[t.steps.length - 1];
+          if (last?.kind === "reasoning") {
+            const steps = t.steps.slice(0, -1);
+            steps.push({ kind: "reasoning", text: last.text + event.text });
+            return { ...t, steps };
+          }
+          return { ...t, steps: [...t.steps, { kind: "reasoning", text: event.text }] };
+        }),
+      }));
+      break;
+    case "tool_call":
+      setState((s) => ({
+        turns: s.turns.map((t) => {
+          if (t.id !== assistantId) return t;
+          const exists = t.steps.some((step) => step.kind === "tool_call" && step.callId === event.call_id);
+          if (exists) {
+            return {
+              ...t,
+              steps: t.steps.map((step) =>
+                step.kind === "tool_call" && step.callId === event.call_id
+                  ? { ...step, name: event.name || step.name, arguments: event.arguments ?? step.arguments }
+                  : step,
+              ),
+            };
+          }
+          const step: AgentStep = {
+            kind: "tool_call",
+            name: event.name,
+            arguments: event.arguments,
+            callId: event.call_id,
+            done: false,
+          };
+          return { ...t, steps: [...t.steps, step] };
+        }),
+      }));
+      break;
+    case "tool_result":
+      setState((s) => ({
+        turns: s.turns.map((t) =>
+          t.id !== assistantId
+            ? t
+            : {
+                ...t,
+                steps: t.steps.map((step) =>
+                  step.kind === "tool_call" && step.callId === event.call_id
+                    ? { ...step, result: event.result, isError: event.is_error, done: true }
+                    : step,
+                ),
+              },
+        ),
+      }));
+      if (event.name === "create_agent" && !event.is_error) {
+        try {
+          const parsed = JSON.parse(event.result) as { id?: string; name?: string };
+          if (parsed?.id) {
+            setState({ createdAgent: { id: parsed.id, name: parsed.name ?? "" }, scopeAgentId: parsed.id });
+          }
+        } catch {
+          // create_agent's own result parse failure shouldn't break the turn
+        }
+      }
+      break;
+    case "message_delta":
+      patchAssistant((t) => ({ text: t.text + event.text }));
+      break;
+    case "message":
+      patchAssistant({ text: event.text });
+      break;
+    case "done":
+      patchAssistant({ streaming: false, status: undefined });
+      break;
+    case "error":
+      patchAssistant({ streaming: false, error: event.detail, status: undefined });
+      break;
+  }
+}
+
 async function runTurn(orgId: string, displayText: string, framedText: string): Promise<void> {
   if (state.busy) return;
   const epoch = turnEpoch;
+  const attachmentIds = state.attachments.map((a) => a.file_id);
 
   const userTurn: ChatTurn = { id: newId(), role: "user", text: displayText, steps: [], streaming: false };
   const assistantTurn: ChatTurn = { id: newId(), role: "assistant", text: "", steps: [], streaming: true };
-  setState((s) => ({ turns: [...s.turns, userTurn, assistantTurn], busy: true, error: null }));
+  setState((s) => ({ turns: [...s.turns, userTurn, assistantTurn], busy: true, error: null, attachments: [] }));
 
   const patchAssistant = (patch: Partial<ChatTurn> | ((t: ChatTurn) => Partial<ChatTurn>)) => {
     setState((s) => ({
       turns: s.turns.map((t) => (t.id === assistantTurn.id ? { ...t, ...(typeof patch === "function" ? patch(t) : patch) } : t)),
     }));
   };
-  const pushStep = (step: AgentStep) => {
-    setState((s) => ({ turns: s.turns.map((t) => (t.id === assistantTurn.id ? { ...t, steps: [...t.steps, step] } : t)) }));
-  };
-  const updateLastToolStep = (callId: string, patch: Partial<AgentStep & { kind: "tool_call" }>) => {
-    setState((s) => ({
-      turns: s.turns.map((t) =>
-        t.id !== assistantTurn.id
-          ? t
-          : { ...t, steps: t.steps.map((step) => (step.kind === "tool_call" && step.callId === callId ? { ...step, ...patch } : step)) },
-      ),
-    }));
+
+  const finish = (extra?: Partial<ChatTurn>) => {
+    patchAssistant({ streaming: false, ...extra });
   };
 
   try {
     const sid = await ensureSession(orgId);
-    const headers = await authHeaders();
+    const headers = await sseHeaders();
+    abortController?.abort();
+    const controller = new AbortController();
+    abortController = controller;
     const resp = await fetch(`${HARNESS_URL}/v1/sessions/${sid}/messages`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ message: framedText }),
+      body: JSON.stringify({ message: framedText, attachment_ids: attachmentIds }),
+      signal: controller.signal,
     });
     if (!resp.ok || !resp.body) throw new Error(`Kupe turn failed: ${resp.status}`);
 
     for await (const event of readSse(resp)) {
       if (epoch !== turnEpoch) continue;
-      switch (event.type) {
-        case "reasoning":
-          pushStep({ kind: "reasoning", text: event.text });
-          break;
-        case "tool_call":
-          pushStep({ kind: "tool_call", name: event.name, arguments: event.arguments, callId: event.call_id, done: false });
-          break;
-        case "tool_result": {
-          updateLastToolStep(event.call_id, { result: event.result, isError: event.is_error, done: true });
-          if (event.name === "create_agent" && !event.is_error) {
-            try {
-              const parsed = JSON.parse(event.result) as { id?: string; name?: string };
-              if (parsed?.id) {
-                // Bind the live session to the new agent *before* the list
-                // page navigates and enterAgentScope runs -- otherwise
-                // scopeAgentId is still null, the editor thinks this is a
-                // stray session, and DELETE /sessions kills the SSE stream.
-                setState({ createdAgent: { id: parsed.id, name: parsed.name ?? "" }, scopeAgentId: parsed.id });
-              }
-            } catch {
-              // create_agent's own result parse failure shouldn't break the turn
-            }
-          }
-          break;
-        }
-        case "message_delta":
-          patchAssistant((t) => ({ text: t.text + event.text }));
-          break;
-        case "message":
-          patchAssistant({ text: event.text });
-          break;
-        case "done":
-          patchAssistant({ streaming: false });
-          break;
-        case "error":
-          patchAssistant({ streaming: false, error: event.detail });
-          break;
-      }
+      applyEvent(assistantTurn.id, event, patchAssistant);
     }
+    if (epoch === turnEpoch) finish();
   } catch (err) {
     if (epoch !== turnEpoch) return;
+    if ((err as Error)?.name === "AbortError") {
+      finish();
+      return;
+    }
     captureException(err, { source: "kupe-agent-store" });
-    patchAssistant({ streaming: false, error: err instanceof Error ? err.message : "Something went wrong" });
+    finish({ error: err instanceof Error ? err.message : "Something went wrong" });
     setState({ error: err instanceof Error ? err.message : "Something went wrong" });
   } finally {
-    if (epoch === turnEpoch) setState({ busy: false });
+    if (epoch === turnEpoch) {
+      abortController = null;
+      setState({ busy: false });
+    }
   }
+}
+
+export async function uploadAttachment(orgId: string, file: File): Promise<void> {
+  const sid = await ensureSession(orgId);
+  const headers = await authHeaders(false);
+  const body = new FormData();
+  body.append("file", file);
+  const resp = await fetch(`${HARNESS_URL}/v1/sessions/${sid}/files`, { method: "POST", headers, body });
+  if (!resp.ok) {
+    const detail = await resp.text();
+    throw new Error(detail || `Upload failed: ${resp.status}`);
+  }
+  const meta = (await resp.json()) as AttachedFile;
+  setState((s) => ({ attachments: [...s.attachments, meta] }));
+}
+
+export function removeAttachment(fileId: string) {
+  setState((s) => ({ attachments: s.attachments.filter((a) => a.file_id !== fileId) }));
 }
 
 export function sendForNewAgent(orgId: string, projectId: string, userText: string): Promise<void> {
@@ -265,6 +356,6 @@ export function sendForAgent(orgId: string, projectId: string, agentId: string, 
 
 export function resetSession(): void {
   abandonCurrentTurn();
-  state = { sessionId: null, scopeAgentId: null, turns: [], busy: false, createdAgent: null, error: null };
+  state = { sessionId: null, scopeAgentId: null, turns: [], busy: false, createdAgent: null, error: null, attachments: [] };
   for (const l of listeners) l();
 }

@@ -1,5 +1,6 @@
 /** Mirrors kupe-harness's SSE event shapes 1:1 (see kupe-harness/app/agent_loop.py). */
 export type HarnessEvent =
+  | { type: "status"; text: string }
   | { type: "reasoning"; text: string }
   | { type: "tool_call"; name: string; arguments: Record<string, unknown>; call_id: string }
   | { type: "tool_result"; name: string; call_id: string; result: string; is_error: boolean }
@@ -20,5 +21,15 @@ export type ChatTurn = {
   text: string;
   steps: AgentStep[];
   streaming: boolean;
+  status?: string;
   error?: string;
+};
+
+export type AttachedFile = {
+  file_id: string;
+  mcp_file_id: string;
+  filename: string;
+  columns: string[];
+  row_count: number;
+  preview: unknown[];
 };

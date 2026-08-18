@@ -1,17 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, Send, Wrench, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
 import { Message, MessageContent } from "@/components/ui/message";
 import { AiStar } from "@/components/brand/ai-star";
-import { cn } from "@/lib/utils";
+import { Sparkles } from "lucide-react";
 import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
 import { useKupeAgent } from "@/lib/ask-ai/use-kupe-agent";
-import type { AgentStep, ChatTurn } from "@/lib/ask-ai/types";
+import type { ChatTurn } from "@/lib/ask-ai/types";
+import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
+import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
+import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
+import { useWorkspaceOptional } from "@/context/workspace-context";
 
 const SUGGESTIONS = [
   "Create a new agent for after-hours support",
@@ -22,14 +25,16 @@ const SUGGESTIONS = [
 
 export function AskAiPanel() {
   const { open, setOpen } = useAskAiPanel();
-  const { turns, busy, sendMessage, reset, hasWorkspace } = useKupeAgent();
+  const { turns, busy, sendMessage, reset, hasWorkspace, attachments, uploadAttachment, removeAttachment } =
+    useKupeAgent();
+  const workspace = useWorkspaceOptional();
   const [draft, setDraft] = useState("");
 
   const submit = (text: string) => {
     const value = text.trim();
-    if (!value) return;
+    if (!value && attachments.length === 0) return;
     setDraft("");
-    void sendMessage(value);
+    void sendMessage(value || "Use the attached file.");
   };
 
   return (
@@ -53,20 +58,8 @@ export function AskAiPanel() {
                 title="What should Kupe do?"
                 description="Try one of these, or type your own request below."
               >
-                <div className="mt-2 flex flex-col gap-2">
-                  {SUGGESTIONS.map((s) => (
-                    <Button
-                      key={s}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-auto justify-start whitespace-normal rounded-lg px-3 py-2 text-left text-[13px] font-normal"
-                      onClick={() => submit(s)}
-                      disabled={!hasWorkspace}
-                    >
-                      {s}
-                    </Button>
-                  ))}
+                <div className="mt-2">
+                  <SuggestionChips items={SUGGESTIONS} onPick={submit} disabled={!hasWorkspace} />
                 </div>
               </ConversationEmptyState>
             ) : (
@@ -76,33 +69,24 @@ export function AskAiPanel() {
         </Conversation>
 
         <div className="shrink-0 space-y-2 border-t border-border p-3">
-          {!hasWorkspace ? (
-            <p className="text-xs text-muted-foreground">Select a workspace to start.</p>
-          ) : null}
-          <div className="flex items-end gap-2">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submit(draft);
-                }
-              }}
-              placeholder="Ask anything… (Shift+Enter for new line)"
-              className="max-h-40 min-h-10 flex-1 resize-none text-sm"
-              disabled={!hasWorkspace}
-            />
-            <Button
-              type="button"
-              size="icon"
-              onClick={() => submit(draft)}
-              disabled={!hasWorkspace || busy || !draft.trim()}
-              aria-label="Send"
-            >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-            </Button>
-          </div>
+          {!hasWorkspace ? <p className="text-xs text-muted-foreground">Select a workspace to start.</p> : null}
+          <ChatComposer
+            value={draft}
+            onChange={setDraft}
+            onSend={() => submit(draft)}
+            placeholder="Ask anything… (Shift+Enter for new line)"
+            disabled={!hasWorkspace}
+            sending={busy}
+            attachments={attachments}
+            onAttach={(file) => {
+              if (!workspace?.org?.id) {
+                toast.error("Select an organization first");
+                return;
+              }
+              void uploadAttachment(file).catch((err) => toast.error(err instanceof Error ? err.message : "Upload failed"));
+            }}
+            onRemoveAttachment={removeAttachment}
+          />
           {turns.length > 0 ? (
             <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground" onClick={reset}>
               Start a new conversation
@@ -123,86 +107,19 @@ function Turn({ turn }: { turn: ChatTurn }) {
     );
   }
 
-  const toolCalls = turn.steps.filter((s) => s.kind === "tool_call").length;
-  const thoughts = turn.steps.filter((s) => s.kind === "reasoning").length;
-
   return (
     <div className="flex flex-col gap-2">
-      {turn.steps.length > 0 ? <StepsDisclosure steps={turn.steps} toolCalls={toolCalls} thoughts={thoughts} streaming={turn.streaming} /> : null}
+      {turn.steps.length > 0 ? <AgentSteps steps={turn.steps} streaming={turn.streaming} /> : null}
       {turn.text ? (
         <Message from="assistant">
-          <MessageContent variant="flat" className="prose prose-sm max-w-none dark:prose-invert">
-            {turn.text}
+          <MessageContent variant="flat">
+            <MarkdownMessage text={turn.text} />
           </MessageContent>
         </Message>
       ) : turn.streaming && turn.steps.length === 0 ? (
-        <ReasoningShimmer />
+        <WorkingShimmer label={turn.status || "Kupe is working…"} />
       ) : null}
       {turn.error ? <p className="text-xs text-destructive">{turn.error}</p> : null}
-    </div>
-  );
-}
-
-function StepsDisclosure({
-  steps,
-  toolCalls,
-  thoughts,
-  streaming,
-}: {
-  steps: AgentStep[];
-  toolCalls: number;
-  thoughts: number;
-  streaming: boolean;
-}) {
-  const [open, setOpen] = useState(streaming);
-  const parts = [
-    toolCalls > 0 ? `${toolCalls} tool call${toolCalls === 1 ? "" : "s"}` : null,
-    thoughts > 0 ? `${thoughts} thought${thoughts === 1 ? "" : "s"}` : null,
-  ].filter(Boolean);
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-border bg-muted/40 text-xs">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 font-medium text-muted-foreground hover:text-foreground"
-      >
-        {open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-        {streaming ? <Loader2 className="size-3 animate-spin" /> : null}
-        Agent steps{parts.length ? ` · ${parts.join(" · ")}` : ""}
-      </button>
-      {open ? (
-        <div className="space-y-1.5 border-t border-border px-2.5 py-2">
-          {steps.map((step, i) =>
-            step.kind === "reasoning" ? (
-              <p key={i} className="italic text-muted-foreground">
-                {step.text}
-              </p>
-            ) : (
-              <div key={i} className="flex items-start gap-1.5">
-                <Wrench className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
-                <div className="min-w-0">
-                  <span className={cn("font-mono", step.isError && "text-destructive")}>{step.name}</span>
-                  {!step.done ? <span className="ml-1 text-muted-foreground">running…</span> : null}
-                </div>
-              </div>
-            ),
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ReasoningShimmer() {
-  return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      <span className="inline-flex gap-1">
-        <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.3s]" />
-        <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60 [animation-delay:-0.15s]" />
-        <span className="size-1.5 animate-bounce rounded-full bg-muted-foreground/60" />
-      </span>
-      Thinking…
     </div>
   );
 }

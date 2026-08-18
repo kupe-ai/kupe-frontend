@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import {
   AgentTemplatesSection,
@@ -18,8 +18,22 @@ import { useKoriQuery } from "@/lib/hooks/use-kori-query";
 import { createVoiceAgent, listVoiceAgents } from "@/lib/api/voice/agents";
 import type { RecentVoiceAgent } from "@/lib/voice-agents-data";
 import { useWorkspace } from "@/context/workspace-context";
-import { clearCreatedAgent, getSnapshot, sendForNewAgent } from "@/lib/ask-ai/kupe-agent-store";
+import {
+  clearCreatedAgent,
+  removeAttachment,
+  sendForNewAgent,
+  uploadAttachment,
+} from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
+import { AskAiToolbarButton } from "@/components/ask-ai/ask-ai-toolbar-button";
+import { AttachmentChips, SuggestionChips } from "@/components/ask-ai/chat-composer";
+
+const CREATE_SUGGESTIONS = [
+  "Create a collections agent",
+  "EMI reminder agent",
+  "Lead qualification",
+  "Cart recovery",
+];
 
 export default function VoiceAgentsAgentsPage() {
   const navigate = useNavigate();
@@ -28,6 +42,8 @@ export default function VoiceAgentsAgentsPage() {
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
   const [creating, setCreating] = useState<"prompt" | "scratch" | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const sawBusy = useRef(false);
 
   const agentsQuery = useKoriQuery({
     queryKey: ["voice-agents", "list"],
@@ -51,9 +67,6 @@ export default function VoiceAgentsAgentsPage() {
     void agentsQuery.refetch();
   }, [agentsQuery]);
 
-  // Navigate the moment Kai's create_agent tool call resolves -- don't
-  // wait for the rest of the turn (voice/greeting tweaks, commit) to
-  // finish; that keeps streaming live in the editor's Ask Kupe panel.
   useEffect(() => {
     if (kupeStore.createdAgent && creating === "prompt") {
       const id = kupeStore.createdAgent.id;
@@ -64,12 +77,22 @@ export default function VoiceAgentsAgentsPage() {
     }
   }, [kupeStore.createdAgent, creating, navigate, refreshRecents]);
 
-  const busy = creating !== null;
-  const canSubmit = prompt.trim().length > 0 && !busy;
+  useEffect(() => {
+    if (kupeStore.busy) sawBusy.current = true;
+    if (creating !== "prompt" || !sawBusy.current || kupeStore.busy || kupeStore.createdAgent || kupeStore.scopeAgentId) {
+      return;
+    }
+    sawBusy.current = false;
+    setCreating(null);
+    toast.error(kupeStore.error || "Kupe couldn't create that agent — try describing it differently");
+  }, [creating, kupeStore.busy, kupeStore.createdAgent, kupeStore.scopeAgentId, kupeStore.error]);
 
-  async function submitPrompt() {
-    const text = prompt.trim();
-    if (!text) {
+  const busy = creating !== null;
+  const canSubmit = (prompt.trim().length > 0 || kupeStore.attachments.length > 0) && !busy;
+
+  function submitPrompt(text = prompt) {
+    const trimmed = text.trim();
+    if (!trimmed && kupeStore.attachments.length === 0) {
       toast.message("Describe what your agent should do");
       return;
     }
@@ -77,21 +100,14 @@ export default function VoiceAgentsAgentsPage() {
       toast.error("Select an organization and project first");
       return;
     }
+    if (kupeStore.busy) {
+      toast.message("Kupe is still working on the last request");
+      return;
+    }
+    sawBusy.current = false;
     setCreating("prompt");
     setPrompt("");
-    try {
-      await sendForNewAgent(org.id, project.id, text);
-      // Reaches here either because the turn finished without ever
-      // calling create_agent (nothing to navigate to) or because the
-      // effect above already navigated away and unmounted this page.
-      if (!getSnapshot().createdAgent) {
-        setCreating(null);
-        toast.error(getSnapshot().error || "Kupe couldn't create that agent — try describing it differently");
-      }
-    } catch {
-      setCreating(null);
-      toast.error("Couldn't reach Kupe — try again");
-    }
+    void sendForNewAgent(org.id, project.id, trimmed || "Create an agent from the attached file.");
   }
 
   async function createFromScratch() {
@@ -107,6 +123,18 @@ export default function VoiceAgentsAgentsPage() {
     }
   }
 
+  async function onAttach(file: File) {
+    if (!org?.id) {
+      toast.error("Select an organization first");
+      return;
+    }
+    try {
+      await uploadAttachment(org.id, file);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    }
+  }
+
   if (agentsQuery.isLoading && !agentsQuery.data) {
     return <VoiceAgentsPageShimmer />;
   }
@@ -116,15 +144,18 @@ export default function VoiceAgentsAgentsPage() {
       <VoicePageHeader
         title="Agents"
         actions={
-          <Button
-            className="group/nav rounded-full"
-            onClick={() => void createFromScratch()}
-            loading={creating === "scratch"}
-            disabled={busy}
-          >
-            <KupeIcon name="plus" className="size-4" />
-            Create from scratch
-          </Button>
+          <div className="flex items-center gap-2">
+            <AskAiToolbarButton label="Ask Kupe" />
+            <Button
+              className="group/nav rounded-full"
+              onClick={() => void createFromScratch()}
+              loading={creating === "scratch"}
+              disabled={busy}
+            >
+              <KupeIcon name="plus" className="size-4" />
+              Create from scratch
+            </Button>
+          </div>
         }
       />
 
@@ -133,38 +164,60 @@ export default function VoiceAgentsAgentsPage() {
         <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
           What should your voice agent do?
         </h1>
-        <div className="group/nav mt-5 flex w-full max-w-2xl items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-          <KupeIcon
-            name="phone"
-            className="ml-4 size-4 text-muted-foreground"
-          />
-          <div className="relative min-w-0 flex-1 text-left">
+        <div className="mt-5 w-full max-w-2xl space-y-3">
+          <AttachmentChips files={kupeStore.attachments} onRemove={removeAttachment} />
+          <div className="group/nav flex w-full items-center rounded-full border border-input bg-background shadow-sm focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
             <input
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void submitPrompt();
+              ref={fileRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (file) void onAttach(file);
               }}
-              className="h-12 w-full min-w-0 rounded-full border-0 bg-transparent px-3 text-left text-sm outline-none placeholder:text-muted-foreground md:h-14 md:text-base"
-              placeholder={focused && !prompt ? "Create a voice agent…" : undefined}
-              aria-label="Describe your voice agent"
-              disabled={busy}
             />
-            {!prompt && !focused ? <CyclingPromptPlaceholder paused={busy} /> : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="ml-1.5 size-9 shrink-0 rounded-full"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy}
+              aria-label="Attach CSV"
+            >
+              <Paperclip className="size-4" />
+            </Button>
+            <div className="relative min-w-0 flex-1 text-left">
+              <input
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitPrompt();
+                }}
+                className="h-12 w-full min-w-0 rounded-full border-0 bg-transparent px-3 text-left text-sm outline-none placeholder:text-muted-foreground md:h-14 md:text-base"
+                placeholder={focused && !prompt ? "Create a voice agent…" : undefined}
+                aria-label="Describe your voice agent"
+                disabled={busy}
+              />
+              {!prompt && !focused ? <CyclingPromptPlaceholder paused={busy} /> : null}
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              className="mr-1.5 size-9 shrink-0 rounded-full"
+              onClick={() => submitPrompt()}
+              aria-label="Create agent from prompt"
+              loading={creating === "prompt"}
+              disabled={!canSubmit && creating !== "prompt"}
+            >
+              <ArrowUp className="size-4" />
+            </Button>
           </div>
-          <Button
-            type="button"
-            size="icon"
-            className="mr-1.5 size-9 shrink-0 rounded-full"
-            onClick={() => void submitPrompt()}
-            aria-label="Create agent from prompt"
-            loading={creating === "prompt"}
-            disabled={!canSubmit && creating !== "prompt"}
-          >
-            <ArrowUp className="size-4" />
-          </Button>
+          <SuggestionChips items={CREATE_SUGGESTIONS} onPick={submitPrompt} disabled={busy} />
         </div>
       </section>
 

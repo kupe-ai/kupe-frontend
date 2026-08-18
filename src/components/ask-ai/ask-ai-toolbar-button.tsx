@@ -4,11 +4,10 @@ import { cn } from "@/lib/utils";
 import { AiStar } from "@/components/brand/ai-star";
 import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 
 export function AskAiToolbarButton({
   className,
-  label = "Ask AI",
+  label = "Ask Kupe",
   labelClassName,
 }: {
   className?: string;
@@ -22,12 +21,7 @@ export function AskAiToolbarButton({
       type="button"
       variant={open ? "secondary" : "outline"}
       size="sm"
-      onClick={() => {
-        toggle();
-        toast.message("Ask Kupe", {
-          description: "Edit instructions on the left, then use Test agent for a live call.",
-        });
-      }}
+      onClick={() => toggle()}
       aria-pressed={open}
       aria-label={label}
       title={label}
