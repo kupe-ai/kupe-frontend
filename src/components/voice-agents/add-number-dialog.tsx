@@ -15,8 +15,15 @@ import { api } from "@/lib/api";
 import { flagForNumber } from "@/lib/country-flag";
 import type { PlivoComplianceApplication, PlivoCountry, PlivoNumberSearchResult } from "@/types";
 
-type ProviderPick = "twilio" | "plivo-buy" | "plivo-byok";
-type Step = "provider" | "twilio-form" | "plivo-byok" | "plivo-country" | "plivo-numbers" | "plivo-kyc-form";
+type ProviderPick = "twilio" | "plivo";
+type Step =
+  | "provider"
+  | "twilio-form"
+  | "plivo-method"
+  | "plivo-byok"
+  | "plivo-country"
+  | "plivo-numbers"
+  | "plivo-kyc-form";
 type IndiaStd = "80" | "22";
 
 const INDIA_STD: { value: IndiaStd; label: string; city: string }[] = [
@@ -62,14 +69,25 @@ export function AddNumberDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton className="gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent
+        showCloseButton
+        className="flex h-[min(85vh,640px)] max-h-[85vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
+      >
         <DialogTitle className="sr-only">Add a phone number</DialogTitle>
 
-        <div className="flex items-center gap-2 border-b border-border px-5 py-4">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4">
           {step !== "provider" && (
             <button
               type="button"
-              onClick={() => setStep(step === "plivo-numbers" || step === "plivo-kyc-form" ? "plivo-country" : "provider")}
+              onClick={() =>
+                setStep(
+                  step === "plivo-numbers" || step === "plivo-kyc-form"
+                    ? "plivo-country"
+                    : step === "plivo-country" || step === "plivo-byok"
+                      ? "plivo-method"
+                      : "provider",
+                )
+              }
               className="rounded-full p-1 text-muted-foreground hover:bg-muted"
               aria-label="Back"
             >
@@ -79,18 +97,22 @@ export function AddNumberDialog({
           <h2 className="text-base font-semibold tracking-tight">
             {step === "provider" && "Add a phone number"}
             {step === "twilio-form" && "Connect Twilio"}
+            {step === "plivo-method" && "Plivo"}
             {step === "plivo-byok" && "Connect Plivo"}
             {(step === "plivo-country" || step === "plivo-numbers") && "Buy a Plivo number"}
             {step === "plivo-kyc-form" && "Business verification"}
           </h2>
         </div>
 
-        <div className="max-h-[70vh] overflow-y-auto px-5 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           {step === "provider" && (
-            <ProviderStep
-              onPick={(p) =>
-                setStep(p === "twilio" ? "twilio-form" : p === "plivo-byok" ? "plivo-byok" : "plivo-country")
-              }
+            <ProviderStep onPick={(p) => setStep(p === "twilio" ? "twilio-form" : "plivo-method")} />
+          )}
+
+          {step === "plivo-method" && (
+            <PlivoMethodStep
+              onBuy={() => setStep("plivo-country")}
+              onByok={() => setStep("plivo-byok")}
             />
           )}
 
@@ -176,27 +198,13 @@ function ProviderStep({ onPick }: { onPick: (pick: ProviderPick) => void }) {
 
       <button
         type="button"
-        onClick={() => onPick("plivo-buy")}
+        onClick={() => onPick("plivo")}
         className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
       >
         <ProviderMark src="/providers/plivo.png" alt="Plivo" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">Plivo</p>
-          <p className="text-sm text-muted-foreground">Buy a new number, billed from your Kupe wallet.</p>
-        </div>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onPick("plivo-byok")}
-        className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
-      >
-        <ProviderMark src="/providers/plivo.png" alt="Plivo" />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold">Your Plivo number</p>
-          <p className="text-sm text-muted-foreground">
-            Already have a Plivo number? Connect it with your Auth ID and token.
-          </p>
+          <p className="text-sm text-muted-foreground">Buy a new number or connect one you already own.</p>
         </div>
       </button>
 
@@ -208,6 +216,40 @@ function ProviderStep({ onPick }: { onPick: (pick: ProviderPick) => void }) {
         </div>
         <Badge variant="secondary">Soon</Badge>
       </div>
+    </div>
+  );
+}
+
+function PlivoMethodStep({ onBuy, onByok }: { onBuy: () => void; onByok: () => void }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">How do you want to add this Plivo number?</p>
+
+      <button
+        type="button"
+        onClick={onBuy}
+        className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
+      >
+        <ProviderMark src="/providers/plivo.png" alt="Plivo" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Buy a number</p>
+          <p className="text-sm text-muted-foreground">Billed from your Kupe wallet.</p>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={onByok}
+        className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
+      >
+        <ProviderMark src="/providers/plivo.png" alt="Plivo" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Your Plivo number</p>
+          <p className="text-sm text-muted-foreground">
+            Already have a Plivo number? Connect it with your Auth ID and token.
+          </p>
+        </div>
+      </button>
     </div>
   );
 }
@@ -484,11 +526,11 @@ function PlivoNumbersStep({
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-10 text-muted-foreground">
+        <div className="flex min-h-[22rem] flex-1 items-center justify-center text-muted-foreground">
           <Loader2 className="size-5 animate-spin" />
         </div>
       ) : numbers.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
+        <p className="flex min-h-[22rem] flex-1 items-center justify-center text-center text-sm text-muted-foreground">
           {country === "IN"
             ? `No ${stdMeta?.label} ${stdMeta?.city} numbers available right now.`
             : "No numbers available right now."}

@@ -474,6 +474,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     nudges,
     hangup_after_unanswered_nudges: config?.silence_breaker.hangup_after_unanswered ?? false,
     thinking_sounds: config?.thinking_sounds?.enabled ?? false,
+    knowledge_base_ids: config?.knowledge_base_ids ?? [],
   };
 }
 
@@ -547,6 +548,7 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
     thinking_sounds: {
       enabled: data.thinking_sounds ?? agent.config.thinking_sounds?.enabled ?? false,
     },
+    knowledge_base_ids: data.knowledge_base_ids ?? agent.config.knowledge_base_ids ?? [],
     voicemail_detection: {
       ...agent.config.voicemail_detection,
       enabled: data.voicemail_enabled ?? agent.config.voicemail_detection.enabled,

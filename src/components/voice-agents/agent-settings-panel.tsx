@@ -32,6 +32,7 @@ import {
   type VoiceTtsVoice,
 } from "@/lib/api/voice/providers";
 import { updateVoiceAgent } from "@/lib/api/voice/agents";
+import { listKnowledgeBases } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
@@ -207,6 +208,7 @@ export function AgentSettingsPanel({
   const lastSavedRef = useRef("");
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | null>(null);
+  const [kbOptions, setKbOptions] = useState<SearchableOption[]>([]);
 
   useEffect(() => {
     setLlmId(agent?.llm_provider_id ?? "");
@@ -220,9 +222,14 @@ export function AgentSettingsPanel({
     let cancelled = false;
     setLoading(true);
     setProvidersError(null);
-    Promise.all([getAgentSettings(agentId), loadVoiceProvidersCatalog()])
-      .then(([s, catalog]) => {
+    Promise.all([
+      getAgentSettings(agentId),
+      loadVoiceProvidersCatalog(),
+      listKnowledgeBases({ page_size: 100 }).catch(() => ({ items: [] as Array<{ id: string; name: string; description: string }> })),
+    ])
+      .then(([s, catalog, kbs]) => {
         if (cancelled) return;
+        setKbOptions(kbs.items.map((kb) => ({ value: kb.id, label: kb.name, keywords: kb.description })));
         setSettings({
           ...DEFAULTS,
           ...s,
@@ -535,6 +542,18 @@ export function AgentSettingsPanel({
         description="Play a short hmm or umm in the caller's language the moment they finish speaking, while the reply is generated."
       >
         <Switch checked={settings.thinking_sounds} onCheckedChange={(v) => set("thinking_sounds", v)} />
+      </SettingRow>
+      <SettingRow
+        title="Knowledge bases"
+        description="Retrieved on each caller turn and passed to the model. Processing stays on the RAG server."
+      >
+        <SearchableMultiSelect
+          values={settings.knowledge_base_ids}
+          onChange={(next) => set("knowledge_base_ids", next)}
+          placeholder="Select knowledge bases"
+          searchPlaceholder="Search knowledge bases…"
+          options={kbOptions}
+        />
       </SettingRow>
       <SettingRow
         title="Model temperature"

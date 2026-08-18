@@ -70,6 +70,8 @@ import type {
   TopupVerifyResult,
   SubscriptionAction,
   BillingSubscription,
+  KnowledgeBase,
+  KnowledgeFile,
 } from "../types";
 
 export type ListParams = { limit?: number; offset?: number };
@@ -661,4 +663,68 @@ export const api = {
       label?: string;
     },
   ) => authedJson<CatalogTool>(`/v1/orgs/${orgId}/composio/tools`, { method: "POST", body: JSON.stringify(body) }),
+
+  listKnowledgeBases: (orgId: string, projectId: string, params?: ListParams & { search?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.limit != null) sp.set("limit", String(params.limit));
+    if (params?.offset != null) sp.set("offset", String(params.offset));
+    if (params?.search) sp.set("search", params.search);
+    const q = sp.toString();
+    return authedJson<Page<KnowledgeBase>>(
+      `/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases${q ? `?${q}` : ""}`,
+    );
+  },
+  createKnowledgeBase: (orgId: string, projectId: string, body: { name: string; description?: string }) =>
+    authedJson<KnowledgeBase>(`/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getKnowledgeBase: (orgId: string, projectId: string, kbId: string) =>
+    authedJson<KnowledgeBase>(`/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}`),
+  patchKnowledgeBase: (
+    orgId: string,
+    projectId: string,
+    kbId: string,
+    body: { name?: string; description?: string },
+  ) =>
+    authedJson<KnowledgeBase>(`/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteKnowledgeBase: (orgId: string, projectId: string, kbId: string) =>
+    authedJson<{ success: boolean }>(`/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}`, {
+      method: "DELETE",
+    }),
+  listKnowledgeFiles: (orgId: string, projectId: string, kbId: string, params?: ListParams) =>
+    authedJson<Page<KnowledgeFile>>(
+      `/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}/files${qs(params)}`,
+    ),
+  uploadKnowledgeFile: async (orgId: string, projectId: string, kbId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return authedJson<KnowledgeFile>(
+      `/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}/files`,
+      { method: "POST", body: form },
+    );
+  },
+  deleteKnowledgeFile: (orgId: string, projectId: string, kbId: string, fileId: string) =>
+    authedJson<{ success: boolean }>(
+      `/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}/files/${fileId}`,
+      { method: "DELETE" },
+    ),
+  searchKnowledgeBase: (orgId: string, projectId: string, kbId: string, query: string, topK = 5) =>
+    authedJson<{
+      chunks: Array<{
+        id: string;
+        file_id: string;
+        content: string;
+        similarity: number;
+        filename?: string;
+        chunk_index?: number;
+      }>;
+      latency_ms: Record<string, number>;
+    }>(`/v1/orgs/${orgId}/projects/${projectId}/knowledge-bases/${kbId}/search`, {
+      method: "POST",
+      body: JSON.stringify({ query, top_k: topK }),
+    }),
 };

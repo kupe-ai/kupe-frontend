@@ -479,6 +479,7 @@ export type AgentConfig = {
   call_transfer: CallTransferConfig;
   variables: PromptVariable[];
   call_goal?: CallGoalConfig | null;
+  knowledge_base_ids?: string[];
 };
 
 export type AmbientPreset = {
@@ -1062,3 +1063,27 @@ export type ToolCallStatsRow = {
   success_count: number;
   avg_latency_ms: number;
 };
+
+export type KnowledgeBase = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  status: "ready" | "processing" | "failed";
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeFile = {
+  id: string;
+  kb_id: string;
+  name: string;
+  size_bytes: number;
+  status: "queued" | "processing" | "ready" | "failed";
+  chunk_count: number;
+  error?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+

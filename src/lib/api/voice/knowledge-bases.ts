@@ -1,93 +1,115 @@
-import { readStore, scopedKey, writeStore } from "@/lib/api/local-store";
+import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
 import type { PageResponse, VoiceKnowledgeBase, VoiceKnowledgeFile } from "./types";
 
-function kbKey() {
-  const { orgId, projectId } = requireScope();
-  return scopedKey("kb", `${orgId}:${projectId}`);
-}
-function filesKey(kbId: string) {
-  return scopedKey("kb-files", kbId);
+function pageOf<T>(items: T[], total: number, page = 1, pageSize = 50): PageResponse<T> {
+  return {
+    items,
+    page,
+    page_size: pageSize,
+    total,
+    has_more: page * pageSize < total,
+  };
 }
 
-function pageOf<T>(items: T[], page = 1, pageSize = 50): PageResponse<T> {
-  const start = (page - 1) * pageSize;
-  const slice = items.slice(start, start + pageSize);
-  return { items: slice, page, page_size: pageSize, total: items.length, has_more: start + slice.length < items.length };
+function toKb(row: {
+  id: string;
+  name: string;
+  description: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}): VoiceKnowledgeBase {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? "",
+    status: (row.status as VoiceKnowledgeBase["status"]) || "ready",
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function toFile(row: {
+  id: string;
+  kb_id: string;
+  name: string;
+  size_bytes: number;
+  status: string;
+  chunk_count: number;
+  created_at: string;
+}): VoiceKnowledgeFile {
+  return {
+    id: row.id,
+    kb_id: row.kb_id,
+    name: row.name,
+    size_bytes: row.size_bytes,
+    status: (row.status as VoiceKnowledgeFile["status"]) || "queued",
+    chunk_count: row.chunk_count,
+    created_at: row.created_at,
+  };
 }
 
 export async function listKnowledgeBases(params: { search?: string; page?: number; page_size?: number } = {}) {
-  let items = readStore<VoiceKnowledgeBase[]>(kbKey(), []);
-  const q = params.search?.trim().toLowerCase();
-  if (q) items = items.filter((k) => k.name.toLowerCase().includes(q));
-  return pageOf(items, params.page ?? 1, params.page_size ?? 50);
+  const { orgId, projectId } = requireScope();
+  const page = params.page ?? 1;
+  const pageSize = params.page_size ?? 50;
+  const res = await api.listKnowledgeBases(orgId, projectId, {
+    search: params.search,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+  return pageOf(res.items.map(toKb), res.total, page, pageSize);
 }
 
 export async function getKnowledgeBase(kbId: string) {
-  const row = readStore<VoiceKnowledgeBase[]>(kbKey(), []).find((k) => k.id === kbId);
-  if (!row) throw new Error("Knowledge base not found");
-  return row;
+  const { orgId, projectId } = requireScope();
+  return toKb(await api.getKnowledgeBase(orgId, projectId, kbId));
 }
 
 export async function createKnowledgeBase(input: { name: string; description?: string }) {
-  const now = new Date().toISOString();
-  const row: VoiceKnowledgeBase = {
-    id: crypto.randomUUID(),
-    name: input.name,
-    description: input.description ?? "",
-    status: "ready",
-    created_at: now,
-    updated_at: now,
-  };
-  writeStore(kbKey(), [row, ...readStore<VoiceKnowledgeBase[]>(kbKey(), [])]);
-  return row;
+  const { orgId, projectId } = requireScope();
+  return toKb(await api.createKnowledgeBase(orgId, projectId, input));
 }
 
 export async function updateKnowledgeBase(kbId: string, data: Partial<Pick<VoiceKnowledgeBase, "name" | "description">>) {
-  const rows = readStore<VoiceKnowledgeBase[]>(kbKey(), []);
-  const now = new Date().toISOString();
-  const next = rows.map((k) => (k.id === kbId ? { ...k, ...data, updated_at: now } : k));
-  writeStore(kbKey(), next);
-  const row = next.find((k) => k.id === kbId);
-  if (!row) throw new Error("Knowledge base not found");
-  return row;
+  const { orgId, projectId } = requireScope();
+  return toKb(await api.patchKnowledgeBase(orgId, projectId, kbId, data));
 }
 
 export async function deleteKnowledgeBase(kbId: string) {
-  writeStore(
-    kbKey(),
-    readStore<VoiceKnowledgeBase[]>(kbKey(), []).filter((k) => k.id !== kbId),
-  );
-  writeStore(filesKey(kbId), []);
-  return { success: true };
+  const { orgId, projectId } = requireScope();
+  return api.deleteKnowledgeBase(orgId, projectId, kbId);
 }
 
 export async function listKnowledgeFiles(kbId: string, params: { page?: number; page_size?: number } = {}) {
-  return pageOf(readStore<VoiceKnowledgeFile[]>(filesKey(kbId), []), params.page ?? 1, params.page_size ?? 50);
+  const { orgId, projectId } = requireScope();
+  const page = params.page ?? 1;
+  const pageSize = params.page_size ?? 50;
+  const res = await api.listKnowledgeFiles(orgId, projectId, kbId, {
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+  return pageOf(res.items.map(toFile), res.total, page, pageSize);
 }
 
 export async function uploadKnowledgeFile(kbId: string, file: File): Promise<VoiceKnowledgeFile> {
-  const row: VoiceKnowledgeFile = {
-    id: crypto.randomUUID(),
-    kb_id: kbId,
-    name: file.name,
-    size_bytes: file.size,
-    status: "ready",
-    chunk_count: 0,
-    created_at: new Date().toISOString(),
-  };
-  writeStore(filesKey(kbId), [row, ...readStore<VoiceKnowledgeFile[]>(filesKey(kbId), [])]);
-  return row;
+  const { orgId, projectId } = requireScope();
+  return toFile(await api.uploadKnowledgeFile(orgId, projectId, kbId, file));
 }
 
 export async function deleteKnowledgeFile(kbId: string, fileId: string) {
-  writeStore(
-    filesKey(kbId),
-    readStore<VoiceKnowledgeFile[]>(filesKey(kbId), []).filter((f) => f.id !== fileId),
-  );
-  return { success: true };
+  const { orgId, projectId } = requireScope();
+  return api.deleteKnowledgeFile(orgId, projectId, kbId, fileId);
 }
 
-export async function searchKnowledgeBase(_kbId: string, _query: string, _topK = 5) {
-  return [] as Array<{ id: string; file_id: string; content: string; similarity: number }>;
+export async function searchKnowledgeBase(kbId: string, query: string, topK = 5) {
+  const { orgId, projectId } = requireScope();
+  const res = await api.searchKnowledgeBase(orgId, projectId, kbId, query, topK);
+  return (res.chunks || []).map((c) => ({
+    id: c.id,
+    file_id: c.file_id,
+    content: c.content,
+    similarity: c.similarity,
+  }));
 }

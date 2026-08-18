@@ -87,7 +87,7 @@ export interface VoiceKnowledgeFile {
   kb_id: string;
   name: string;
   size_bytes: number;
-  status: "ready" | "processing" | "failed";
+  status: "ready" | "processing" | "failed" | "queued";
   chunk_count: number;
   created_at: string;
 }
