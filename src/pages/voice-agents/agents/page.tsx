@@ -17,9 +17,14 @@ import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
 import { createVoiceAgent, listVoiceAgents } from "@/lib/api/voice/agents";
 import type { RecentVoiceAgent } from "@/lib/voice-agents-data";
+import { useWorkspace } from "@/context/workspace-context";
+import { clearCreatedAgent, getSnapshot, sendForNewAgent } from "@/lib/ask-ai/kupe-agent-store";
+import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 
 export default function VoiceAgentsAgentsPage() {
   const navigate = useNavigate();
+  const { org, project } = useWorkspace();
+  const kupeStore = useKupeAgentStore();
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
   const [creating, setCreating] = useState<"prompt" | "scratch" | null>(null);
@@ -46,6 +51,19 @@ export default function VoiceAgentsAgentsPage() {
     void agentsQuery.refetch();
   }, [agentsQuery]);
 
+  // Navigate the moment Kai's create_agent tool call resolves -- don't
+  // wait for the rest of the turn (voice/greeting tweaks, commit) to
+  // finish; that keeps streaming live in the editor's Ask Kupe panel.
+  useEffect(() => {
+    if (kupeStore.createdAgent && creating === "prompt") {
+      const id = kupeStore.createdAgent.id;
+      clearCreatedAgent();
+      setCreating(null);
+      refreshRecents();
+      navigate(`/agents/${id}`);
+    }
+  }, [kupeStore.createdAgent, creating, navigate, refreshRecents]);
+
   const busy = creating !== null;
   const canSubmit = prompt.trim().length > 0 && !busy;
 
@@ -55,15 +73,24 @@ export default function VoiceAgentsAgentsPage() {
       toast.message("Describe what your agent should do");
       return;
     }
+    if (!org?.id || !project?.id) {
+      toast.error("Select an organization and project first");
+      return;
+    }
     setCreating("prompt");
+    setPrompt("");
     try {
-      const agent = await createVoiceAgent({ prompt: text });
-      refreshRecents();
-      navigate(`/agents/${agent.id}`);
+      await sendForNewAgent(org.id, project.id, text);
+      // Reaches here either because the turn finished without ever
+      // calling create_agent (nothing to navigate to) or because the
+      // effect above already navigated away and unmounted this page.
+      if (!getSnapshot().createdAgent) {
+        setCreating(null);
+        toast.error(getSnapshot().error || "Kupe couldn't create that agent — try describing it differently");
+      }
     } catch {
-      toast.error("Couldn't create agent");
-    } finally {
       setCreating(null);
+      toast.error("Couldn't reach Kupe — try again");
     }
   }
 

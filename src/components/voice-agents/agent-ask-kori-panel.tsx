@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff } from "lucide-react";
+import { ArrowUp, Loader2, Mic, MicOff, Phone, PhoneOff, Wrench } from "lucide-react";
 import { RoomEvent, type TranscriptionSegment } from "livekit-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Matrix, pulse } from "@/components/ui/matrix";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
 import { cn } from "@/lib/utils";
-import { copilotTurn } from "@/lib/api/voice/agent-builder";
-import { KoriApiError } from "@/lib/api/kori-errors";
+import { useWorkspace } from "@/context/workspace-context";
+import { enterAgentScope, sendForAgent } from "@/lib/ask-ai/kupe-agent-store";
+import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
+import type { AgentStep } from "@/lib/ask-ai/types";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 
@@ -21,9 +22,21 @@ const STARTER_OPTIONS = [
   "Something else",
 ];
 
-type ChatBubble =
-  | { id: string; role: "user"; text: string }
-  | { id: string; role: "kori"; text: string; choices?: string[]; actions?: string[]; latencyMs?: number };
+// Any tool call that plausibly changed the agent's saved config -- the
+// editor should refetch after these so the left-hand form isn't stale.
+const MUTATING_TOOLS = new Set([
+  "update_agent",
+  "commit_agent_version",
+  "revert_agent_to_version",
+  "archive_agent",
+  "set_agent_demo_variables",
+  "attach_tool_to_agent",
+  "detach_tool_from_agent",
+  "attach_analysis_to_agent",
+  "detach_analysis_from_agent",
+]);
+
+type VoiceBubble = { id: string; role: "user" | "kori"; text: string; latencyMs?: number };
 
 function formatDuration(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -35,10 +48,13 @@ function formatDuration(totalSeconds: number): string {
 const LATENCY_TARGET_MS = 800;
 
 /**
- * Embedded Ask AI companion for the agent editor — always visible on the right.
- * Text chat is backed by POST /v1/agents/{id}/copilot. Talk uses a LiveKit
- * web call. The bar visualizer shows the user's mic while listening and the
- * agent's audio while the bot is speaking (solid bars, no gradient).
+ * Embedded Ask Kupe companion for the agent editor — always visible on the
+ * right. Text chat runs a live kupe-harness (Kai) session scoped to this
+ * agent (see lib/ask-ai/kupe-agent-store.ts) and can actually edit the
+ * agent via kupe-mcp tool calls, not just suggest changes. Talk uses a
+ * LiveKit web call and is unrelated (real-time voice test of the agent
+ * itself) -- its live transcript is shown in place of the Kai chat only
+ * while a call is in progress.
  */
 export function AgentAskKoriPanel({
   agentId,
@@ -46,23 +62,17 @@ export function AgentAskKoriPanel({
   className,
 }: {
   agentId: string;
-  /** Fired when copilot mutates the agent so the editor can refetch without a full page reload. */
+  /** Fired when Kai mutates the agent so the editor can refetch without a full page reload. */
   onAgentChanged?: () => void;
   className?: string;
 }) {
-  const [messages, setMessages] = useState<ChatBubble[]>([
-    {
-      id: "k1",
-      role: "kori",
-      text: "Talk to try this agent, or type to customize instructions, variables, and tests.",
-      choices: STARTER_OPTIONS,
-    },
-  ]);
+  const { org, project } = useWorkspace();
+  const kupeStore = useKupeAgentStore();
   const [draft, setDraft] = useState("");
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherText, setOtherText] = useState("");
-  const [sending, setSending] = useState(false);
 
+  const [voiceMessages, setVoiceMessages] = useState<VoiceBubble[]>([]);
   const [callStatus, setCallStatus] = useState<WebCallStatus>("idle");
   const [level, setLevel] = useState(0);
   const [agentStream, setAgentStream] = useState<MediaStream | null>(null);
@@ -70,10 +80,35 @@ export function AgentAskKoriPanel({
   const [muted, setMuted] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const handleRef = useRef<WebCallHandle | null>(null);
-  // Latest "user stopped -> agent started" latency, stashed as it arrives
-  // and attached to the next kori (agent) bubble that lands.
   const pendingLatencyRef = useRef<number | null>(null);
   const live = callStatus === "connecting" || callStatus === "connected";
+
+  // Enter this agent's scope on mount / when navigating between agents.
+  // If the store's live session is already this agent's (e.g. we just
+  // navigated here straight from creating it), its transcript carries
+  // over instead of being wiped. Computed eagerly on first render (via
+  // useState's lazy initializer) so it's known before paint, then kept in
+  // sync if agentId changes without this component unmounting (React
+  // Router reuses the element across /agents/:id param changes).
+  const [continuingCreation, setContinuingCreation] = useState(() => enterAgentScope(agentId));
+  const lastAgentId = useRef(agentId);
+  useEffect(() => {
+    if (lastAgentId.current !== agentId) {
+      lastAgentId.current = agentId;
+      setContinuingCreation(enterAgentScope(agentId));
+    }
+  }, [agentId]);
+
+  // Refetch the agent once a turn that mutated it finishes.
+  const wasBusyRef = useRef(false);
+  useEffect(() => {
+    if (wasBusyRef.current && !kupeStore.busy && kupeStore.scopeAgentId === agentId) {
+      const lastTurn = kupeStore.turns[kupeStore.turns.length - 1];
+      const mutated = lastTurn?.steps.some((s) => s.kind === "tool_call" && MUTATING_TOOLS.has(s.name));
+      if (mutated) onAgentChanged?.();
+    }
+    wasBusyRef.current = kupeStore.busy;
+  }, [kupeStore.busy, kupeStore.turns, kupeStore.scopeAgentId, agentId, onAgentChanged]);
 
   useEffect(() => {
     return () => {
@@ -112,6 +147,7 @@ export function AgentAskKoriPanel({
     setAgentStream(null);
     setLocalStream(null);
     setMuted(false);
+    setVoiceMessages([]);
     pendingLatencyRef.current = null;
     try {
       const handle = await startWebCall(agentId, {
@@ -144,7 +180,7 @@ export function AgentAskKoriPanel({
         RoomEvent.TranscriptionReceived,
         (segments: TranscriptionSegment[], participant) => {
           const role: "user" | "kori" = participant?.isLocal ? "user" : "kori";
-          setMessages((prev) => {
+          setVoiceMessages((prev) => {
             const next = [...prev];
             for (const seg of segments) {
               if (!seg.final || !seg.text) continue;
@@ -152,11 +188,11 @@ export function AgentAskKoriPanel({
               const latencyMs =
                 role === "kori" && idx < 0 ? (pendingLatencyRef.current ?? undefined) : undefined;
               if (latencyMs !== undefined) pendingLatencyRef.current = null;
-              const bubble: ChatBubble =
+              const bubble: VoiceBubble =
                 role === "user"
                   ? { id: seg.id, role: "user", text: seg.text }
                   : { id: seg.id, role: "kori", text: seg.text, latencyMs };
-              if (idx >= 0) next[idx] = { ...next[idx], text: seg.text } as ChatBubble;
+              if (idx >= 0) next[idx] = { ...next[idx], text: seg.text };
               else next.push(bubble);
             }
             return next;
@@ -180,30 +216,12 @@ export function AgentAskKoriPanel({
 
   async function pushUser(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || sending) return;
-    setMessages((m) => [...m, { id: `u-${Date.now()}`, role: "user", text: trimmed }]);
-    setSending(true);
-    try {
-      const { reply, actions } = await copilotTurn(agentId, trimmed);
-      setMessages((m) => [...m, { id: `k-${Date.now()}`, role: "kori", text: reply, actions }]);
-      if (actions?.length) onAgentChanged?.();
-    } catch (err) {
-      const msg =
-        err instanceof KoriApiError
-          ? err.message
-          : "Kupe couldn't respond — try again";
-      toast.error(msg);
-      setMessages((m) => [
-        ...m,
-        {
-          id: `k-err-${Date.now()}`,
-          role: "kori",
-          text: msg,
-        },
-      ]);
-    } finally {
-      setSending(false);
+    if (!trimmed || kupeStore.busy) return;
+    if (!org?.id || !project?.id) {
+      toast.error("Select an organization and project first");
+      return;
     }
+    await sendForAgent(org.id, project.id, agentId, trimmed);
   }
 
   function onChoice(choice: string) {
@@ -245,6 +263,9 @@ export function AgentAskKoriPanel({
         : callStatus === "error"
           ? "Couldn't connect"
           : "Idle — talk or type";
+
+  const showStarters = kupeStore.turns.length === 0 && !continuingCreation;
+  const sending = kupeStore.busy && kupeStore.scopeAgentId === agentId;
 
   return (
     <aside
@@ -310,42 +331,42 @@ export function AgentAskKoriPanel({
       </div>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
-        {messages.map((m) =>
-          m.role === "user" ? (
-            <div key={m.id} className="animate-pop-in-up flex justify-end">
-              <div className="max-w-[92%] rounded-2xl rounded-br-md bg-muted px-3.5 py-2.5 text-sm leading-relaxed">
-                {m.text}
+        {live ? (
+          voiceMessages.map((m) =>
+            m.role === "user" ? (
+              <div key={m.id} className="animate-pop-in-up flex justify-end">
+                <div className="max-w-[92%] rounded-2xl rounded-br-md bg-muted px-3.5 py-2.5 text-sm leading-relaxed">
+                  {m.text}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div key={m.id} className="animate-pop-in-up space-y-3">
-              <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
-              {m.latencyMs !== undefined && (
-                <span
-                  className={`block text-[10px] ${
-                    m.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
-                  }`}
-                >
-                  responded in {Math.round(m.latencyMs)} ms
-                </span>
-              )}
-              {m.actions && m.actions.length > 0 && (
-                <ul className="space-y-1">
-                  {m.actions.map((a, i) => (
-                    <li key={i} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <span className="size-1 rounded-full bg-emerald-500" />
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {m.choices && (
+            ) : (
+              <div key={m.id} className="animate-pop-in-up space-y-1.5">
+                <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
+                {m.latencyMs !== undefined && (
+                  <span
+                    className={`block text-[10px] ${
+                      m.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
+                    }`}
+                  >
+                    responded in {Math.round(m.latencyMs)} ms
+                  </span>
+                )}
+              </div>
+            ),
+          )
+        ) : (
+          <>
+            {showStarters && (
+              <div className="animate-pop-in-up space-y-3">
+                <p className="text-sm leading-relaxed text-foreground">
+                  Talk to try this agent, or type to customize instructions, variables, and tests.
+                </p>
                 <div className="space-y-2">
-                  {m.choices.map((c) => (
+                  {STARTER_OPTIONS.map((c) => (
                     <button
                       key={c}
                       type="button"
-                      disabled={sending || live}
+                      disabled={sending}
                       onClick={() => onChoice(c)}
                       className="pressable block w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/60 disabled:opacity-50"
                     >
@@ -369,27 +390,40 @@ export function AgentAskKoriPanel({
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          ),
-        )}
-        {sending && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs">
-              <Matrix
-                rows={7}
-                cols={7}
-                frames={pulse}
-                fps={16}
-                size={1.6}
-                gap={0.5}
-                palette={{ on: "var(--primary)", off: "transparent" }}
-                ariaLabel=""
-              />
-              <span className="kori-shimmer-text font-medium">Kupe is thinking…</span>
-            </div>
-            <Skeleton className="h-12 w-full rounded-2xl" />
-          </div>
+              </div>
+            )}
+
+            {kupeStore.turns.map((t) =>
+              t.role === "user" ? (
+                <div key={t.id} className="animate-pop-in-up flex justify-end">
+                  <div className="max-w-[92%] rounded-2xl rounded-br-md bg-muted px-3.5 py-2.5 text-sm leading-relaxed">
+                    {t.text}
+                  </div>
+                </div>
+              ) : (
+                <div key={t.id} className="animate-pop-in-up space-y-2">
+                  {t.steps.length > 0 && <StepsList steps={t.steps} streaming={t.streaming} />}
+                  {t.text && <p className="text-sm leading-relaxed text-foreground">{t.text}</p>}
+                  {t.error && <p className="text-xs text-destructive">{t.error}</p>}
+                  {t.streaming && !t.text && t.steps.length === 0 && (
+                    <div className="flex items-center gap-2 text-xs">
+                      <Matrix
+                        rows={7}
+                        cols={7}
+                        frames={pulse}
+                        fps={16}
+                        size={1.6}
+                        gap={0.5}
+                        palette={{ on: "var(--primary)", off: "transparent" }}
+                        ariaLabel=""
+                      />
+                      <span className="kori-shimmer-text font-medium">Kupe is thinking…</span>
+                    </div>
+                  )}
+                </div>
+              ),
+            )}
+          </>
         )}
       </div>
 
@@ -422,5 +456,29 @@ export function AgentAskKoriPanel({
         </div>
       </div>
     </aside>
+  );
+}
+
+/** Collapsible-free inline step list -- "Agent steps" condensed to fit this
+ * panel's compact chat bubbles: reasoning as an italic line, tool calls as
+ * a small labeled row with a running/done state. */
+function StepsList({ steps, streaming }: { steps: AgentStep[]; streaming: boolean }) {
+  return (
+    <div className="space-y-1 rounded-lg border border-border bg-muted/30 px-2.5 py-2 text-xs">
+      {steps.map((step, i) =>
+        step.kind === "reasoning" ? (
+          <p key={i} className="italic text-muted-foreground">
+            {step.text}
+          </p>
+        ) : (
+          <div key={i} className="flex items-center gap-1.5">
+            <Wrench className={cn("size-3 shrink-0", step.isError ? "text-destructive" : "text-muted-foreground")} />
+            <span className={cn("font-mono", step.isError && "text-destructive")}>{step.name}</span>
+            {!step.done && <Loader2 className="size-3 shrink-0 animate-spin text-muted-foreground" />}
+          </div>
+        ),
+      )}
+      {streaming && <span className="sr-only">Kupe is still working…</span>}
+    </div>
   );
 }
