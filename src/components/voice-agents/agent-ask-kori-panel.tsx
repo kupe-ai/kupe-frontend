@@ -15,6 +15,7 @@ import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
 import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
 import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
+import { sanitizeChatError } from "@/lib/ask-ai/public-error";
 
 const EDITOR_SUGGESTIONS = [
   "Rewrite the greeting / first message",
@@ -376,7 +377,7 @@ export function AgentAskKoriPanel({
                 <div key={t.id} className="animate-pop-in-up space-y-2">
                   {t.steps.length > 0 && <AgentSteps steps={t.steps} streaming={t.streaming} />}
                   {t.text && <MarkdownMessage text={t.text} />}
-                  {t.error && <p className="text-xs text-destructive">{t.error}</p>}
+                  {t.error && <p className="text-xs text-destructive">{sanitizeChatError(t.error)}</p>}
                   {t.streaming && !t.text && t.steps.length === 0 && (
                     <WorkingShimmer label={t.status || "Kupe is working…"} />
                   )}

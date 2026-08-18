@@ -14,6 +14,7 @@ import type { ChatTurn } from "@/lib/ask-ai/types";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
 import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
 import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
+import { sanitizeChatError } from "@/lib/ask-ai/public-error";
 import { useWorkspaceOptional } from "@/context/workspace-context";
 
 const SUGGESTIONS = [
@@ -119,7 +120,7 @@ function Turn({ turn }: { turn: ChatTurn }) {
       ) : turn.streaming && turn.steps.length === 0 ? (
         <WorkingShimmer label={turn.status || "Kupe is working…"} />
       ) : null}
-      {turn.error ? <p className="text-xs text-destructive">{turn.error}</p> : null}
+      {turn.error ? <p className="text-xs text-destructive">{sanitizeChatError(turn.error)}</p> : null}
     </div>
   );
 }

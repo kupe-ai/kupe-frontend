@@ -12,7 +12,8 @@
 
 import { HARNESS_URL } from "@/config";
 import { supabase } from "@/lib/supabase";
-import { captureException } from "@/lib/posthog";
+import { captureEvent, captureException } from "@/lib/posthog";
+import { sanitizeChatError } from "./public-error";
 import { readSse } from "./sse";
 import type { AgentStep, AttachedFile, ChatTurn, HarnessEvent } from "./types";
 
@@ -265,9 +266,17 @@ function applyEvent(assistantId: string, event: HarnessEvent, patchAssistant: (p
     case "done":
       patchAssistant({ streaming: false, status: undefined });
       break;
-    case "error":
-      patchAssistant({ streaming: false, error: event.detail, status: undefined });
+    case "error": {
+      const friendly = sanitizeChatError(event.detail);
+      captureException(new Error(event.detail), {
+        source: "kupe-agent-store",
+        kind: "harness_sse_error",
+      });
+      captureEvent("kupe_agent_turn_error", { source: "kupe-agent-store", detail: event.detail });
+      patchAssistant({ streaming: false, error: friendly, status: undefined });
+      setState({ error: friendly });
       break;
+    }
   }
 }
 
@@ -316,8 +325,9 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
       return;
     }
     captureException(err, { source: "kupe-agent-store" });
-    finish({ error: err instanceof Error ? err.message : "Something went wrong" });
-    setState({ error: err instanceof Error ? err.message : "Something went wrong" });
+    const friendly = sanitizeChatError(err);
+    finish({ error: friendly });
+    setState({ error: friendly });
   } finally {
     if (epoch === turnEpoch) {
       abortController = null;

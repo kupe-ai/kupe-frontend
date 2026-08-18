@@ -1,0 +1,18 @@
+/** Chat-facing copy. Vendor names, JSON blobs, and subscription-tier
+ * messages must never render in the Ask Kupe UI -- PostHog still gets
+ * the raw payload from the harness / captureException properties. */
+
+export const GENERIC_CHAT_ERROR = "Kupe couldn't complete that request. Please try again.";
+
+const VENDOR_OR_TECHNICAL =
+  /sarvam|kupe-mcp|api\.sarvam|subscription tier|max_tokens|invalid_request_error|endpoint returned|model call failed/i;
+
+export function sanitizeChatError(raw: unknown, fallback = GENERIC_CHAT_ERROR): string {
+  const text = (raw instanceof Error ? raw.message : String(raw ?? "")).trim();
+  if (!text) return fallback;
+  if (VENDOR_OR_TECHNICAL.test(text) || text.includes("{") || text.includes("Traceback")) {
+    return fallback;
+  }
+  if (text.length > 180) return fallback;
+  return text;
+}

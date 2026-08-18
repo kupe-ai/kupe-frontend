@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { HARNESS_URL } from "@/config";
 import { supabase } from "@/lib/supabase";
-import { captureException } from "@/lib/posthog";
+import { captureEvent, captureException } from "@/lib/posthog";
 import { useWorkspaceOptional } from "@/context/workspace-context";
+import { sanitizeChatError } from "./public-error";
 import { readSse } from "./sse";
 import type { AgentStep, AttachedFile, ChatTurn, HarnessEvent } from "./types";
 
@@ -75,8 +76,12 @@ function applyHarnessEvent(
           return { ...t, text: event.text };
         case "done":
           return { ...t, streaming: false, status: undefined };
-        case "error":
-          return { ...t, streaming: false, error: event.detail, status: undefined };
+        case "error": {
+          const friendly = sanitizeChatError(event.detail);
+          captureException(new Error(event.detail), { source: "ask-ai", kind: "harness_sse_error" });
+          captureEvent("kupe_agent_turn_error", { source: "ask-ai", detail: event.detail });
+          return { ...t, streaming: false, error: friendly, status: undefined };
+        }
         default:
           return t;
       }
@@ -202,11 +207,10 @@ export function useKupeAgent() {
           setTurns((all) => all.map((t) => (t.id === assistantTurn.id ? { ...t, streaming: false } : t)));
         } else {
           captureException(err, { source: "ask-ai" });
+          const friendly = sanitizeChatError(err);
           setTurns((all) =>
             all.map((t) =>
-              t.id === assistantTurn.id
-                ? { ...t, streaming: false, error: err instanceof Error ? err.message : "Something went wrong" }
-                : t,
+              t.id === assistantTurn.id ? { ...t, streaming: false, error: friendly } : t,
             ),
           );
         }

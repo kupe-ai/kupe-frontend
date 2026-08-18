@@ -25,6 +25,7 @@ import {
   uploadAttachment,
 } from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
+import { sanitizeChatError } from "@/lib/ask-ai/public-error";
 import { AskAiToolbarButton } from "@/components/ask-ai/ask-ai-toolbar-button";
 import { AttachmentChips, SuggestionChips } from "@/components/ask-ai/chat-composer";
 
@@ -84,7 +85,7 @@ export default function VoiceAgentsAgentsPage() {
     }
     sawBusy.current = false;
     setCreating(null);
-    toast.error(kupeStore.error || "Kupe couldn't create that agent — try describing it differently");
+    toast.error(kupeStore.error ? sanitizeChatError(kupeStore.error) : "Kupe couldn't create that agent — try describing it differently");
   }, [creating, kupeStore.busy, kupeStore.createdAgent, kupeStore.scopeAgentId, kupeStore.error]);
 
   const busy = creating !== null;
