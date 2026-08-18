@@ -170,8 +170,9 @@ function creationPrompt(orgId: string, projectId: string, userText: string): str
   return [
     "Create a new voice agent for this workspace.",
     `org_id=${orgId} project_id=${projectId}`,
-    'Pick a clear, specific name based on what the agent does -- not "New agent" and not the request repeated verbatim (e.g. for a sales agent for an EV charger company, something like "EV Charger Sales Agent").',
-    "Write a system_prompt and greeting appropriate for that job, using create_agent, then commit_agent_version once it looks right.",
+    'Name it with a real first name (the speaking persona — e.g. "Kavya", "Rohan"), never a job-title slug like "EV Charger Sales Agent" or "New agent".',
+    "Write a spoken-voice system_prompt (under ~1000 tokens, follow create_agent's voice-prompt rules) and a one-line greeting, then commit_agent_version once it looks right.",
+    "Put long product catalogs / FAQs in a knowledge base and attach via config.knowledge_base_ids — not in the prompt.",
     "",
     `What the agent should do: ${userText}`,
   ].join("\n");
@@ -181,6 +182,7 @@ function editPrompt(orgId: string, projectId: string, agentId: string, userText:
   return [
     "You are editing an existing voice agent -- use update_agent (and commit_agent_version once you're done), never create_agent.",
     `org_id=${orgId} project_id=${projectId} agent_id=${agentId}`,
+    "If you change system_prompt or name: keep a real first-name persona, spoken-voice prompt under ~1000 tokens (follow update_agent's voice-prompt rules). Extra facts go in a knowledge base, not the prompt.",
     "",
     userText,
   ].join("\n");

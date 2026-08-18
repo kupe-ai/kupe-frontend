@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgentStep } from "@/lib/ask-ai/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export function AgentSteps({ steps, streaming }: { steps: AgentStep[]; streaming: boolean }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(streaming);
+  useEffect(() => {
+    setOpen(streaming);
+  }, [streaming]);
   const toolCalls = steps.filter((s) => s.kind === "tool_call").length;
   const thoughts = steps.filter((s) => s.kind === "reasoning").length;
   const parts = [
