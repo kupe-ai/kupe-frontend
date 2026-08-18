@@ -45,6 +45,11 @@ import {
   type VoiceCampaign,
 } from "@/lib/api/voice/campaigns";
 import { api } from "@/lib/api";
+import {
+  formatMissingVarsMessage,
+  missingVariablesForContact,
+  requiredVariablesForAgent,
+} from "@/lib/campaign-template-vars";
 import type { BatchStats, RecipientList } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -163,6 +168,35 @@ export default function VoiceAgentsOutboundDetailPage() {
     if (!campaign) return;
     try {
       if (campaign.status === "paused" || campaign.status === "draft") {
+        if (campaign.status === "draft") {
+          const agent = await api.getAgent(campaign.agent_id);
+          const required = requiredVariablesForAgent(agent);
+          if (required.length > 0) {
+            const page = await api.listBatchContactsCursor(campaign.id, {
+              limit: 100,
+              cursor: "",
+              status: "pending",
+            });
+            for (const contact of page.items) {
+              const missing = missingVariablesForContact(required, contact.variables);
+              if (missing.length) {
+                toast.error(
+                  formatMissingVarsMessage(missing, {
+                    phone: contact.phone_number,
+                    more: Math.max(0, page.total - 1),
+                  }),
+                );
+                setTab("recipients");
+                return;
+              }
+            }
+            if (page.total === 0) {
+              toast.error("Add recipients before starting this campaign");
+              setTab("recipients");
+              return;
+            }
+          }
+        }
         await resumeCampaign(campaign.id);
         toast.message(campaign.status === "draft" ? "Campaign started" : "Campaign resumed");
       } else {
@@ -170,8 +204,8 @@ export default function VoiceAgentsOutboundDetailPage() {
         toast.message("Campaign paused");
       }
       await refresh();
-    } catch {
-      toast.error("Couldn't update campaign");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't update campaign");
     }
   }
 

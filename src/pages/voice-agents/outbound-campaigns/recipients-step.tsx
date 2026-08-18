@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { missingColumnsForRecipients } from "@/lib/campaign-template-vars";
 import { listRecipientLists, type RecipientList } from "@/lib/api/voice/campaigns";
 import {
   PHONE_COLUMN,
@@ -71,11 +72,14 @@ export function RecipientsStep({
   onChange,
   hideModeToggle = false,
   hideListName = false,
+  requiredVariables = [],
 }: {
   value: RecipientsState;
   onChange: (next: RecipientsState) => void;
   hideModeToggle?: boolean;
   hideListName?: boolean;
+  /** Agent template keys that must exist as columns / member variables. */
+  requiredVariables?: string[];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draftPhone, setDraftPhone] = useState("");
@@ -85,6 +89,8 @@ export function RecipientsStep({
   const analysis = analyzeRecipients(value.columns, value.rows);
   const emptyEntries = Object.entries(analysis.emptyCells).filter(([, count]) => count > 0);
   const selected = savedLists.find((l) => l.id === value.selectedListId) ?? null;
+  const missingRequiredCols =
+    value.mode === "new" ? missingColumnsForRecipients(requiredVariables, value.columns) : [];
 
   useEffect(() => {
     setListsLoading(true);
@@ -176,6 +182,35 @@ export function RecipientsStep({
           </Badge>
         ) : null}
       </div>
+
+      {requiredVariables.length > 0 ? (
+        <Alert variant={missingRequiredCols.length ? "destructive" : "default"}>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {missingRequiredCols.length
+                ? `This agent needs ${missingRequiredCols.map((k) => `{{${k}}}`).join(", ")} on every recipient — add those columns before launch.`
+                : `Agent expects: ${requiredVariables.map((k) => `{{${k}}}`).join(", ")}`}
+            </span>
+            {missingRequiredCols.length > 0 && value.mode === "new" ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0 rounded-full"
+                onClick={() => {
+                  const columns = [...value.columns];
+                  for (const key of missingRequiredCols) {
+                    if (!columns.includes(key)) columns.push(key);
+                  }
+                  setRows(value.rows, columns);
+                }}
+              >
+                Add missing columns
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {!hideModeToggle ? (
         <div className="inline-flex rounded-full bg-muted/70 p-1">

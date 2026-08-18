@@ -57,6 +57,14 @@ import {
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { analyzeRecipients } from "@/lib/parse-recipients-csv";
+import {
+  formatMissingVarsMessage,
+  missingColumnsForRecipients,
+  missingVariablesForContact,
+  requiredVariablesForAgent,
+} from "@/lib/campaign-template-vars";
+import { api } from "@/lib/api";
+import type { Agent } from "@/types";
 import { PeopleListsPanel } from "./people-lists-panel";
 import { RecipientsStep, createEmptyRecipientsState, type RecipientsState } from "./recipients-step";
 
@@ -178,12 +186,44 @@ export default function VoiceAgentsOutboundPage() {
                           label: "Resume",
                           icon: Play,
                           onSelect: () => {
-                            void resumeCampaign(c.id)
-                              .then(() => {
+                            void (async () => {
+                              try {
+                                if (c.status === "draft") {
+                                  const agent = await api.getAgent(c.agent_id);
+                                  const required = requiredVariablesForAgent(agent);
+                                  if (required.length > 0) {
+                                    const page = await api.listBatchContactsCursor(c.id, {
+                                      limit: 100,
+                                      cursor: "",
+                                      status: "pending",
+                                    });
+                                    for (const contact of page.items) {
+                                      const missing = missingVariablesForContact(
+                                        required,
+                                        contact.variables,
+                                      );
+                                      if (missing.length) {
+                                        toast.error(
+                                          formatMissingVarsMessage(missing, {
+                                            phone: contact.phone_number,
+                                            more: Math.max(0, page.total - 1),
+                                          }),
+                                        );
+                                        navigate(`/outbound-campaigns/${c.id}`);
+                                        return;
+                                      }
+                                    }
+                                  }
+                                }
+                                await resumeCampaign(c.id);
                                 toast.message("Campaign resumed");
                                 refresh();
-                              })
-                              .catch(() => toast.error("Couldn't resume campaign"));
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : "Couldn't resume campaign",
+                                );
+                              }
+                            })();
                           },
                         }
                       : {
@@ -276,7 +316,9 @@ function ScheduleCampaignDialog({
   const [schedule, setSchedule] = useState<BatchSchedule>(EMPTY_BATCH_SCHEDULE);
   const [listsAttached, setListsAttached] = useState(false);
   const [boundListId, setBoundListId] = useState<string | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const recipientPeople = analyzeRecipients(recipients.columns, recipients.rows).people;
+  const requiredVars = requiredVariablesForAgent(selectedAgent);
 
   useEffect(() => {
     if (open) {
@@ -290,10 +332,64 @@ function ScheduleCampaignDialog({
       setListsAttached(false);
       setBoundListId(null);
       setSchedule(EMPTY_BATCH_SCHEDULE);
+      setSelectedAgent(null);
       listVoiceAgents({ page_size: 100 }).then((res) => setAgents(res.items)).catch(() => setAgents([]));
       listPhoneNumbers().then((rows) => setNumbers(rows.filter((n) => n.status === "active"))).catch(() => setNumbers([]));
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!agentId) {
+      setSelectedAgent(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getAgent(agentId)
+      .then((a) => {
+        if (!cancelled) setSelectedAgent(a);
+      })
+      .catch(() => {
+        if (!cancelled) setSelectedAgent(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId]);
+
+  async function assertRecipientsMatchAgent(): Promise<boolean> {
+    if (requiredVars.length === 0) return true;
+
+    if (recipients.mode === "new") {
+      const missingCols = missingColumnsForRecipients(requiredVars, recipients.columns);
+      if (missingCols.length) {
+        toast.error(formatMissingVarsMessage(missingCols));
+        return false;
+      }
+      return true;
+    }
+
+    if (!recipients.selectedListId) return true;
+    try {
+      const page = await api.listRecipientListMembers(recipients.selectedListId, { limit: 100 });
+      for (const member of page.items) {
+        const missing = missingVariablesForContact(requiredVars, member.variables);
+        if (missing.length) {
+          toast.error(
+            formatMissingVarsMessage(missing, {
+              phone: member.phone_number,
+              more: Math.max(0, page.total - 1),
+            }),
+          );
+          return false;
+        }
+      }
+    } catch {
+      toast.error("Couldn't verify recipient variables for this agent");
+      return false;
+    }
+    return true;
+  }
 
   async function next() {
     if (step === 0) {
@@ -318,8 +414,8 @@ function ScheduleCampaignDialog({
             },
           });
           setCampaignId(campaign.id);
-        } catch {
-          toast.error("Couldn't create campaign");
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Couldn't create campaign");
           return;
         }
       }
@@ -343,6 +439,7 @@ function ScheduleCampaignDialog({
         toast.message("Pick a saved recipient list");
         return;
       }
+      if (!(await assertRecipientsMatchAgent())) return;
       if (!listsAttached) {
         try {
           const result = await ensureCampaignRecipients({
@@ -373,14 +470,31 @@ function ScheduleCampaignDialog({
 
   async function launch() {
     if (!campaignId) return;
+    if (!(await assertRecipientsMatchAgent())) {
+      setStep(1);
+      return;
+    }
     setSubmitting(true);
     try {
+      // Final check against contacts already on the batch (covers saved-list edge cases).
+      if (requiredVars.length > 0) {
+        const page = await api.listBatchContactsCursor(campaignId, { limit: 100, cursor: "" });
+        for (const contact of page.items) {
+          const missing = missingVariablesForContact(requiredVars, contact.variables);
+          if (missing.length) {
+            toast.error(
+              formatMissingVarsMessage(missing, {
+                phone: contact.phone_number,
+                more: Math.max(0, page.total - 1),
+              }),
+            );
+            setStep(1);
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
       if (schedule.recurrence) {
-        // Recurring (or a future one-off): hand the schedule to the
-        // backend scheduler and leave the batch in draft — it starts
-        // itself on the next matching day/window, and auto-pauses (never
-        // cancels — in-flight calls always finish) once limit_per_period
-        // is hit or the dial window closes.
         await updateCampaignSchedule(campaignId, schedule);
         toast.success("Campaign scheduled");
       } else {
@@ -389,8 +503,8 @@ function ScheduleCampaignDialog({
       }
       onCreated();
       onOpenChange(false);
-    } catch {
-      toast.error("Couldn't launch campaign");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't launch campaign");
     } finally {
       setSubmitting(false);
     }
@@ -478,6 +592,7 @@ function ScheduleCampaignDialog({
                   setListsAttached(false);
                 }
               }}
+              requiredVariables={requiredVars}
             />
           ) : null}
 

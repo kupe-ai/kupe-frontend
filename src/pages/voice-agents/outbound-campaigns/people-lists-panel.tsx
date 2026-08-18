@@ -34,7 +34,10 @@ import {
   type RecipientList,
 } from "@/lib/api/voice/campaigns";
 import { analyzeRecipients } from "@/lib/parse-recipients-csv";
+import type { RecipientListMember } from "@/types";
 import { RecipientsStep, createEmptyRecipientsState, type RecipientsState } from "./recipients-step";
+
+const MEMBERS_PAGE_SIZE = 50;
 
 export function PeopleListsPanel({ createOpen, onCreateOpenChange }: {
   createOpen: boolean;
@@ -44,6 +47,7 @@ export function PeopleListsPanel({ createOpen, onCreateOpenChange }: {
   const [loading, setLoading] = useState(true);
   const [toDelete, setToDelete] = useState<RecipientList | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [viewing, setViewing] = useState<RecipientList | null>(null);
   const [recipients, setRecipients] = useState<RecipientsState>(() => {
     const s = createEmptyRecipientsState();
     return { ...s, mode: "new" };
@@ -99,6 +103,7 @@ export function PeopleListsPanel({ createOpen, onCreateOpenChange }: {
     try {
       await api.deleteRecipientList(toDelete.id);
       setLists((prev) => prev.filter((l) => l.id !== toDelete.id));
+      if (viewing?.id === toDelete.id) setViewing(null);
       toast.message("People list deleted");
       setToDelete(null);
     } catch (err) {
@@ -162,7 +167,10 @@ export function PeopleListsPanel({ createOpen, onCreateOpenChange }: {
                 },
               ]}
             >
-              <li className="grid grid-cols-[1fr_7rem_9rem] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+              <li
+                className="grid cursor-pointer grid-cols-[1fr_7rem_9rem] items-center gap-3 px-4 py-3 hover:bg-muted/40"
+                onClick={() => setViewing(list)}
+              >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{list.name}</p>
                   {list.description ? (
@@ -189,6 +197,8 @@ export function PeopleListsPanel({ createOpen, onCreateOpenChange }: {
         submitting={submitting}
         onSubmit={() => void createList()}
       />
+
+      <ViewPeopleListDialog list={viewing} onOpenChange={(o) => !o && setViewing(null)} />
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>
@@ -229,7 +239,7 @@ function CreatePeopleDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0">
+      <DialogContent className="flex max-h-[90vh] w-[min(96vw,56rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle>Create people list</DialogTitle>
         </DialogHeader>
@@ -256,6 +266,163 @@ function CreatePeopleDialog({
           </Button>
           <Button onClick={onSubmit} disabled={submitting}>
             {submitting ? "Saving…" : "Save list"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ViewPeopleListDialog({
+  list,
+  onOpenChange,
+}: {
+  list: RecipientList | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [members, setMembers] = useState<RecipientListMember[]>([]);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [cursorStack, setCursorStack] = useState<(string | null)[]>([null]);
+  const [loading, setLoading] = useState(false);
+
+  const loadPage = useCallback(
+    async (cursor: string | null, replaceStack = false) => {
+      if (!list) return;
+      setLoading(true);
+      try {
+        const page = await api.listRecipientListMembers(list.id, {
+          limit: MEMBERS_PAGE_SIZE,
+          cursor: cursor ?? undefined,
+        });
+        setMembers(page.items);
+        setTotal(page.total);
+        setNextCursor(page.next_cursor);
+        if (replaceStack) setCursorStack([null]);
+      } catch {
+        toast.error("Couldn't load members");
+        setMembers([]);
+        setTotal(0);
+        setNextCursor(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [list],
+  );
+
+  useEffect(() => {
+    if (list) void loadPage(null, true);
+    else {
+      setMembers([]);
+      setTotal(0);
+      setNextCursor(null);
+      setCursorStack([null]);
+    }
+  }, [list, loadPage]);
+
+  const variableKeys = (() => {
+    const keys = new Set<string>();
+    for (const m of members) {
+      for (const k of Object.keys(m.variables ?? {})) keys.add(k);
+    }
+    return Array.from(keys).slice(0, 4);
+  })();
+
+  return (
+    <Dialog open={!!list} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] w-[min(96vw,56rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle>{list?.name ?? "People list"}</DialogTitle>
+          {list ? (
+            <p className="text-sm text-muted-foreground">
+              {list.member_count.toLocaleString()}{" "}
+              {list.member_count === 1 ? "member" : "members"}
+              {list.description ? ` · ${list.description}` : ""}
+            </p>
+          ) : null}
+        </DialogHeader>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <div className="overflow-hidden rounded-xl border border-border">
+            <div
+              className="grid gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground"
+              style={{
+                gridTemplateColumns: `minmax(0,1.2fr) ${variableKeys.map(() => "minmax(0,1fr)").join(" ")}`.trim(),
+              }}
+            >
+              <span>Phone</span>
+              {variableKeys.map((k) => (
+                <span key={k} className="truncate">
+                  {k}
+                </span>
+              ))}
+            </div>
+            {loading ? (
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">Loading…</div>
+            ) : members.length === 0 ? (
+              <div className="px-4 py-10 text-center text-sm text-muted-foreground">No members yet.</div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {members.map((m) => (
+                  <li
+                    key={m.id}
+                    className="grid items-center gap-3 px-4 py-2.5 text-sm"
+                    style={{
+                      gridTemplateColumns: `minmax(0,1.2fr) ${variableKeys.map(() => "minmax(0,1fr)").join(" ")}`.trim(),
+                    }}
+                  >
+                    <span className="truncate font-mono text-[13px]">{m.phone_number}</span>
+                    {variableKeys.map((k) => (
+                      <span key={k} className="truncate text-muted-foreground">
+                        {m.variables?.[k] != null && String(m.variables[k]) !== ""
+                          ? String(m.variables[k])
+                          : "—"}
+                      </span>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">
+              Showing {members.length ? members.length : 0} of {total.toLocaleString()}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading || cursorStack.length <= 1}
+                onClick={() => {
+                  const stack = cursorStack.slice(0, -1);
+                  const prev = stack[stack.length - 1] ?? null;
+                  setCursorStack(stack);
+                  void loadPage(prev);
+                }}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={loading || !nextCursor}
+                onClick={() => {
+                  if (!nextCursor) return;
+                  setCursorStack((s) => [...s, nextCursor]);
+                  void loadPage(nextCursor);
+                }}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter className="border-t border-border px-6 py-4">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
           </Button>
         </DialogFooter>
       </DialogContent>
