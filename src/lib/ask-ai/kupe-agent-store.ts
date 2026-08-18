@@ -12,6 +12,7 @@
 
 import { HARNESS_URL } from "@/config";
 import { supabase } from "@/lib/supabase";
+import { isAbortError, isBrowserNetworkError } from "@/lib/network-error";
 import { captureEvent, captureException } from "@/lib/posthog";
 import { sanitizeChatError } from "./public-error";
 import { readSse } from "./sse";
@@ -324,11 +325,13 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
     if (epoch === turnEpoch) finish();
   } catch (err) {
     if (epoch !== turnEpoch) return;
-    if ((err as Error)?.name === "AbortError") {
+    if (isAbortError(err)) {
       finish();
       return;
     }
-    captureException(err, { source: "kupe-agent-store" });
+    if (!isBrowserNetworkError(err)) {
+      captureException(err, { source: "kupe-agent-store" });
+    }
     const friendly = sanitizeChatError(err);
     finish({ error: friendly });
     setState({ error: friendly });

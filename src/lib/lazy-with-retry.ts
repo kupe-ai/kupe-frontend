@@ -1,4 +1,5 @@
 import { lazy, type ComponentType } from "react";
+import { isStaleChunkError } from "./network-error";
 
 /**
  * After a Vercel deploy, hashed `/assets/*.js` from the previous build 404.
@@ -10,15 +11,7 @@ import { lazy, type ComponentType } from "react";
 const RELOAD_KEY = "kupe:stale-chunk-reload";
 
 export function isChunkLoadError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? "");
-  const name = error instanceof Error ? error.name : "";
-  return (
-    name === "ChunkLoadError" ||
-    /Failed to fetch dynamically imported module/i.test(message) ||
-    /error loading dynamically imported module/i.test(message) ||
-    /Importing a module script failed/i.test(message) ||
-    /Unable to preload CSS/i.test(message)
-  );
+  return isStaleChunkError(error);
 }
 
 export function reloadOnceForStaleChunk(): boolean {

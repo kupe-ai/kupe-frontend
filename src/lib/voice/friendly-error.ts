@@ -1,4 +1,5 @@
 import { KoriApiError } from "@/lib/api/kori-errors";
+import { NETWORK_UNREACHABLE, isAbortError, isBrowserNetworkError } from "@/lib/network-error";
 
 /**
  * Map API/transport failures to short, human copy for toasts and empty states.
@@ -6,6 +7,7 @@ import { KoriApiError } from "@/lib/api/kori-errors";
  */
 export function friendlyVoiceError(err: unknown, fallback: string): string {
   if (!err) return fallback;
+  if (isAbortError(err) || isBrowserNetworkError(err)) return fallback;
 
   if (err instanceof KoriApiError) {
     const msg = (err.message || "").trim();
@@ -40,6 +42,7 @@ export function friendlyVoiceError(err: unknown, fallback: string): string {
 
   if (err instanceof Error) {
     const msg = err.message.trim();
+    if (msg === NETWORK_UNREACHABLE) return fallback;
     if (/concurrency limit/i.test(msg)) {
       return "A previous call didn't hang up cleanly. Try again.";
     }
@@ -51,7 +54,7 @@ export function friendlyVoiceError(err: unknown, fallback: string): string {
 
 function looksTechnical(msg: string): boolean {
   return (
-    /traceback|exception|sqlalchemy|postgrest|ECONNREFUSED|TypeError|undefined is not/i.test(
+    /traceback|exception|sqlalchemy|postgrest|ECONNREFUSED|TypeError|undefined is not|Failed to fetch|Load failed|NetworkError/i.test(
       msg,
     ) || msg.includes("{")
   );

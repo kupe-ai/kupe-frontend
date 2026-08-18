@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
+import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,9 +56,13 @@ export function AgentToolsPanel({ agentId }: { agentId: string }) {
   const [toggling, setToggling] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [custom, system] = await Promise.all([listAgentTools(agentId), listSystemTools(agentId)]);
-    setTools(custom.filter((t) => t.kind === "custom_webhook"));
-    setSystemTools(system);
+    try {
+      const [custom, system] = await Promise.all([listAgentTools(agentId), listSystemTools(agentId)]);
+      setTools(custom.filter((t) => t.kind === "custom_webhook"));
+      setSystemTools(system);
+    } catch (err) {
+      toast.error(friendlyVoiceError(err, "Couldn't load tools"));
+    }
   }, [agentId]);
 
   useEffect(() => {

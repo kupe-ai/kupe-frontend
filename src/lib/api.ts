@@ -1,5 +1,6 @@
 import { BACKEND_URL } from "../config";
 import { supabase } from "./supabase";
+import { NETWORK_UNREACHABLE, isAbortError, isBrowserNetworkError } from "./network-error";
 import { captureException } from "./posthog";
 import type {
   Agent,
@@ -121,10 +122,10 @@ async function authedFetch(path: string, init?: RequestInit): Promise<Response> 
   try {
     return await fetch(`${BACKEND_URL}${path}`, { ...init, headers });
   } catch (err) {
-    captureException(err, { source: "api.network", path, method: init?.method ?? "GET" });
-    throw new Error(
-      `Cannot reach API at ${BACKEND_URL} — is kupe-backend running (uvicorn on :8000)?`,
-    );
+    if (!isAbortError(err) && !isBrowserNetworkError(err)) {
+      captureException(err, { source: "api.network", path, method: init?.method ?? "GET" });
+    }
+    throw new Error(NETWORK_UNREACHABLE, { cause: err });
   }
 }
 

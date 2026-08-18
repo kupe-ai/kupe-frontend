@@ -1,4 +1,5 @@
 import posthog from "posthog-js";
+import { isAbortError, isBrowserNetworkError, isStaleChunkError, NETWORK_UNREACHABLE } from "./network-error";
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 // Routed through our own origin (see the /ingest rewrite in vercel.json and
@@ -40,6 +41,7 @@ export function initPosthog(opts?: {
     persistence: "localStorage+cookie",
     disable_session_recording: !replay,
     opt_out_capturing_by_default: !ingest,
+    before_send: dropTransportNoise,
     bootstrap: {
       distinctID: opts?.distinctId,
       featureFlags: opts?.featureFlags,
@@ -83,9 +85,39 @@ export function captureException(
   properties?: Record<string, unknown>,
 ): void {
   if (!KEY || !ingestEnabled()) return;
+  if (isTransportNoise(error)) return;
   initPosthog();
   const err = error instanceof Error ? error : new Error(String(error));
   posthog.captureException(err, properties);
+}
+
+function isTransportNoise(error: unknown): boolean {
+  if (isAbortError(error) || isBrowserNetworkError(error) || isStaleChunkError(error)) return true;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return message === NETWORK_UNREACHABLE;
+}
+
+/** Offline / CORS / aborted fetch / stale Vite chunks are not product bugs. */
+function dropTransportNoise<T extends { event?: string; properties?: Record<string, unknown> }>(
+  event: T | null,
+): T | null {
+  if (!event || event.event !== "$exception") return event;
+  const props = event.properties ?? {};
+  const values: unknown[] = [];
+  if (Array.isArray(props.$exception_values)) values.push(...props.$exception_values);
+  if (Array.isArray(props.$exception_list)) {
+    for (const item of props.$exception_list) {
+      if (item && typeof item === "object" && "value" in item) {
+        values.push((item as { value: unknown }).value);
+      }
+    }
+  }
+  for (const value of values) {
+    if (isTransportNoise(value instanceof Error ? value : new Error(String(value ?? "")))) {
+      return null;
+    }
+  }
+  return event;
 }
 
 export function resetPosthog(): void {

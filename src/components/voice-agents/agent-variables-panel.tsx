@@ -42,6 +42,7 @@ import {
   type InputVariable,
   type OutputVariable,
 } from "@/lib/api/voice/agent-builder";
+import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 
 type VarsTab = "input" | "output";
 
@@ -67,14 +68,22 @@ export function AgentVariablesPanel({ agentId }: { agentId: string }) {
   const [editingVar, setEditingVar] = useState<InputVariable | OutputVariable | "new-input" | "new-output" | null>(null);
 
   const refresh = useCallback(async () => {
-    const [i, o, g] = await Promise.all([listInputVariables(agentId), listOutputVariables(agentId), listCallGoals(agentId)]);
-    setInputs(i);
-    setOutputs(o);
-    setGoals(g);
-    if (g[0]) {
-      setGoalField(g[0].output_variable_id);
-      setGoalOp(g[0].field_operator);
-      setGoalValue(g[0].value);
+    try {
+      const [i, o, g] = await Promise.all([
+        listInputVariables(agentId),
+        listOutputVariables(agentId),
+        listCallGoals(agentId),
+      ]);
+      setInputs(i);
+      setOutputs(o);
+      setGoals(g);
+      if (g[0]) {
+        setGoalField(g[0].output_variable_id);
+        setGoalOp(g[0].field_operator);
+        setGoalValue(g[0].value);
+      }
+    } catch (err) {
+      toast.error(friendlyVoiceError(err, "Couldn't load variables"));
     }
   }, [agentId]);
 

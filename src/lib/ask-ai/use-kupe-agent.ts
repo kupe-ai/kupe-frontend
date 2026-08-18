@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { HARNESS_URL } from "@/config";
 import { supabase } from "@/lib/supabase";
+import { isAbortError, isBrowserNetworkError } from "@/lib/network-error";
 import { captureEvent, captureException } from "@/lib/posthog";
 import { useWorkspaceOptional } from "@/context/workspace-context";
 import { sanitizeChatError } from "./public-error";
@@ -206,10 +207,12 @@ export function useKupeAgent() {
         }
         setTurns((all) => all.map((t) => (t.id === assistantTurn.id ? { ...t, streaming: false } : t)));
       } catch (err) {
-        if ((err as Error)?.name === "AbortError") {
+        if (isAbortError(err)) {
           setTurns((all) => all.map((t) => (t.id === assistantTurn.id ? { ...t, streaming: false } : t)));
         } else {
-          captureException(err, { source: "ask-ai" });
+          if (!isBrowserNetworkError(err)) {
+            captureException(err, { source: "ask-ai" });
+          }
           const friendly = sanitizeChatError(err);
           setTurns((all) =>
             all.map((t) =>
