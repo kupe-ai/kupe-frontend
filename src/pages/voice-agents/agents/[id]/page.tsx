@@ -11,6 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useDefaultLayout } from "react-resizable-panels";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { VoiceEditorShimmer } from "@/components/ui/shimmer";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { AgentAskKoriPanel } from "@/components/voice-agents/agent-ask-kori-panel";
 import { CommitAgentDialog } from "@/components/voice-agents/commit-agent-dialog";
 import { VersionHistoryPanel, type VersionHistoryEntry } from "@/components/voice-agents/version-history-panel";
@@ -49,11 +55,33 @@ import { orgSupportsCallTransfer, syncDeclaredVariablesFromText } from "@/lib/ap
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
 const AUTO_SAVE_MS = 1000;
+const EDITOR_LAYOUT_ID = "kupe-agent-editor-panels";
+const NAV_PANEL_ID = "agent-editor-nav";
+const MAIN_PANEL_ID = "agent-editor-main";
+const ASK_PANEL_ID = "agent-editor-ask";
+
+function useIsMdUp() {
+  const [isMd, setIsMd] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const onChange = () => setIsMd(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isMd;
+}
 
 export default function VoiceAgentEditorPage() {
   const { id = "" } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const { isEnabled } = useFeatureFlags();
+  const isMdUp = useIsMdUp();
+  const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+    id: EDITOR_LAYOUT_ID,
+    panelIds: [NAV_PANEL_ID, MAIN_PANEL_ID, ASK_PANEL_ID],
+  });
   const [section, setSection] = useState<AgentEditorSection>("instructions");
   const [testOpen, setTestOpen] = useState(false);
   const [commitOpen, setCommitOpen] = useState(false);
@@ -215,6 +243,56 @@ export default function VoiceAgentEditorPage() {
 
   const seed = agent.avatar_seed;
 
+  const sectionNav = (
+    <nav className="flex h-full min-h-0 w-full flex-col gap-0.5 bg-pane px-2 py-3">
+      {AGENT_EDITOR_NAV.filter((item) => item.id !== "transfer" || (isEnabled("feature_transfer") && transferVisible)).map((item) => {
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => setSection(item.id)}
+            className={cn(
+              "group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+              section === item.id
+                ? "bg-sidebar-accent font-medium text-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <KupeIcon name={item.icon} className="size-5 opacity-80" />
+            {item.label}
+          </button>
+        );
+      })}
+    </nav>
+  );
+
+  const sectionBody = (
+    <>
+      {section === "instructions" && (
+        <SystemPromptSection
+          key={`${id}-${instructionsSeed}`}
+          systemPrompt={systemPrompt}
+          firstMessage={firstMessage}
+          onSystemPromptChange={(value) => {
+            setSystemPrompt(value);
+            queuePromptSave({ system_prompt: value });
+          }}
+          onFirstMessageChange={(value) => {
+            setFirstMessage(value);
+            queuePromptSave({ first_message: value });
+          }}
+        />
+      )}
+      {section === "variables" && <AgentVariablesPanel agentId={id} />}
+      {section === "tools" && <AgentToolsPanel agentId={id} />}
+      {section === "transfer" && isEnabled("feature_transfer") && transferVisible && <AgentTransferPanel agentId={id} />}
+      {section === "settings" && (
+        <AgentSettingsPanel agentId={id} agent={agent} onAgentUpdated={refresh} />
+      )}
+      {section === "tests" && <AgentTestsPanel agentId={id} seed={seed} />}
+    </>
+  );
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border px-3">
@@ -308,60 +386,50 @@ export default function VoiceAgentEditorPage() {
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <nav className="flex w-[152px] shrink-0 flex-col gap-0.5 border-r border-border bg-pane px-2 py-3 md:w-[168px]">
-          {AGENT_EDITOR_NAV.filter((item) => item.id !== "transfer" || (isEnabled("feature_transfer") && transferVisible)).map((item) => {
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSection(item.id)}
-                className={cn(
-                  "group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
-                  section === item.id
-                    ? "bg-sidebar-accent font-medium text-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <KupeIcon name={item.icon} className="size-5 opacity-80" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          {section === "instructions" && (
-            <SystemPromptSection
-              key={`${id}-${instructionsSeed}`}
-              systemPrompt={systemPrompt}
-              firstMessage={firstMessage}
-              onSystemPromptChange={(value) => {
-                setSystemPrompt(value);
-                queuePromptSave({ system_prompt: value });
-              }}
-              onFirstMessageChange={(value) => {
-                setFirstMessage(value);
-                queuePromptSave({ first_message: value });
-              }}
+      {isMdUp ? (
+        <ResizablePanelGroup
+          id={EDITOR_LAYOUT_ID}
+          orientation="horizontal"
+          defaultLayout={defaultLayout}
+          onLayoutChanged={onLayoutChanged}
+          className="min-h-0 flex-1"
+        >
+          <ResizablePanel
+            id={NAV_PANEL_ID}
+            defaultSize={168}
+            minSize={140}
+            maxSize={280}
+            groupResizeBehavior="preserve-pixel-size"
+            className="min-h-0"
+          >
+            {sectionNav}
+          </ResizablePanel>
+          <ResizableHandle withHandle className="cursor-col-resize" />
+          <ResizablePanel id={MAIN_PANEL_ID} minSize={320} className="min-h-0 min-w-0">
+            <div className="h-full min-h-0 overflow-y-auto">{sectionBody}</div>
+          </ResizablePanel>
+          <ResizableHandle withHandle className="cursor-col-resize" />
+          <ResizablePanel
+            id={ASK_PANEL_ID}
+            defaultSize={340}
+            minSize={280}
+            maxSize={560}
+            groupResizeBehavior="preserve-pixel-size"
+            className="min-h-0"
+          >
+            <AgentAskKoriPanel
+              className="border-l-0"
+              agentId={id}
+              onAgentChanged={() => void refresh()}
             />
-          )}
-          {section === "variables" && <AgentVariablesPanel agentId={id} />}
-          {section === "tools" && <AgentToolsPanel agentId={id} />}
-          {section === "transfer" && isEnabled("feature_transfer") && transferVisible && <AgentTransferPanel agentId={id} />}
-          {section === "settings" && (
-            <AgentSettingsPanel agentId={id} agent={agent} onAgentUpdated={refresh} />
-          )}
-          {section === "tests" && <AgentTestsPanel agentId={id} seed={seed} />}
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        <div className="flex min-h-0 flex-1">
+          <div className="flex w-[152px] shrink-0 flex-col border-r border-border">{sectionNav}</div>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{sectionBody}</div>
         </div>
-
-        <div className="hidden h-full min-h-0 w-[320px] shrink-0 md:flex xl:w-[360px]">
-          <AgentAskKoriPanel
-            agentId={id}
-            onAgentChanged={() => void refresh()}
-          />
-        </div>
-      </div>
+      )}
 
       <TestAgentCallDialog open={testOpen} onOpenChange={setTestOpen} agentId={id} agentName={agent.name} seed={seed} />
       <CommitAgentDialog

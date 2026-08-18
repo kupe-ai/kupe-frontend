@@ -9,7 +9,14 @@ import { Message, MessageContent } from "@/components/ui/message";
 import { AiStar } from "@/components/brand/ai-star";
 import { Sparkles } from "lucide-react";
 import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
-import { useKupeAgent } from "@/lib/ask-ai/use-kupe-agent";
+import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
+import {
+  removeAttachment,
+  resetSession,
+  sendForAgent,
+  sendForNewAgent,
+  uploadAttachment,
+} from "@/lib/ask-ai/kupe-agent-store";
 import type { ChatTurn } from "@/lib/ask-ai/types";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
 import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
@@ -26,16 +33,27 @@ const SUGGESTIONS = [
 
 export function AskAiPanel() {
   const { open, setOpen } = useAskAiPanel();
-  const { turns, busy, sendMessage, reset, hasWorkspace, attachments, uploadAttachment, removeAttachment } =
-    useKupeAgent();
+  const kupeStore = useKupeAgentStore();
   const workspace = useWorkspaceOptional();
   const [draft, setDraft] = useState("");
+  const orgId = workspace?.org?.id;
+  const projectId = workspace?.project?.id;
+  const hasWorkspace = Boolean(orgId && projectId);
 
   const submit = (text: string) => {
     const value = text.trim();
-    if (!value && attachments.length === 0) return;
+    if ((!value && kupeStore.attachments.length === 0) || kupeStore.busy) return;
+    if (!orgId || !projectId) {
+      toast.error("Select an organization and project first");
+      return;
+    }
     setDraft("");
-    void sendMessage(value || "Use the attached file.");
+    const message = value || "Use the attached file.";
+    if (kupeStore.scopeAgentId) {
+      void sendForAgent(orgId, projectId, kupeStore.scopeAgentId, message);
+    } else {
+      void sendForNewAgent(orgId, projectId, message);
+    }
   };
 
   return (
@@ -53,18 +71,18 @@ export function AskAiPanel() {
 
         <Conversation className="min-h-0 flex-1">
           <ConversationContent className="gap-4 px-4">
-            {turns.length === 0 ? (
+            {kupeStore.turns.length === 0 ? (
               <ConversationEmptyState
                 icon={<Sparkles className="size-6" />}
                 title="What should Kupe do?"
                 description="Try one of these, or type your own request below."
               >
                 <div className="mt-2">
-                  <SuggestionChips items={SUGGESTIONS} onPick={submit} disabled={!hasWorkspace} />
+                  <SuggestionChips items={SUGGESTIONS} onPick={submit} disabled={!hasWorkspace || kupeStore.busy} />
                 </div>
               </ConversationEmptyState>
             ) : (
-              turns.map((turn) => <Turn key={turn.id} turn={turn} />)
+              kupeStore.turns.map((turn) => <Turn key={turn.id} turn={turn} />)
             )}
           </ConversationContent>
         </Conversation>
@@ -77,19 +95,27 @@ export function AskAiPanel() {
             onSend={() => submit(draft)}
             placeholder="Ask anything… (Shift+Enter for new line)"
             disabled={!hasWorkspace}
-            sending={busy}
-            attachments={attachments}
+            sending={kupeStore.busy}
+            attachments={kupeStore.attachments}
             onAttach={(file) => {
-              if (!workspace?.org?.id) {
+              if (!orgId) {
                 toast.error("Select an organization first");
                 return;
               }
-              void uploadAttachment(file).catch((err) => toast.error(err instanceof Error ? err.message : "Upload failed"));
+              void uploadAttachment(orgId, file).catch((err) =>
+                toast.error(err instanceof Error ? err.message : "Upload failed"),
+              );
             }}
             onRemoveAttachment={removeAttachment}
           />
-          {turns.length > 0 ? (
-            <Button type="button" variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground" onClick={reset}>
+          {kupeStore.turns.length > 0 ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-6 px-1.5 text-xs text-muted-foreground"
+              onClick={() => resetSession()}
+            >
               Start a new conversation
             </Button>
           ) : null}

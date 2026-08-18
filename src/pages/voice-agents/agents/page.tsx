@@ -26,6 +26,7 @@ import {
 } from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 import { sanitizeChatError } from "@/lib/ask-ai/public-error";
+import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
 import { AskAiToolbarButton } from "@/components/ask-ai/ask-ai-toolbar-button";
 import { AttachmentChips, SuggestionChips } from "@/components/ask-ai/chat-composer";
 
@@ -40,6 +41,7 @@ export default function VoiceAgentsAgentsPage() {
   const navigate = useNavigate();
   const { org, project } = useWorkspace();
   const kupeStore = useKupeAgentStore();
+  const { setOpen: setAskKupeOpen } = useAskAiPanel();
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
   const [creating, setCreating] = useState<"prompt" | "scratch" | null>(null);
@@ -73,10 +75,11 @@ export default function VoiceAgentsAgentsPage() {
       const id = kupeStore.createdAgent.id;
       clearCreatedAgent();
       setCreating(null);
+      setAskKupeOpen(false);
       refreshRecents();
       navigate(`/agents/${id}`);
     }
-  }, [kupeStore.createdAgent, creating, navigate, refreshRecents]);
+  }, [kupeStore.createdAgent, creating, navigate, refreshRecents, setAskKupeOpen]);
 
   useEffect(() => {
     if (kupeStore.busy) sawBusy.current = true;
@@ -108,6 +111,7 @@ export default function VoiceAgentsAgentsPage() {
     sawBusy.current = false;
     setCreating("prompt");
     setPrompt("");
+    setAskKupeOpen(true);
     void sendForNewAgent(org.id, project.id, trimmed || "Create an agent from the attached file.");
   }
 
