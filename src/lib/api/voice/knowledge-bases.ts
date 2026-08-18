@@ -1,6 +1,15 @@
 import { api } from "@/lib/api";
+import { KoriApiError } from "@/lib/api/kori-errors";
 import { requireScope } from "@/lib/api/workspace-scope";
 import type { PageResponse, VoiceKnowledgeBase, VoiceKnowledgeFile } from "./types";
+
+function requireKbId(kbId: string) {
+  const id = kbId?.trim();
+  if (!id) {
+    throw new KoriApiError(400, "Knowledge base id is required");
+  }
+  return id;
+}
 
 function pageOf<T>(items: T[], total: number, page = 1, pageSize = 50): PageResponse<T> {
   return {
@@ -64,7 +73,7 @@ export async function listKnowledgeBases(params: { search?: string; page?: numbe
 
 export async function getKnowledgeBase(kbId: string) {
   const { orgId, projectId } = requireScope();
-  return toKb(await api.getKnowledgeBase(orgId, projectId, kbId));
+  return toKb(await api.getKnowledgeBase(orgId, projectId, requireKbId(kbId)));
 }
 
 export async function createKnowledgeBase(input: { name: string; description?: string }) {
@@ -74,19 +83,19 @@ export async function createKnowledgeBase(input: { name: string; description?: s
 
 export async function updateKnowledgeBase(kbId: string, data: Partial<Pick<VoiceKnowledgeBase, "name" | "description">>) {
   const { orgId, projectId } = requireScope();
-  return toKb(await api.patchKnowledgeBase(orgId, projectId, kbId, data));
+  return toKb(await api.patchKnowledgeBase(orgId, projectId, requireKbId(kbId), data));
 }
 
 export async function deleteKnowledgeBase(kbId: string) {
   const { orgId, projectId } = requireScope();
-  return api.deleteKnowledgeBase(orgId, projectId, kbId);
+  return api.deleteKnowledgeBase(orgId, projectId, requireKbId(kbId));
 }
 
 export async function listKnowledgeFiles(kbId: string, params: { page?: number; page_size?: number } = {}) {
   const { orgId, projectId } = requireScope();
   const page = params.page ?? 1;
   const pageSize = params.page_size ?? 50;
-  const res = await api.listKnowledgeFiles(orgId, projectId, kbId, {
+  const res = await api.listKnowledgeFiles(orgId, projectId, requireKbId(kbId), {
     limit: pageSize,
     offset: (page - 1) * pageSize,
   });
@@ -95,17 +104,21 @@ export async function listKnowledgeFiles(kbId: string, params: { page?: number; 
 
 export async function uploadKnowledgeFile(kbId: string, file: File): Promise<VoiceKnowledgeFile> {
   const { orgId, projectId } = requireScope();
-  return toFile(await api.uploadKnowledgeFile(orgId, projectId, kbId, file));
+  return toFile(await api.uploadKnowledgeFile(orgId, projectId, requireKbId(kbId), file));
 }
 
 export async function deleteKnowledgeFile(kbId: string, fileId: string) {
   const { orgId, projectId } = requireScope();
-  return api.deleteKnowledgeFile(orgId, projectId, kbId, fileId);
+  const file = fileId?.trim();
+  if (!file) {
+    throw new KoriApiError(400, "Knowledge file id is required");
+  }
+  return api.deleteKnowledgeFile(orgId, projectId, requireKbId(kbId), file);
 }
 
 export async function searchKnowledgeBase(kbId: string, query: string, topK = 5) {
   const { orgId, projectId } = requireScope();
-  const res = await api.searchKnowledgeBase(orgId, projectId, kbId, query, topK);
+  const res = await api.searchKnowledgeBase(orgId, projectId, requireKbId(kbId), query, topK);
   return (res.chunks || []).map((c) => ({
     id: c.id,
     file_id: c.file_id,

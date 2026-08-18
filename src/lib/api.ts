@@ -135,7 +135,7 @@ async function throwIfNotOk(res: Response, path: string, method: string): Promis
   const message =
     typeof detail === "string" ? detail : detail != null ? JSON.stringify(detail) : `Backend returned ${res.status}`;
   const err = new Error(message);
-  if (res.status !== 401 && res.status !== 403) {
+  if (res.status !== 401 && res.status !== 403 && res.status !== 404) {
     captureException(err, { source: "api.http", path, method, status: res.status });
   }
   throw err;

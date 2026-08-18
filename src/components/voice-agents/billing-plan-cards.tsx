@@ -256,7 +256,11 @@ export function BillingPlanCards({
                   </p>
                 ) : null}
                 <p className="text-xl leading-7 font-semibold tracking-tight">
-                  {monthly ? `${money(monthly, shownCurrency, shownCurrency === "INR" ? 0 : 2)} /month` : "Pay as you go"}
+                  {monthly
+                    ? `${money(monthly, shownCurrency, shownCurrency === "INR" ? 0 : 2)} /month`
+                    : plan.code === "enterprise"
+                      ? "Custom Pricing"
+                      : "Pay as you go"}
                 </p>
               </div>
               <p className="relative mt-1 h-8 line-clamp-2 text-xs leading-4 text-muted-foreground">{meta.blurb}</p>

@@ -49,6 +49,13 @@ export default function VoiceAgentsKnowledgeDetailPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
+    if (!id) {
+      setKb(null);
+      setFiles([]);
+      setTotalFiles(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [kbRes, filesRes] = await Promise.all([
@@ -73,7 +80,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
   const totalSize = files.reduce((s, f) => s + f.size_bytes, 0);
 
   async function handleUpload(fileList: FileList | null) {
-    if (!fileList?.length) return;
+    if (!id || !fileList?.length) return;
     try {
       await Promise.all(Array.from(fileList).map((f) => uploadKnowledgeFile(id, f)));
       toast.message("Uploading files");
