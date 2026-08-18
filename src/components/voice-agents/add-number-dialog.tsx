@@ -13,15 +13,16 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { flagForNumber } from "@/lib/country-flag";
-import type {
-  PlivoComplianceApplication,
-  PlivoCountry,
-  PlivoNumberSearchResult,
-  TelephonyProviderName,
-} from "@/types";
+import type { PlivoComplianceApplication, PlivoCountry, PlivoNumberSearchResult } from "@/types";
 
-type Provider = TelephonyProviderName;
-type Step = "provider" | "twilio-form" | "plivo-country" | "plivo-numbers" | "plivo-kyc-form";
+type ProviderPick = "twilio" | "plivo-buy" | "plivo-byok";
+type Step = "provider" | "twilio-form" | "plivo-byok" | "plivo-country" | "plivo-numbers" | "plivo-kyc-form";
+type IndiaStd = "80" | "22";
+
+const INDIA_STD: { value: IndiaStd; label: string; city: string }[] = [
+  { value: "80", label: "080", city: "Bengaluru" },
+  { value: "22", label: "022", city: "Mumbai" },
+];
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -78,6 +79,7 @@ export function AddNumberDialog({
           <h2 className="text-base font-semibold tracking-tight">
             {step === "provider" && "Add a phone number"}
             {step === "twilio-form" && "Connect Twilio"}
+            {step === "plivo-byok" && "Connect Plivo"}
             {(step === "plivo-country" || step === "plivo-numbers") && "Buy a Plivo number"}
             {step === "plivo-kyc-form" && "Business verification"}
           </h2>
@@ -85,12 +87,28 @@ export function AddNumberDialog({
 
         <div className="max-h-[70vh] overflow-y-auto px-5 py-5">
           {step === "provider" && (
-            <ProviderStep onPick={(p) => setStep(p === "twilio" ? "twilio-form" : "plivo-country")} />
+            <ProviderStep
+              onPick={(p) =>
+                setStep(p === "twilio" ? "twilio-form" : p === "plivo-byok" ? "plivo-byok" : "plivo-country")
+              }
+            />
           )}
 
           {step === "twilio-form" && (
-            <TwilioForm
+            <ByokForm
               orgId={orgId}
+              provider="twilio"
+              onDone={() => {
+                onDone();
+                onOpenChange(false);
+              }}
+            />
+          )}
+
+          {step === "plivo-byok" && (
+            <ByokForm
+              orgId={orgId}
+              provider="plivo"
               onDone={() => {
                 onDone();
                 onOpenChange(false);
@@ -139,7 +157,7 @@ function ProviderMark({ src, alt }: { src: string; alt: string }) {
   );
 }
 
-function ProviderStep({ onPick }: { onPick: (provider: Provider) => void }) {
+function ProviderStep({ onPick }: { onPick: (pick: ProviderPick) => void }) {
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">Choose how you want to connect a number.</p>
@@ -158,13 +176,27 @@ function ProviderStep({ onPick }: { onPick: (provider: Provider) => void }) {
 
       <button
         type="button"
-        onClick={() => onPick("plivo")}
+        onClick={() => onPick("plivo-buy")}
         className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
       >
         <ProviderMark src="/providers/plivo.png" alt="Plivo" />
         <div className="min-w-0 flex-1">
           <p className="font-semibold">Plivo</p>
           <p className="text-sm text-muted-foreground">Buy a new number, billed from your Kupe wallet.</p>
+        </div>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onPick("plivo-byok")}
+        className="pressable flex w-full items-center gap-3 rounded-xl border border-border p-4 text-left hover:bg-muted/40"
+      >
+        <ProviderMark src="/providers/plivo.png" alt="Plivo" />
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Your Plivo number</p>
+          <p className="text-sm text-muted-foreground">
+            Already have a Plivo number? Connect it with your Auth ID and token.
+          </p>
         </div>
       </button>
 
@@ -207,7 +239,16 @@ function CountryStep({ country, onPick }: { country: PlivoCountry; onPick: (c: P
 
 // ---------------------------------------------------------------------
 
-function TwilioForm({ orgId, onDone }: { orgId: string; onDone: () => void }) {
+function ByokForm({
+  orgId,
+  provider,
+  onDone,
+}: {
+  orgId: string;
+  provider: "twilio" | "plivo";
+  onDone: () => void;
+}) {
+  const isPlivo = provider === "plivo";
   const [label, setLabel] = useState("");
   const [accountSid, setAccountSid] = useState("");
   const [authToken, setAuthToken] = useState("");
@@ -216,23 +257,31 @@ function TwilioForm({ orgId, onDone }: { orgId: string; onDone: () => void }) {
 
   async function save() {
     if (!accountSid || !authToken || !fromNumber) {
-      toast.error("Account SID, Auth Token, and phone number are required");
+      toast.error(
+        isPlivo
+          ? "Auth ID, Auth Token, and phone number are required"
+          : "Account SID, Auth Token, and phone number are required",
+      );
       return;
     }
     setSaving(true);
     try {
       await api.createTelephonyAccount(orgId, {
-        provider: "twilio",
+        provider,
         label: label || fromNumber,
         account_sid: accountSid,
         api_key: authToken,
         from_number: fromNumber,
         is_default: true,
       });
-      toast.message("Twilio number connected");
+      toast.message(isPlivo ? "Plivo number connected" : "Twilio number connected");
       onDone();
     } catch {
-      toast.error("Couldn't connect this Twilio account — check the credentials");
+      toast.error(
+        isPlivo
+          ? "Couldn't connect this Plivo account — check the credentials"
+          : "Couldn't connect this Twilio account — check the credentials",
+      );
     } finally {
       setSaving(false);
     }
@@ -240,13 +289,22 @@ function TwilioForm({ orgId, onDone }: { orgId: string; onDone: () => void }) {
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {isPlivo
+          ? "Uses your own Plivo account. Calls bill to Plivo, not the Kupe wallet."
+          : "Uses your own Twilio account."}
+      </p>
       <div className="space-y-1.5">
         <Label>Label</Label>
         <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Sales line" />
       </div>
       <div className="space-y-1.5">
-        <Label>Account SID</Label>
-        <Input value={accountSid} onChange={(e) => setAccountSid(e.target.value)} placeholder="ACxxxxxxxxxxxxxxxx" />
+        <Label>{isPlivo ? "Auth ID" : "Account SID"}</Label>
+        <Input
+          value={accountSid}
+          onChange={(e) => setAccountSid(e.target.value)}
+          placeholder={isPlivo ? "MAxxxxxxxxxxxxxxxx" : "ACxxxxxxxxxxxxxxxx"}
+        />
       </div>
       <div className="space-y-1.5">
         <Label>Auth token</Label>
@@ -254,7 +312,11 @@ function TwilioForm({ orgId, onDone }: { orgId: string; onDone: () => void }) {
       </div>
       <div className="space-y-1.5">
         <Label>Phone number</Label>
-        <Input value={fromNumber} onChange={(e) => setFromNumber(e.target.value)} placeholder="+14155551234" />
+        <Input
+          value={fromNumber}
+          onChange={(e) => setFromNumber(e.target.value)}
+          placeholder={isPlivo ? "+918012345678" : "+14155551234"}
+        />
       </div>
       <Button className="w-full rounded-full" onClick={() => void save()} disabled={saving}>
         {saving ? "Connecting…" : "Connect number"}
@@ -277,6 +339,7 @@ function PlivoNumbersStep({
   onPurchased: () => void;
 }) {
   const [tab, setTab] = useState<"numbers" | "kyc">("numbers");
+  const [stdPrefix, setStdPrefix] = useState<IndiaStd>("80");
   const [loading, setLoading] = useState(true);
   const [numbers, setNumbers] = useState<PlivoNumberSearchResult[]>([]);
   const [complianceStatus, setComplianceStatus] = useState<string | null>(null);
@@ -288,7 +351,7 @@ function PlivoNumbersStep({
     let cancelled = false;
     setLoading(true);
     api
-      .searchPlivoNumbers(orgId, country)
+      .searchPlivoNumbers(orgId, country, country === "IN" ? stdPrefix : undefined)
       .then((res) => {
         if (cancelled) return;
         setNumbers(res.numbers);
@@ -297,22 +360,28 @@ function PlivoNumbersStep({
       })
       .catch(() => toast.error("Couldn't load available numbers"))
       .finally(() => !cancelled && setLoading(false));
-    if (country === "IN") {
-      api
-        .refreshPlivoCompliance(orgId)
-        .then((a) => {
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, country, stdPrefix]);
+
+  useEffect(() => {
+    if (country !== "IN") return;
+    let cancelled = false;
+    api
+      .refreshPlivoCompliance(orgId)
+      .then((a) => {
+        if (cancelled) return;
+        setComplianceApp(a);
+        if (a) setComplianceStatus(a.status);
+      })
+      .catch(() => {
+        api.getPlivoComplianceStatus(orgId).then((a) => {
           if (cancelled) return;
           setComplianceApp(a);
           if (a) setComplianceStatus(a.status);
-        })
-        .catch(() => {
-          api.getPlivoComplianceStatus(orgId).then((a) => {
-            if (cancelled) return;
-            setComplianceApp(a);
-            if (a) setComplianceStatus(a.status);
-          }).catch(() => {});
-        });
-    }
+        }).catch(() => {});
+      });
     return () => {
       cancelled = true;
     };
@@ -321,6 +390,7 @@ function PlivoNumbersStep({
   const kycStatus = complianceApp?.status ?? complianceStatus;
   const reviewing = kycStatus === "submitted" || kycStatus === "draft";
   const canBuy = country === "US" || kycStatus === "accepted";
+  const stdMeta = INDIA_STD.find((s) => s.value === stdPrefix);
 
   useEffect(() => {
     if (country !== "IN" || !reviewing) return;
@@ -364,6 +434,28 @@ function PlivoNumbersStep({
 
   const body = (
     <div className="space-y-3">
+      {country === "IN" && (
+        <div className="flex gap-1 rounded-lg bg-muted p-[3px]" role="tablist" aria-label="STD code">
+          {INDIA_STD.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              role="tab"
+              aria-selected={stdPrefix === opt.value}
+              onClick={() => setStdPrefix(opt.value)}
+              className={cn(
+                "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+                stdPrefix === opt.value
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {opt.label} · {opt.city}
+            </button>
+          ))}
+        </div>
+      )}
+
       <p className="text-xs text-muted-foreground">
         ₹{pricing.purchase} one-time · ₹{pricing.monthly}/month rent, from your Kupe wallet.
       </p>
@@ -396,7 +488,11 @@ function PlivoNumbersStep({
           <Loader2 className="size-5 animate-spin" />
         </div>
       ) : numbers.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">No numbers available right now.</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          {country === "IN"
+            ? `No ${stdMeta?.label} ${stdMeta?.city} numbers available right now.`
+            : "No numbers available right now."}
+        </p>
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">
           {numbers.map((n) => (
