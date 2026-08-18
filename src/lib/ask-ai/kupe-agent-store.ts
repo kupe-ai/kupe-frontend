@@ -171,7 +171,7 @@ function creationPrompt(orgId: string, projectId: string, userText: string): str
     "Create a new voice agent for this workspace.",
     `org_id=${orgId} project_id=${projectId}`,
     'Name it with a real first name (the speaking persona — e.g. "Kavya", "Rohan"), never a job-title slug like "EV Charger Sales Agent" or "New agent".',
-    "Write a spoken-voice system_prompt (under ~1000 tokens, follow create_agent's voice-prompt rules: You are {name}… prose, {{camelCase}} input variables in the prompt and greeting, config.variables declared) and a one-line greeting. Call set_agent_output_variables for any post-call targets, then commit_agent_version once it looks right.",
+    "Write a spoken-voice system_prompt (under ~1000 tokens, follow create_agent's voice-prompt rules: Identity→Closing in Title Case, You are {name}… persona, {{camelCase}} input variables in the prompt and greeting, config.variables declared) and a one-line greeting. Call set_agent_output_variables for any post-call targets, then commit_agent_version once it looks right.",
     "Put long product catalogs / FAQs in a knowledge base and attach via config.knowledge_base_ids — not in the prompt.",
     "",
     `What the agent should do: ${userText}`,
@@ -182,7 +182,7 @@ function editPrompt(orgId: string, projectId: string, agentId: string, userText:
   return [
     "You are editing an existing voice agent -- use update_agent (and commit_agent_version once you're done), never create_agent.",
     `org_id=${orgId} project_id=${projectId} agent_id=${agentId}`,
-    "If you change system_prompt or name: keep a real first-name persona, spoken-voice prompt under ~1000 tokens as You are {name}… prose (follow update_agent's voice-prompt rules), with {{camelCase}} input variables in the prompt/greeting and config.variables declared. Call set_agent_output_variables for post-call targets. Extra facts go in a knowledge base, not the prompt.",
+    "If you change system_prompt or name: keep a real first-name persona, spoken-voice prompt under ~1000 tokens in Identity→Closing order (follow update_agent's voice-prompt rules), with {{camelCase}} input variables in the prompt/greeting and config.variables declared. Call set_agent_output_variables for post-call targets. Extra facts go in a knowledge base, not the prompt.",
     "",
     userText,
   ].join("\n");

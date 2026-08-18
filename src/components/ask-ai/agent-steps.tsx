@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2, Wrench } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { AgentStep } from "@/lib/ask-ai/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -30,16 +29,23 @@ function ReasoningRow({
   active: boolean;
 }) {
   return (
-    <Collapsible defaultOpen={false}>
+    <Collapsible defaultOpen={false} className="group/thought">
       <CollapsibleTrigger
         type="button"
-        className="flex w-full items-center gap-1.5 text-left hover:text-foreground"
+        className="flex w-full items-center gap-1.5 text-left"
       >
-        <span className="kori-shimmer-text font-medium">Thinking...</span>
-        {active ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+        {active ? (
+          <span className="kori-shimmer-text font-medium">Thinking...</span>
+        ) : (
+          <>
+            <span className="font-medium text-foreground">Thought</span>
+            <span className="text-muted-foreground">briefly</span>
+            <ChevronRight className="size-3 text-muted-foreground transition-transform group-data-[state=open]/thought:rotate-90" />
+          </>
+        )}
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <p className="mt-1 italic text-muted-foreground">{step.text}</p>
+        <p className="mt-1 text-muted-foreground">{step.text}</p>
       </CollapsibleContent>
     </Collapsible>
   );
@@ -50,20 +56,17 @@ function ToolCallRow({ step }: { step: Extract<AgentStep, { kind: "tool_call" }>
     <Collapsible defaultOpen={false}>
       <CollapsibleTrigger
         type="button"
-        className="flex w-full items-start gap-1.5 text-left hover:text-foreground"
+        className="flex w-full items-start gap-1.5 text-left text-muted-foreground hover:text-foreground"
       >
-        <Wrench
-          className={cn(
-            "mt-0.5 size-3 shrink-0",
-            step.isError ? "text-destructive" : "text-muted-foreground",
-          )}
-        />
+        <Wrench className="mt-0.5 size-3 shrink-0" />
         <div className="min-w-0 flex-1">
-          <span className={cn("font-mono", step.isError && "text-destructive")}>{step.name}</span>
+          <span className="font-mono text-foreground">{step.name}</span>
           {!step.done ? (
-            <Loader2 className="ml-1 inline size-3 animate-spin text-muted-foreground" />
+            <Loader2 className="ml-1.5 inline size-3 animate-spin" />
+          ) : step.isError ? (
+            <span className="ml-1.5 text-muted-foreground">attempted</span>
           ) : (
-            <Check className={cn("ml-1 inline size-3", step.isError ? "text-destructive" : "text-emerald-500")} />
+            <Check className="ml-1.5 inline size-3 text-muted-foreground" />
           )}
         </div>
       </CollapsibleTrigger>
@@ -71,21 +74,14 @@ function ToolCallRow({ step }: { step: Extract<AgentStep, { kind: "tool_call" }>
         <div className="ml-[18px] mt-1.5 space-y-1.5">
           <div>
             <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Input</p>
-            <pre className="max-h-48 overflow-auto rounded bg-background px-2 py-1.5 font-mono text-[11px] leading-snug">
+            <pre className="max-h-48 overflow-auto rounded bg-background px-2 py-1.5 font-mono text-[11px] leading-snug text-muted-foreground">
               {formatJson(step.arguments) || "—"}
             </pre>
           </div>
           {step.done ? (
             <div>
-              <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                {step.isError ? "Error" : "Output"}
-              </p>
-              <pre
-                className={cn(
-                  "max-h-48 overflow-auto rounded bg-background px-2 py-1.5 font-mono text-[11px] leading-snug",
-                  step.isError && "text-destructive",
-                )}
-              >
+              <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Output</p>
+              <pre className="max-h-48 overflow-auto rounded bg-background px-2 py-1.5 font-mono text-[11px] leading-snug text-muted-foreground">
                 {formatJson(step.result) || "—"}
               </pre>
             </div>
