@@ -36,6 +36,10 @@ let state: StoreState = {
   error: null,
 };
 const listeners = new Set<() => void>();
+/** Bumped whenever we throw away the current session so an in-flight
+ * runTurn (whose SSE fetch will then fail with TypeError: Failed to fetch)
+ * does not patch the replacement state or report that abort to PostHog. */
+let turnEpoch = 0;
 
 function setState(patch: Partial<StoreState> | ((s: StoreState) => Partial<StoreState>)) {
   state = { ...state, ...(typeof patch === "function" ? patch(state) : patch) };
@@ -55,15 +59,25 @@ export function clearCreatedAgent() {
   if (state.createdAgent) setState({ createdAgent: null });
 }
 
+function abandonCurrentTurn() {
+  turnEpoch += 1;
+  void closeSession();
+}
+
 /** Called when the editor mounts for some agentId. If the store's current
  * session isn't already about this agent (e.g. a stray session for a
  * different agent, or none at all), start clean rather than let an
  * unrelated conversation bleed into this agent's edits. Returns whether
- * the store's turns are already this agent's live creation transcript. */
+ * the store's turns are already this agent's live creation transcript.
+ *
+ * Matching uses scopeAgentId (set as soon as create_agent resolves) as
+ * well as createdAgent -- the agents-list page consumes createdAgent
+ * before navigate, so relying on that flag alone would kill the still-
+ * streaming creation turn and surface TypeError: Failed to fetch. */
 export function enterAgentScope(agentId: string): boolean {
   const isSameCreation = state.createdAgent?.id === agentId || state.scopeAgentId === agentId;
   if (!isSameCreation) {
-    void closeSession();
+    abandonCurrentTurn();
     state = { sessionId: null, scopeAgentId: agentId, turns: [], busy: false, createdAgent: null, error: null };
     for (const l of listeners) l();
     return false;
@@ -154,6 +168,7 @@ function editPrompt(orgId: string, projectId: string, agentId: string, userText:
 
 async function runTurn(orgId: string, displayText: string, framedText: string): Promise<void> {
   if (state.busy) return;
+  const epoch = turnEpoch;
 
   const userTurn: ChatTurn = { id: newId(), role: "user", text: displayText, steps: [], streaming: false };
   const assistantTurn: ChatTurn = { id: newId(), role: "assistant", text: "", steps: [], streaming: true };
@@ -188,6 +203,7 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
     if (!resp.ok || !resp.body) throw new Error(`Kupe turn failed: ${resp.status}`);
 
     for await (const event of readSse(resp)) {
+      if (epoch !== turnEpoch) continue;
       switch (event.type) {
         case "reasoning":
           pushStep({ kind: "reasoning", text: event.text });
@@ -200,7 +216,13 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
           if (event.name === "create_agent" && !event.is_error) {
             try {
               const parsed = JSON.parse(event.result) as { id?: string; name?: string };
-              if (parsed?.id) setState({ createdAgent: { id: parsed.id, name: parsed.name ?? "" } });
+              if (parsed?.id) {
+                // Bind the live session to the new agent *before* the list
+                // page navigates and enterAgentScope runs -- otherwise
+                // scopeAgentId is still null, the editor thinks this is a
+                // stray session, and DELETE /sessions kills the SSE stream.
+                setState({ createdAgent: { id: parsed.id, name: parsed.name ?? "" }, scopeAgentId: parsed.id });
+              }
             } catch {
               // create_agent's own result parse failure shouldn't break the turn
             }
@@ -222,11 +244,12 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
       }
     }
   } catch (err) {
+    if (epoch !== turnEpoch) return;
     captureException(err, { source: "kupe-agent-store" });
     patchAssistant({ streaming: false, error: err instanceof Error ? err.message : "Something went wrong" });
     setState({ error: err instanceof Error ? err.message : "Something went wrong" });
   } finally {
-    setState({ busy: false });
+    if (epoch === turnEpoch) setState({ busy: false });
   }
 }
 
@@ -241,7 +264,7 @@ export function sendForAgent(orgId: string, projectId: string, agentId: string, 
 }
 
 export function resetSession(): void {
-  void closeSession();
+  abandonCurrentTurn();
   state = { sessionId: null, scopeAgentId: null, turns: [], busy: false, createdAgent: null, error: null };
   for (const l of listeners) l();
 }
