@@ -17,7 +17,7 @@ export function ProviderLogo({
 }: {
   provider: string;
   /** Disambiguates a multi-kind provider's brand, e.g. Sarvam's LLM
-   * models (sarvam-105b, glm-5.2, gemma-4-31b) show as Kai/Kupe-mark
+   * models (sarvam-105b, glm5.2, gemma4) show as Kai/Kupe-mark
    * while its STT/TTS models keep the Sarvam brand. */
   model?: string;
   size?: "sm" | "md";

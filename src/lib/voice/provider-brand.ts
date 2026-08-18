@@ -1,10 +1,16 @@
 /** Display names + logo files for LLM / TTS / STT catalog providers. */
 
-// Sarvam's LLM catalog entries (sarvam-105b, glm-5.2, gemma-4-31b) are
+// Sarvam's LLM catalog entries (sarvam-105b, glm5.2, gemma4) are
 // white-labeled as "Kai" with Kupe's mark -- Sarvam's STT/TTS models
 // (saarika, bulbul) are unaffected and keep the Sarvam brand below. Model
 // names are matched case-insensitively against provider_catalog.model_name.
-const SARVAM_LLM_MODELS = new Set(["sarvam-105b", "glm-5.2", "gemma-4-31b"]);
+//
+// glm5.2 / gemma4 were "glm-5.2" / "gemma-4-31b" until the real Sarvam
+// `GET /v2/models` ids were confirmed (see kupe-backend's
+// 0060_fix_sarvam_v2_model_ids.sql) -- keep this set in sync with
+// provider_catalog.model_name or these two silently fall out of Kai
+// branding and show raw "Sarvam" instead.
+const SARVAM_LLM_MODELS = new Set(["sarvam-105b", "glm5.2", "gemma4"]);
 const KAI_BRAND = { label: "Kai", logo: "/brand/kupe-mark.png" };
 
 function isSarvamLlmModel(provider: string, model?: string): boolean {
@@ -93,8 +99,8 @@ export function brandedModelName(provider: string, model: string): string {
     if (m.startsWith("stt") || m === "k-stt") return "k-STT";
   }
   // Sarvam's own flagship LLM literally has "sarvam" in its model id --
-  // keep that out of the (now Kai-branded) model text. glm-5.2 /
-  // gemma-4-31b are already brand-neutral, so displayModelName is fine.
+  // keep that out of the (now Kai-branded) model text. glm5.2 / gemma4 are
+  // already brand-neutral, so displayModelName is fine.
   if (isSarvamLlmModel(provider, model) && m === "sarvam-105b") return "Kai 105B";
   return displayModelName(model);
 }
