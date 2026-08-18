@@ -64,7 +64,7 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
           return {
             value: item.id,
             label: optionLabel,
-            icon: <ProviderLogo provider={item.provider_name} size="sm" />,
+            icon: <ProviderLogo provider={item.provider_name} model={item.model_name} size="sm" />,
             keywords: `${item.provider_name} ${item.model_name} ${optionLabel}`,
             hint: item.is_default ? "default" : undefined,
           };

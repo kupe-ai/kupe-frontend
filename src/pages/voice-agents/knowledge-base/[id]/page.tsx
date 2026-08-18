@@ -16,9 +16,19 @@ import { AsciiIcon } from "@/components/voice-agents/ascii-icons";
 import { VoicePagination } from "@/components/voice-agents/shared";
 import { QuickContextMenu } from "@/components/quick-context-menu";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { StatusChip } from "@/components/ui/status-chip";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   getKnowledgeBase,
   deleteKnowledgeFile,
@@ -27,6 +37,7 @@ import {
   uploadKnowledgeFile,
 } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceKnowledgeBase, VoiceKnowledgeFile } from "@/lib/api/voice/types";
+import { cn } from "@/lib/utils";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 
 function formatBytes(bytes: number) {
@@ -34,6 +45,8 @@ function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+type RetrievalHit = { content: string; similarity: number };
 
 export default function VoiceAgentsKnowledgeDetailPage() {
   const { id = "" } = useParams();
@@ -44,8 +57,9 @@ export default function VoiceAgentsKnowledgeDetailPage() {
   const [perPage, setPerPage] = useState(10);
   const [question, setQuestion] = useState("");
   const [searching, setSearching] = useState(false);
-  const [results, setResults] = useState<Array<{ content: string; similarity: number }> | null>(null);
+  const [results, setResults] = useState<RetrievalHit[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
@@ -105,7 +119,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
 
   if (loading) {
     return (
-      <div className="voice-page">
+      <div className="h-full overflow-y-auto px-4 py-5 md:px-6 md:py-6">
         <Link
           to="/knowledge-base"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -122,7 +136,7 @@ export default function VoiceAgentsKnowledgeDetailPage() {
 
   if (!kb) {
     return (
-      <div className="voice-page">
+      <div className="h-full overflow-y-auto px-4 py-5 md:px-6 md:py-6">
         <Link
           to="/knowledge-base"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
@@ -138,207 +152,296 @@ export default function VoiceAgentsKnowledgeDetailPage() {
   }
 
   return (
-    <div className="voice-page">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
-          <Link
-            to="/knowledge-base"
-            className="inline-flex items-center gap-0.5 hover:text-foreground"
-          >
-            <ChevronLeft className="size-4" />
-            Knowledge base
-          </Link>
-          <span>/</span>
-          <span className="truncate text-foreground">{kb.name}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="rounded-full"
-            onClick={() => toast.message("Edit (demo)")}
-          >
-            <Pencil className="size-3.5" />
-            Edit
-          </Button>
-          <Button className="rounded-full" onClick={() => inputRef.current?.click()}>
-            <Upload className="size-3.5" />
-            Upload
-          </Button>
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              void handleUpload(e.target.files);
-              e.target.value = "";
-            }}
-          />
+    <div className="flex h-full min-h-0 w-full">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="px-4 py-5 md:px-6 md:py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+              <Link
+                to="/knowledge-base"
+                className="inline-flex items-center gap-0.5 hover:text-foreground"
+              >
+                <ChevronLeft className="size-4" />
+                Knowledge base
+              </Link>
+              <span>/</span>
+              <span className="truncate text-foreground">{kb.name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                className="rounded-full md:hidden"
+                onClick={() => setMobileSearchOpen(true)}
+              >
+                <Search className="size-3.5" />
+                Try Search
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-full"
+                onClick={() => toast.message("Edit (demo)")}
+              >
+                <Pencil className="size-3.5" />
+                Edit
+              </Button>
+              <Button className="rounded-full" onClick={() => inputRef.current?.click()}>
+                <Upload className="size-3.5" />
+                Upload
+              </Button>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  void handleUpload(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </div>
+          </div>
+
+          <section className="no-scrollbar mt-5 flex min-w-0 items-center gap-3 overflow-x-auto rounded-xl border border-border bg-card px-3 py-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
+                <AsciiIcon kind="folder" tone="amber" size="sm" />
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <h1 className="min-w-0 max-w-[min(40%,12rem)] shrink truncate text-sm font-semibold tracking-tight">
+                    {kb.name}
+                  </h1>
+                </TooltipTrigger>
+                <TooltipContent>{kb.name}</TooltipContent>
+              </Tooltip>
+              {kb.description ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                      {kb.description}
+                    </p>
+                  </TooltipTrigger>
+                  <TooltipContent>{kb.description}</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground sm:gap-2.5 sm:text-sm">
+              <span className="shrink-0 tabular-nums">
+                {totalFiles} file{totalFiles === 1 ? "" : "s"}
+              </span>
+              <MetaDot />
+              <span className="shrink-0 tabular-nums">{formatBytes(totalSize)}</span>
+              <MetaDot />
+              <StatusChip className="shrink-0" status={kb.status} />
+              <MetaDot />
+              <span className="shrink-0 tabular-nums">
+                {new Date(kb.created_at).toLocaleDateString()}
+              </span>
+              <MetaDot />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex min-w-0 max-w-[6.5rem] items-center gap-1 rounded-md hover:text-foreground sm:max-w-[8rem]"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(kb.id);
+                      toast.message("Copied KB ID");
+                    }}
+                  >
+                    <span className="min-w-0 truncate font-mono text-xs">{kb.id}</span>
+                    <Copy className="size-3 shrink-0" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs font-mono">{kb.id}</TooltipContent>
+              </Tooltip>
+            </div>
+          </section>
+
+          <section className="mt-5">
+            <div className="overflow-hidden rounded-xl border border-border">
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                <span>Name</span>
+                <span>Size</span>
+                <span>Status</span>
+                <span>Chunks</span>
+                <span className="w-8" />
+              </div>
+              <ul className="divide-y divide-border">
+                {files.map((f) => (
+                  <QuickContextMenu
+                    key={f.id}
+                    title={f.name}
+                    items={[
+                      {
+                        label: "Copy name",
+                        icon: Copy,
+                        onSelect: () => {
+                          void navigator.clipboard.writeText(f.name);
+                          toast.message("Name copied");
+                        },
+                      },
+                      { type: "separator" },
+                      {
+                        label: "Delete",
+                        icon: Trash2,
+                        variant: "destructive",
+                        onSelect: async () => {
+                          await deleteKnowledgeFile(id, f.id);
+                          toast.message("File deleted");
+                          void refresh();
+                        },
+                      },
+                    ]}
+                  >
+                    <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
+                          {f.name.split(".").pop()?.toUpperCase().slice(0, 4) || "FILE"}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{f.name}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm text-muted-foreground">{formatBytes(f.size_bytes)}</span>
+                      <StatusChip status={f.status} />
+                      <span className="text-sm text-muted-foreground">{f.chunk_count}</span>
+                      <Button variant="ghost" size="icon-sm" aria-label="File options">
+                        <MoreVertical className="size-4" />
+                      </Button>
+                    </li>
+                  </QuickContextMenu>
+                ))}
+              </ul>
+              <div className="border-t border-border px-3">
+                <VoicePagination
+                  page={page}
+                  perPage={perPage}
+                  total={totalFiles}
+                  onPageChange={setPage}
+                  onPerPageChange={setPerPage}
+                  perPageOptions={[10, 20, 50]}
+                />
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
-      {/* Overview card */}
-      <section className="mt-6 rounded-2xl border border-border bg-card p-5 shadow-elevated">
-        <div className="flex items-start gap-3">
-          <div className="flex size-10 items-center justify-center rounded-md bg-muted">
-            <AsciiIcon kind="folder" tone="amber" size="sm" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-lg font-semibold tracking-tight">{kb.name}</h1>
-            <p className="text-sm text-muted-foreground">{kb.description}</p>
-          </div>
-        </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Stat label="Files" value={`${totalFiles} file${totalFiles === 1 ? "" : "s"}`} />
-          <Stat
-            label="Size"
-            value={`${(totalSize / (1024 * 1024)).toFixed(1)} MB`}
+      <aside className="hidden h-full min-h-0 w-[340px] shrink-0 flex-col border-l border-border bg-background md:flex xl:w-[380px]">
+        <RetrievalPanel
+          inputId="kb-question"
+          question={question}
+          searching={searching}
+          results={results}
+          onQuestionChange={setQuestion}
+          onSearch={() => void runSearch()}
+        />
+      </aside>
+
+      <Sheet open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+          <SheetTitle className="sr-only">Test retrieval</SheetTitle>
+          <RetrievalPanel
+            inputId="kb-question-mobile"
+            headerClassName="pr-12"
+            question={question}
+            searching={searching}
+            results={results}
+            onQuestionChange={setQuestion}
+            onSearch={() => void runSearch()}
           />
-          <div>
-            <p className="text-xs text-muted-foreground">Status</p>
-            <StatusChip className="mt-1" status={kb.status} />
-          </div>
-          <Stat label="Created" value={new Date(kb.created_at).toLocaleDateString()} />
-          <div>
-            <p className="text-xs text-muted-foreground">KB ID</p>
-            <button
-              type="button"
-              className="mt-1 inline-flex w-[11rem] max-w-full min-w-0 items-center gap-1 text-sm hover:underline"
-              title={kb.id}
-              onClick={() => {
-                void navigator.clipboard.writeText(kb.id);
-                toast.message("Copied KB ID");
-              }}
-            >
-              <span className="min-w-0 truncate font-mono text-xs">{kb.id}</span>
-              <Copy className="size-3.5 shrink-0 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Files */}
-      <section className="mt-8">
-        <div className="overflow-hidden rounded-xl border border-border">
-          <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
-            <span>Name</span>
-            <span>Size</span>
-            <span>Status</span>
-            <span>Chunks</span>
-            <span className="w-8" />
-          </div>
-          <ul className="divide-y divide-border">
-            {files.map((f) => (
-              <QuickContextMenu
-                key={f.id}
-                title={f.name}
-                items={[
-                  {
-                    label: "Copy name",
-                    icon: Copy,
-                    onSelect: () => {
-                      void navigator.clipboard.writeText(f.name);
-                      toast.message("Name copied");
-                    },
-                  },
-                  { type: "separator" },
-                  {
-                    label: "Delete",
-                    icon: Trash2,
-                    variant: "destructive",
-                    onSelect: async () => {
-                      await deleteKnowledgeFile(id, f.id);
-                      toast.message("File deleted");
-                      void refresh();
-                    },
-                  },
-                ]}
-              >
-                <li className="grid cursor-context-menu grid-cols-[1fr_auto_auto_auto_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="rounded bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/40 dark:text-rose-200">
-                      {f.name.split(".").pop()?.toUpperCase().slice(0, 4) || "FILE"}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{f.name}</p>
-                    </div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">{formatBytes(f.size_bytes)}</span>
-                  <StatusChip status={f.status} />
-                  <span className="text-sm text-muted-foreground">{f.chunk_count}</span>
-                  <Button variant="ghost" size="icon-sm" aria-label="File options">
-                    <MoreVertical className="size-4" />
-                  </Button>
-                </li>
-              </QuickContextMenu>
-            ))}
-          </ul>
-          <div className="border-t border-border px-3">
-            <VoicePagination
-              page={page}
-              perPage={perPage}
-              total={totalFiles}
-              onPageChange={setPage}
-              onPerPageChange={setPerPage}
-              perPageOptions={[10, 20, 50]}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Test retrieval */}
-      <section className="mt-8 rounded-2xl border border-primary/20 bg-[var(--kupe-hero-pale)] p-5 dark:border-primary/25 dark:bg-primary/10">
-        <div className="flex items-start gap-3">
-          <Search className="mt-0.5 size-4 text-primary" />
-          <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-semibold">Test retrieval</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Ask a question to preview what agents will find in this knowledge
-              base.
-            </p>
-            <div className="mt-4 space-y-1.5">
-              <Label htmlFor="kb-question">Question</Label>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                  id="kb-question"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  placeholder="What does this knowledge base say about...?"
-                  className="h-10 rounded-xl bg-background"
-                  onKeyDown={(e) => e.key === "Enter" && void runSearch()}
-                />
-                <Button className="rounded-full" onClick={() => void runSearch()} disabled={searching}>
-                  <Search className="size-4" />
-                  {searching ? "Searching…" : "Search"}
-                </Button>
-              </div>
-            </div>
-            {results ? (
-              <ul className="mt-4 space-y-2">
-                {results.length === 0 ? (
-                  <li className="text-xs text-muted-foreground">No matching chunks found.</li>
-                ) : (
-                  results.map((r, i) => (
-                    <li key={i} className="rounded-lg border border-border bg-background px-3 py-2">
-                      <p className="text-xs text-muted-foreground">{(r.similarity * 100).toFixed(0)}% match</p>
-                      <p className="mt-1 text-sm">{r.content}</p>
-                    </li>
-                  ))
-                )}
-              </ul>
-            ) : null}
-          </div>
-        </div>
-      </section>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function RetrievalPanel({
+  question,
+  searching,
+  results,
+  onQuestionChange,
+  onSearch,
+  inputId = "kb-question",
+  headerClassName,
+}: {
+  question: string;
+  searching: boolean;
+  results: RetrievalHit[] | null;
+  onQuestionChange: (value: string) => void;
+  onSearch: () => void;
+  inputId?: string;
+  headerClassName?: string;
+}) {
   return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-sm font-medium">{value}</p>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className={cn("shrink-0 px-4 pb-3 pt-4", headerClassName)}>
+        <h2 className="text-sm font-semibold tracking-tight">Test retrieval</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Preview what agents will find in this knowledge base.
+        </p>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 pb-4">
+        <div className="space-y-1.5">
+          <Label htmlFor={inputId}>Question</Label>
+          <Textarea
+            id={inputId}
+            value={question}
+            onChange={(e) => onQuestionChange(e.target.value)}
+            placeholder="What does this knowledge base say about…?"
+            rows={4}
+            className="min-h-24 resize-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSearch();
+              }
+            }}
+          />
+        </div>
+        <Button
+          className="w-full rounded-full"
+          onClick={onSearch}
+          disabled={!question.trim()}
+          loading={searching}
+        >
+          {searching ? "Searching…" : (
+            <>
+              <Search className="size-4" />
+              Try Search
+            </>
+          )}
+        </Button>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pt-1">
+          {results == null ? (
+            <p className="text-sm text-muted-foreground">Results show up here.</p>
+          ) : results.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No matching chunks found.</p>
+          ) : (
+            <ul className="space-y-2">
+              {results.map((r, i) => (
+                <li key={i} className="rounded-xl border border-border px-3 py-2.5">
+                  <p className="text-xs text-muted-foreground">
+                    {(r.similarity * 100).toFixed(0)}% match
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed">{r.content}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function MetaDot({ className }: { className?: string }) {
+  return (
+    <span className={cn("shrink-0 text-border", className)} aria-hidden>
+      ·
+    </span>
   );
 }

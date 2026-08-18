@@ -7,6 +7,7 @@ import { WorkspaceProvider } from "@/context/workspace-context";
 import { FeatureFlagsProvider } from "@/context/feature-flags-context";
 import { SessionBridgeProvider } from "@/context/session-context";
 import { AskAiPanelProvider } from "@/lib/ask-ai/panel-context";
+import { AskAiPanel } from "@/components/ask-ai/ask-ai-panel";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -29,6 +30,7 @@ export default function App() {
                 <BrowserRouter>
                   <AppRoutes />
                 </BrowserRouter>
+                <AskAiPanel />
                 <Toaster />
               </AskAiPanelProvider>
             </SessionBridgeProvider>

@@ -11,17 +11,22 @@ import {
 
 export function ProviderLogo({
   provider,
+  model,
   size = "md",
   className,
 }: {
   provider: string;
+  /** Disambiguates a multi-kind provider's brand, e.g. Sarvam's LLM
+   * models (sarvam-105b, glm-5.2, gemma-4-31b) show as Kai/Kupe-mark
+   * while its STT/TTS models keep the Sarvam brand. */
+  model?: string;
   size?: "sm" | "md";
   className?: string;
 }) {
-  const src = providerLogoSrc(provider);
+  const src = providerLogoSrc(provider, model);
   const [failed, setFailed] = useState(false);
-  const label = displayProviderName(provider);
-  const mono = providerLogoIsMono(provider);
+  const label = displayProviderName(provider, model);
+  const mono = providerLogoIsMono(provider, model);
   const box = cn(
     "relative flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-background ring-1 ring-border",
     size === "sm" ? "size-5" : "size-6",
@@ -47,7 +52,7 @@ export function ProviderLogo({
       title={label}
       aria-hidden
     >
-      {providerInitials(provider)}
+      {providerInitials(provider, model)}
     </span>
   );
 }

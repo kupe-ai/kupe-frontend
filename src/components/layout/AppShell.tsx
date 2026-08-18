@@ -175,6 +175,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mounted, setMounted] = useState(false);
   const isEditor = /^\/agents\/[^/]+\/?$/.test(pathname);
+  const isKbDetail = /^\/knowledge-base\/[^/]+\/?$/.test(pathname);
+  const lockOverflow = isEditor || isKbDetail;
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -367,7 +369,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               key={pathname}
               className={cn(
                 "animate-fade-in-up mx-auto h-full w-full max-w-none p-0",
-                isEditor ? "overflow-hidden" : "overflow-y-auto",
+                lockOverflow ? "overflow-hidden" : "overflow-y-auto",
               )}
             >
               {children}

@@ -204,7 +204,7 @@ function VoicePickerItem({
         </span>
         {modelLine ? (
           <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            {voice.provider_name ? <ProviderLogo provider={voice.provider_name} size="sm" /> : null}
+            {voice.provider_name ? <ProviderLogo provider={voice.provider_name} model={voice.model_name} size="sm" /> : null}
             <span className="truncate">{modelLine}</span>
           </span>
         ) : meta.length > 0 ? (

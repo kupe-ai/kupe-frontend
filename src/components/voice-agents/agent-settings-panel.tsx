@@ -105,8 +105,8 @@ function providerOptions(
     return {
       value: p.id,
       label,
-      icon: <ProviderLogo provider={p.provider_name} size="sm" />,
-      keywords: `${p.provider_name} ${displayProviderName(p.provider_name)} ${p.model_name} ${label}`,
+      icon: <ProviderLogo provider={p.provider_name} model={p.model_name} size="sm" />,
+      keywords: `${p.provider_name} ${displayProviderName(p.provider_name, p.model_name)} ${p.model_name} ${label}`,
       hint: p.is_default ? "default" : undefined,
     };
   });

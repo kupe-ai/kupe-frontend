@@ -1,5 +1,16 @@
 /** Display names + logo files for LLM / TTS / STT catalog providers. */
 
+// Sarvam's LLM catalog entries (sarvam-105b, glm-5.2, gemma-4-31b) are
+// white-labeled as "Kai" with Kupe's mark -- Sarvam's STT/TTS models
+// (saarika, bulbul) are unaffected and keep the Sarvam brand below. Model
+// names are matched case-insensitively against provider_catalog.model_name.
+const SARVAM_LLM_MODELS = new Set(["sarvam-105b", "glm-5.2", "gemma-4-31b"]);
+const KAI_BRAND = { label: "Kai", logo: "/brand/kupe-mark.png" };
+
+function isSarvamLlmModel(provider: string, model?: string): boolean {
+  return providerKey(provider) === "sarvam" && !!model && SARVAM_LLM_MODELS.has(model.trim().toLowerCase());
+}
+
 const BRANDS: Record<string, { label: string; logo: string; mono?: boolean }> = {
   openai: { label: "OpenAI", logo: "/providers/openai.svg", mono: true },
   groq: { label: "Groq", logo: "/providers/groq.svg", mono: true },
@@ -24,7 +35,8 @@ export function providerKey(name: string): string {
   return name.trim().toLowerCase().replace(/[\s-]+/g, "_");
 }
 
-export function displayProviderName(name: string): string {
+export function displayProviderName(name: string, model?: string): string {
+  if (isSarvamLlmModel(name, model)) return KAI_BRAND.label;
   const known = BRANDS[providerKey(name)];
   if (known) return known.label;
   return name
@@ -80,6 +92,10 @@ export function brandedModelName(provider: string, model: string): string {
     if (m.startsWith("tts") || m === "k-tts") return "k-TTS";
     if (m.startsWith("stt") || m === "k-stt") return "k-STT";
   }
+  // Sarvam's own flagship LLM literally has "sarvam" in its model id --
+  // keep that out of the (now Kai-branded) model text. glm-5.2 /
+  // gemma-4-31b are already brand-neutral, so displayModelName is fine.
+  if (isSarvamLlmModel(provider, model) && m === "sarvam-105b") return "Kai 105B";
   return displayModelName(model);
 }
 
@@ -95,23 +111,25 @@ function formatModelToken(token: string): string {
 
 /** `Kupe / k-TTS` — provider display name, then branded/humanized model. */
 export function formatProviderModel(provider: string, model: string): string {
-  const p = displayProviderName(provider);
+  const p = displayProviderName(provider, model);
   const m = brandedModelName(provider, model);
   if (!p) return m;
   if (!m) return p;
   return `${p} / ${m}`;
 }
 
-export function providerLogoSrc(name: string): string | null {
+export function providerLogoSrc(name: string, model?: string): string | null {
+  if (isSarvamLlmModel(name, model)) return KAI_BRAND.logo;
   return BRANDS[providerKey(name)]?.logo ?? null;
 }
 
-export function providerLogoIsMono(name: string): boolean {
+export function providerLogoIsMono(name: string, model?: string): boolean {
+  if (isSarvamLlmModel(name, model)) return false;
   return Boolean(BRANDS[providerKey(name)]?.mono);
 }
 
-export function providerInitials(name: string): string {
-  const label = displayProviderName(name);
+export function providerInitials(name: string, model?: string): string {
+  const label = displayProviderName(name, model);
   const parts = label.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return `${parts[0]![0]!}${parts[1]![0]!}`.toUpperCase();
   return label.slice(0, 2).toUpperCase();

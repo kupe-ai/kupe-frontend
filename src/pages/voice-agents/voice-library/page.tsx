@@ -62,7 +62,7 @@ function providerFilterOptions(rows: VoiceTtsProvider[]): SearchableOption[] {
         value: p.id,
         label,
         icon: <ProviderLogo provider={p.provider_name} size="sm" />,
-        keywords: `${p.provider_name} ${displayProviderName(p.provider_name)} ${p.model_name} ${label}`,
+        keywords: `${p.provider_name} ${displayProviderName(p.provider_name, p.model_name)} ${p.model_name} ${label}`,
       };
     }),
   ];
@@ -312,7 +312,7 @@ function VoiceCard({
         </div>
         {modelLine ? (
           <div className="mt-1 flex min-w-0 items-center gap-1.5">
-            {providerKey ? <ProviderLogo provider={providerKey} size="sm" /> : null}
+            {providerKey ? <ProviderLogo provider={providerKey} model={voice.model_name} size="sm" /> : null}
             <p className="truncate text-xs text-muted-foreground">{modelLine}</p>
           </div>
         ) : null}
