@@ -19,6 +19,7 @@ export interface VoiceCampaign {
   connection_config: Record<string, unknown>;
   schedule: BatchSchedule;
   recipient_list_id?: string | null;
+  started_at?: string | null;
 }
 
 export interface VoiceDialJob {
@@ -47,6 +48,7 @@ function toCampaign(b: Batch): VoiceCampaign {
     connection_config: { telephony_account_id: b.telephony_account_id },
     schedule: b.schedule ?? EMPTY_BATCH_SCHEDULE,
     recipient_list_id: b.recipient_list_id ?? null,
+    started_at: b.started_at ?? null,
   };
 }
 
@@ -111,6 +113,14 @@ export async function resumeCampaign(campaignId: string) {
   const batch = await api.getBatch(campaignId);
   if (batch.status === "draft") return toCampaign(await api.startBatch(campaignId));
   return toCampaign(await api.resumeBatch(campaignId));
+}
+
+export function canDeleteCampaign(campaign: Pick<VoiceCampaign, "status" | "started_at">) {
+  return campaign.status === "draft" && !campaign.started_at;
+}
+
+export async function deleteCampaign(campaignId: string) {
+  await api.deleteBatch(campaignId);
 }
 
 export async function listRecipientLists(params?: { limit?: number; offset?: number }) {

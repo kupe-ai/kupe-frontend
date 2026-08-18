@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Play } from "lucide-react";
+import { Copy, Pause, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { KupeIcon } from "@/components/icons/kupe-icon";
@@ -13,6 +13,15 @@ import { StatusChip } from "@/components/ui/status-chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -27,12 +36,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import { useSession } from "@/context/session-context";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
 import {
+  canDeleteCampaign,
   createCampaign,
+  deleteCampaign,
   ensureCampaignRecipients,
   listCampaigns,
   pauseCampaign,
@@ -45,6 +57,7 @@ import {
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { analyzeRecipients } from "@/lib/parse-recipients-csv";
+import { PeopleListsPanel } from "./people-lists-panel";
 import { RecipientsStep, createEmptyRecipientsState, type RecipientsState } from "./recipients-step";
 
 const STEPS = ["Agent", "Recipients", "Schedule", "Review & Launch"] as const;
@@ -52,8 +65,12 @@ const STEPS = ["Agent", "Recipients", "Schedule", "Review & Launch"] as const;
 export default function VoiceAgentsOutboundPage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [peopleCreateOpen, setPeopleCreateOpen] = useState(false);
+  const [pageTab, setPageTab] = useState("campaigns");
   const [campaigns, setCampaigns] = useState<VoiceCampaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toDelete, setToDelete] = useState<VoiceCampaign | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(() => {
     setLoading(true);
@@ -68,12 +85,32 @@ export default function VoiceAgentsOutboundPage() {
     refresh();
   }, [refresh]);
 
+  async function confirmDelete() {
+    if (!toDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteCampaign(toDelete.id);
+      setCampaigns((prev) => prev.filter((c) => c.id !== toDelete.id));
+      toast.message("Campaign deleted");
+      setToDelete(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't delete campaign");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="voice-page flex flex-col">
       <VoicePageHeader
         title="Outbound campaigns"
         actions={
-          campaigns.length > 0 ? (
+          pageTab === "people" ? (
+            <Button className="group/nav rounded-full" onClick={() => setPeopleCreateOpen(true)}>
+              <KupeIcon name="plus" className="size-4" />
+              Create people list
+            </Button>
+          ) : campaigns.length > 0 ? (
             <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
               <KupeIcon name="plus" className="size-4" />
               Create campaign
@@ -82,92 +119,136 @@ export default function VoiceAgentsOutboundPage() {
         }
       />
 
-      {loading ? (
-        <VoiceTableShimmer rows={4} />
-      ) : campaigns.length === 0 ? (
-        <AsciiEmptyState
-          kind="campaign"
-          tone="coral"
-          title="Reach thousands of customers by phone"
-          description="Upload contacts, pick an agent, launch calls."
-          className="min-h-[65vh]"
-          actions={
-            <>
-              <Button
-                variant="outline"
-                className="rounded-full"
-                onClick={() => navigate("/deploy-with-code/apis/batch-outbound")}
-              >
-                Build with API →
-              </Button>
-              <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
-                <KupeIcon name="plus" className="size-4" />
-                Create campaign
-              </Button>
-            </>
-          }
-        />
-      ) : (
-        <div className="mt-6 overflow-hidden rounded-xl border border-border">
-          <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
-            <span>Campaign</span>
-            <span>Status</span>
-          </div>
-          <ul className="divide-y divide-border">
-            {campaigns.map((c) => (
-              <QuickContextMenu
-                key={c.id}
-                title={c.name}
-                items={[
-                  {
-                    label: "Copy name",
-                    icon: Copy,
-                    onSelect: () => {
-                      void navigator.clipboard.writeText(c.name);
-                      toast.message("Name copied");
-                    },
-                  },
-                  c.status === "paused" || c.status === "draft"
-                    ? {
-                        label: "Resume",
-                        icon: Play,
-                        onSelect: () => {
-                          void resumeCampaign(c.id)
-                            .then(() => {
-                              toast.message("Campaign resumed");
-                              refresh();
-                            })
-                            .catch(() => toast.error("Couldn't resume campaign"));
-                        },
-                      }
-                    : {
-                        label: "Pause",
-                        icon: Pause,
-                        onSelect: () => {
-                          void pauseCampaign(c.id)
-                            .then(() => {
-                              toast.message("Campaign paused");
-                              refresh();
-                            })
-                            .catch(() => toast.error("Couldn't pause campaign"));
-                        },
+      <Tabs value={pageTab} onValueChange={setPageTab} className="mt-4">
+        <TabsList>
+          <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+          <TabsTrigger value="people">People</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="campaigns" className="mt-4">
+          {loading ? (
+            <VoiceTableShimmer rows={4} />
+          ) : campaigns.length === 0 ? (
+            <AsciiEmptyState
+              kind="campaign"
+              tone="coral"
+              title="Reach thousands of customers by phone"
+              description="Upload contacts, pick an agent, launch calls."
+              className="min-h-[65vh]"
+              actions={
+                <>
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => navigate("/deploy-with-code/apis/batch-outbound")}
+                  >
+                    Build with API →
+                  </Button>
+                  <Button className="group/nav rounded-full" onClick={() => setOpen(true)}>
+                    <KupeIcon name="plus" className="size-4" />
+                    Create campaign
+                  </Button>
+                </>
+              }
+            />
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-border">
+              <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+                <span>Campaign</span>
+                <span>Status</span>
+              </div>
+              <ul className="divide-y divide-border">
+                {campaigns.map((c) => {
+                  const items: {
+                    label: string;
+                    icon: typeof Copy;
+                    variant?: "default" | "destructive";
+                    onSelect: () => void;
+                  }[] = [
+                    {
+                      label: "Copy name",
+                      icon: Copy,
+                      onSelect: () => {
+                        void navigator.clipboard.writeText(c.name);
+                        toast.message("Name copied");
                       },
-                ]}
-              >
-                <li
-                  className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40"
-                  onClick={() => navigate(`/outbound-campaigns/${c.id}`)}
-                >
-                  <span className="truncate text-sm font-medium">{c.name}</span>
-                  <StatusChip status={c.status} />
-                </li>
-              </QuickContextMenu>
-            ))}
-          </ul>
-        </div>
-      )}
+                    },
+                    c.status === "paused" || c.status === "draft"
+                      ? {
+                          label: "Resume",
+                          icon: Play,
+                          onSelect: () => {
+                            void resumeCampaign(c.id)
+                              .then(() => {
+                                toast.message("Campaign resumed");
+                                refresh();
+                              })
+                              .catch(() => toast.error("Couldn't resume campaign"));
+                          },
+                        }
+                      : {
+                          label: "Pause",
+                          icon: Pause,
+                          onSelect: () => {
+                            void pauseCampaign(c.id)
+                              .then(() => {
+                                toast.message("Campaign paused");
+                                refresh();
+                              })
+                              .catch(() => toast.error("Couldn't pause campaign"));
+                          },
+                        },
+                  ];
+                  if (canDeleteCampaign(c)) {
+                    items.push({
+                      label: "Delete",
+                      icon: Trash2,
+                      variant: "destructive",
+                      onSelect: () => setToDelete(c),
+                    });
+                  }
+                  return (
+                    <QuickContextMenu key={c.id} title={c.name} items={items}>
+                      <li
+                        className="grid cursor-pointer grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 hover:bg-muted/40"
+                        onClick={() => navigate(`/outbound-campaigns/${c.id}`)}
+                      >
+                        <span className="truncate text-sm font-medium">{c.name}</span>
+                        <StatusChip status={c.status} />
+                      </li>
+                    </QuickContextMenu>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="people" className="mt-4">
+          <PeopleListsPanel createOpen={peopleCreateOpen} onCreateOpenChange={setPeopleCreateOpen} />
+        </TabsContent>
+      </Tabs>
 
       <ScheduleCampaignDialog open={open} onOpenChange={setOpen} onCreated={refresh} />
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete draft campaign?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {toDelete
+                ? `"${toDelete.name}" has never been started and can be removed. Campaigns that have run cannot be deleted.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button variant="destructive" disabled={deleting} onClick={() => void confirmDelete()}>
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

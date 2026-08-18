@@ -69,9 +69,13 @@ function ensureTrailingBlank(columns: string[], rows: RecipientRow[]): Recipient
 export function RecipientsStep({
   value,
   onChange,
+  hideModeToggle = false,
+  hideListName = false,
 }: {
   value: RecipientsState;
   onChange: (next: RecipientsState) => void;
+  hideModeToggle?: boolean;
+  hideListName?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draftPhone, setDraftPhone] = useState("");
@@ -173,28 +177,30 @@ export function RecipientsStep({
         ) : null}
       </div>
 
-      <div className="inline-flex rounded-full bg-muted/70 p-1">
-        {(
-          [
-            ["new", "New list"],
-            ["saved", "Saved lists"],
-          ] as const
-        ).map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => patch({ mode: id })}
-            className={cn(
-              "pressable rounded-full px-3.5 py-1.5 text-sm",
-              value.mode === id
-                ? "bg-background font-medium text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {!hideModeToggle ? (
+        <div className="inline-flex rounded-full bg-muted/70 p-1">
+          {(
+            [
+              ["new", "New list"],
+              ["saved", "Saved lists"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => patch({ mode: id })}
+              className={cn(
+                "pressable rounded-full px-3.5 py-1.5 text-sm",
+                value.mode === id
+                  ? "bg-background font-medium text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {value.mode === "saved" ? (
         <div className="space-y-2">
@@ -232,16 +238,18 @@ export function RecipientsStep({
         </div>
       ) : (
         <>
-          <div className="space-y-1.5">
-            <Label>
-              List name <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              value={value.listName}
-              onChange={(e) => patch({ listName: e.target.value })}
-              placeholder="Q3 renewals — West"
-            />
-          </div>
+          {!hideListName ? (
+            <div className="space-y-1.5">
+              <Label>
+                List name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={value.listName}
+                onChange={(e) => patch({ listName: e.target.value })}
+                placeholder="Q3 renewals — West"
+              />
+            </div>
+          ) : null}
 
           <div className="flex gap-2">
             <Input
