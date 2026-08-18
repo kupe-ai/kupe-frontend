@@ -14,6 +14,7 @@ import { Message, MessageContent } from "@/components/ui/message";
 import { api } from "@/lib/api";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { isThinkingPhone } from "@/lib/voice/thinking-phone";
 
 interface LiveTurn {
   id: string;
@@ -192,6 +193,7 @@ export function TestAgentCallDialog({
           }
           if (parsed.kind !== "transcript" || !parsed.text) return;
           const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
+          if (role === "agent" && isThinkingPhone(parsed.text)) return;
           const id = `${role}-live`;
           const latencyMs =
             role === "agent" && parsed.final !== false ? (pendingLatencyRef.current ?? undefined) : undefined;
@@ -223,6 +225,7 @@ export function TestAgentCallDialog({
             const next = [...prev];
             for (const seg of segments) {
               if (!seg.final || !seg.text) continue;
+              if (role === "agent" && isThinkingPhone(seg.text)) continue;
               const idx = next.findIndex((t) => t.id === seg.id);
               const latencyMs =
                 role === "agent" && idx < 0 ? (pendingLatencyRef.current ?? undefined) : next[idx]?.latencyMs;

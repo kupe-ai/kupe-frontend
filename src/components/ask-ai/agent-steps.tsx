@@ -1,16 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, ChevronDown, ChevronRight, Loader2, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgentStep } from "@/lib/ask-ai/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
+function formatJson(value: unknown): string {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 2);
+    } catch {
+      return value;
+    }
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function ReasoningRow({
+  step,
+  active,
+}: {
+  step: Extract<AgentStep, { kind: "reasoning" }>;
+  active: boolean;
+}) {
+  return (
+    <Collapsible defaultOpen={false}>
+      <CollapsibleTrigger
+        type="button"
+        className="flex w-full items-center gap-1.5 text-left hover:text-foreground"
+      >
+        <span className="kori-shimmer-text font-medium">Thinking...</span>
+        {active ? <Loader2 className="size-3 animate-spin text-muted-foreground" /> : null}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <p className="mt-1 italic text-muted-foreground">{step.text}</p>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function ToolCallRow({ step }: { step: Extract<AgentStep, { kind: "tool_call" }> }) {
+  return (
+    <Collapsible defaultOpen={false}>
+      <CollapsibleTrigger
+        type="button"
+        className="flex w-full items-start gap-1.5 text-left hover:text-foreground"
+      >
+        <Wrench
+          className={cn(
+            "mt-0.5 size-3 shrink-0",
+            step.isError ? "text-destructive" : "text-muted-foreground",
+          )}
+        />
+        <div className="min-w-0 flex-1">
+          <span className={cn("font-mono", step.isError && "text-destructive")}>{step.name}</span>
+          {!step.done ? (
+            <Loader2 className="ml-1 inline size-3 animate-spin text-muted-foreground" />
+          ) : (
+            <Check className={cn("ml-1 inline size-3", step.isError ? "text-destructive" : "text-emerald-500")} />
+          )}
+        </div>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="ml-[18px] mt-1.5 space-y-1.5">
+          <div>
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Input</p>
+            <pre className="max-h-48 overflow-auto rounded bg-background px-2 py-1.5 font-mono text-[11px] leading-snug">
+              {formatJson(step.arguments) || "—"}
+            </pre>
+          </div>
+          {step.done ? (
+            <div>
+              <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                {step.isError ? "Error" : "Output"}
+              </p>
+              <pre
+                className={cn(
+                  "max-h-48 overflow-auto rounded bg-background px-2 py-1.5 font-mono text-[11px] leading-snug",
+                  step.isError && "text-destructive",
+                )}
+              >
+                {formatJson(step.result) || "—"}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function AgentSteps({ steps, streaming }: { steps: AgentStep[]; streaming: boolean }) {
-  const [open, setOpen] = useState(streaming);
-  useEffect(() => {
-    setOpen(streaming);
-  }, [streaming]);
+  const [open, setOpen] = useState(true);
   const toolCalls = steps.filter((s) => s.kind === "tool_call").length;
   const thoughts = steps.filter((s) => s.kind === "reasoning").length;
   const parts = [
@@ -32,32 +119,9 @@ export function AgentSteps({ steps, streaming }: { steps: AgentStep[]; streaming
         <div className="space-y-1.5 border-t border-border px-2.5 py-2">
           {steps.map((step, i) =>
             step.kind === "reasoning" ? (
-              <p
-                key={i}
-                className={cn(
-                  "italic text-muted-foreground",
-                  streaming && step === thinkingReasoning && "kori-shimmer-text not-italic",
-                )}
-              >
-                {step.text}
-              </p>
+              <ReasoningRow key={i} step={step} active={step === thinkingReasoning} />
             ) : (
-              <div key={step.callId || i} className="flex items-start gap-1.5">
-                <Wrench
-                  className={cn(
-                    "mt-0.5 size-3 shrink-0",
-                    step.isError ? "text-destructive" : "text-muted-foreground",
-                  )}
-                />
-                <div className="min-w-0 flex-1">
-                  <span className={cn("font-mono", step.isError && "text-destructive")}>{step.name}</span>
-                  {!step.done ? (
-                    <Loader2 className="ml-1 inline size-3 animate-spin text-muted-foreground" />
-                  ) : (
-                    <Check className={cn("ml-1 inline size-3", step.isError ? "text-destructive" : "text-emerald-500")} />
-                  )}
-                </div>
-              </div>
+              <ToolCallRow key={step.callId || i} step={step} />
             ),
           )}
         </div>

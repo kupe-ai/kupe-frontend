@@ -12,6 +12,7 @@ import { enterAgentScope, removeAttachment, sendForAgent, uploadAttachment } fro
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { isThinkingPhone } from "@/lib/voice/thinking-phone";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
 import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
 import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
@@ -39,6 +40,7 @@ const MUTATING_TOOLS = new Set([
   "detach_tool_from_agent",
   "attach_analysis_to_agent",
   "detach_analysis_from_agent",
+  "set_agent_output_variables",
 ]);
 
 type VoiceBubble = { id: string; role: "user" | "kori"; text: string; latencyMs?: number };
@@ -187,6 +189,7 @@ export function AgentAskKoriPanel({
             const next = [...prev];
             for (const seg of segments) {
               if (!seg.final || !seg.text) continue;
+              if (role === "kori" && isThinkingPhone(seg.text)) continue;
               const idx = next.findIndex((t) => t.id === seg.id);
               const latencyMs =
                 role === "kori" && idx < 0 ? (pendingLatencyRef.current ?? undefined) : undefined;
