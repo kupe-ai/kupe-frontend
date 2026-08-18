@@ -101,7 +101,6 @@ export function TestAgentCallDialog({
   const [attempt, setAttempt] = useState(0);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [demoValues, setDemoValues] = useState<Record<string, string>>({});
-  const [demoReady, setDemoReady] = useState(false);
   const [demoDirty, setDemoDirty] = useState(false);
   const handleRef = useRef<WebCallHandle | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
@@ -123,7 +122,6 @@ export function TestAgentCallDialog({
       setTurns([]);
       setElapsedSec(0);
       setDemoValues({});
-      setDemoReady(false);
       setDemoDirty(false);
       demoValuesRef.current = {};
       pendingLatencyRef.current = null;
@@ -131,7 +129,6 @@ export function TestAgentCallDialog({
     }
 
     let cancelled = false;
-    setDemoReady(false);
     void api
       .getAgentDemoVariables(agentId)
       .then((res) => {
@@ -140,13 +137,11 @@ export function TestAgentCallDialog({
         setDemoValues(values);
         demoValuesRef.current = values;
         setDemoDirty(false);
-        setDemoReady(true);
       })
       .catch(() => {
         if (cancelled) return;
         setDemoValues({});
         demoValuesRef.current = {};
-        setDemoReady(true);
       });
 
     return () => {
@@ -155,7 +150,7 @@ export function TestAgentCallDialog({
   }, [open, agentId]);
 
   useEffect(() => {
-    if (!open || !demoReady) return;
+    if (!open) return;
 
     let cancelled = false;
     setErrorMsg(null);
@@ -248,7 +243,7 @@ export function TestAgentCallDialog({
       void handleRef.current?.disconnect();
       handleRef.current = null;
     };
-  }, [open, agentId, attempt, demoReady]);
+  }, [open, agentId, attempt]);
 
   useEffect(() => {
     const el = transcriptRef.current;
@@ -276,10 +271,8 @@ export function TestAgentCallDialog({
     setMuted(next);
   }
 
-  const preparing = open && !demoReady;
-  const statusLabel = preparing
-    ? "Preparing demo…"
-    : status === "connecting"
+  const statusLabel =
+    status === "connecting"
       ? "Connecting…"
       : status === "connected"
         ? "Live"
@@ -291,7 +284,7 @@ export function TestAgentCallDialog({
   const agentSpeaking = status === "connected" && level > 0.04;
   const vizStream = agentSpeaking ? agentStream : (localStream ?? agentStream);
   const visualizerState: AgentState | undefined =
-    status === "connecting" || preparing
+    status === "connecting"
       ? "connecting"
       : status === "connected"
         ? agentSpeaking
@@ -338,7 +331,7 @@ export function TestAgentCallDialog({
               <BarVisualizer
                 state={visualizerState}
                 mediaStream={vizStream}
-                demo={!vizStream && (status === "connecting" || preparing)}
+                demo={!vizStream && status === "connecting"}
                 flat
                 barCount={15}
                 className="w-full sm:h-44"
@@ -415,7 +408,7 @@ export function TestAgentCallDialog({
             <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3 pr-12">
               <div className="relative size-11 shrink-0">
                 <AgentAvatar seed={seed} size={44} className="size-full rounded-xl" />
-                {(status === "connecting" || preparing) && (
+                {status === "connecting" && (
                   <span className="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full bg-background shadow-sm">
                     <Matrix rows={7} cols={7} frames={loader} fps={12} size={1.2} gap={0.35} palette={{ on: "var(--primary)", off: "transparent" }} ariaLabel="Connecting" />
                   </span>

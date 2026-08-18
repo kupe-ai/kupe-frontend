@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
-import { posthog, isPosthogConfigured } from "../lib/posthog";
+import { captureException, isPosthogConfigured } from "../lib/posthog";
 
 interface Props {
   children: ReactNode;
@@ -25,7 +25,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     if (isPosthogConfigured()) {
-      posthog.captureException(error, {
+      captureException(error, {
         service: "kupe-frontend",
         react_component_stack: info.componentStack,
       });
