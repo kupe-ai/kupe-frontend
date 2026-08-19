@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pause, Play, RotateCw, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Pause, Play, RotateCw, Search, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -35,6 +35,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
+import { QuickContextMenu } from "@/components/quick-context-menu";
 import {
   canDeleteCampaign,
   cloneCampaign,
@@ -42,10 +43,12 @@ import {
   getCampaign,
   getCampaignCallAnalytics,
   getCampaignStats,
+  hideCampaign,
   listDialJobsPage,
   pauseCampaign,
   removeCampaignRecipients,
   resumeCampaign,
+  unhideAllCampaigns,
   type VoiceCampaign,
 } from "@/lib/api/voice/campaigns";
 import { CallVolumeChart } from "@/components/voice-agents/call-volume-chart";
@@ -313,6 +316,34 @@ export default function VoiceAgentsOutboundDetailPage() {
     }
   }
 
+  async function onHide() {
+    if (!campaign) return;
+    try {
+      await hideCampaign(campaign.id);
+      toast.message("Campaign hidden");
+      navigate("/outbound-campaigns");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't hide campaign");
+    }
+  }
+
+  async function onUnhideAll() {
+    try {
+      const { unhidden } = await unhideAllCampaigns();
+      if (unhidden === 0) {
+        toast.message("No hidden campaigns");
+      } else {
+        toast.message(unhidden === 1 ? "Unhid 1 campaign" : `Unhid ${unhidden} campaigns`);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't unhide campaigns");
+    }
+  }
+
+  const unhideMenu = [
+    { label: "Unhide all campaigns", icon: Eye, onSelect: () => void onUnhideAll() },
+  ];
+
   const contactsByStatus = stats?.contacts_by_status ?? {};
   const attemptsByStatus = stats?.attempts_by_status ?? {};
   const overview = useMemo(() => {
@@ -346,9 +377,11 @@ export default function VoiceAgentsOutboundDetailPage() {
 
   if (loading || !campaign) {
     return (
-      <div className="voice-page flex flex-col gap-4">
-        <VoiceTableShimmer rows={6} />
-      </div>
+      <QuickContextMenu items={unhideMenu}>
+        <div className="voice-page flex min-h-[70vh] flex-col gap-4">
+          <VoiceTableShimmer rows={6} />
+        </div>
+      </QuickContextMenu>
     );
   }
 
@@ -361,7 +394,8 @@ export default function VoiceAgentsOutboundDetailPage() {
     : "grid-cols-[minmax(0,1fr)_6rem_8rem]";
 
   return (
-    <div className="voice-page flex flex-col gap-5">
+    <QuickContextMenu items={unhideMenu}>
+    <div className="voice-page flex min-h-[70vh] flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="sm" className="rounded-full" asChild>
           <Link to="/outbound-campaigns">
@@ -382,6 +416,10 @@ export default function VoiceAgentsOutboundDetailPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" className="rounded-full" onClick={() => void onHide()}>
+            <EyeOff className="size-4" />
+            Hide
+          </Button>
           {canDeleteCampaign(campaign) ? (
             <Button variant="outline" className="rounded-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="size-4" />
@@ -720,5 +758,6 @@ export default function VoiceAgentsOutboundDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </QuickContextMenu>
   );
 }

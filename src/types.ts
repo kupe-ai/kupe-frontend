@@ -215,6 +215,9 @@ export type BillingPlan = {
   monthly_commitment_rupees: number | null;
   min_topup_rupees?: number | null;
   is_self_serve: boolean;
+  /** Concurrent-channel cap for this plan tier (web + telephony, inbound +
+   * outbound combined). Null for enterprise, which is custom/negotiated. */
+  channels?: number | null;
 };
 
 export type TopupOrder = {

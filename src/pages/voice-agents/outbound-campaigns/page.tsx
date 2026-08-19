@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Play, RotateCw, Trash2 } from "lucide-react";
+import { Copy, Eye, EyeOff, Pause, Play, RotateCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { KupeIcon } from "@/components/icons/kupe-icon";
@@ -47,9 +47,11 @@ import {
   createCampaign,
   deleteCampaign,
   ensureCampaignRecipients,
+  hideCampaign,
   listCampaigns,
   pauseCampaign,
   resumeCampaign,
+  unhideAllCampaigns,
   updateCampaignSchedule,
   EMPTY_BATCH_SCHEDULE,
   type BatchSchedule,
@@ -120,8 +122,35 @@ export default function VoiceAgentsOutboundPage() {
     }
   }
 
+  async function onHide(campaign: VoiceCampaign) {
+    try {
+      await hideCampaign(campaign.id);
+      setCampaigns((prev) => prev.filter((c) => c.id !== campaign.id));
+      toast.message("Campaign hidden");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't hide campaign");
+    }
+  }
+
+  async function onUnhideAll() {
+    try {
+      const { unhidden } = await unhideAllCampaigns();
+      if (unhidden === 0) {
+        toast.message("No hidden campaigns");
+      } else {
+        toast.message(unhidden === 1 ? "Unhid 1 campaign" : `Unhid ${unhidden} campaigns`);
+        refresh();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't unhide campaigns");
+    }
+  }
+
   return (
-    <div className="voice-page flex flex-col">
+    <QuickContextMenu
+      items={[{ label: "Unhide all campaigns", icon: Eye, onSelect: () => void onUnhideAll() }]}
+    >
+    <div className="voice-page flex min-h-[70vh] flex-col">
       <VoicePageHeader
         title="Outbound campaigns"
         actions={
@@ -279,6 +308,16 @@ export default function VoiceAgentsOutboundPage() {
                       onSelect: () => setToDelete(c),
                     });
                   }
+                  items.push({
+                    label: "Hide",
+                    icon: EyeOff,
+                    onSelect: () => void onHide(c),
+                  });
+                  items.push({
+                    label: "Unhide all campaigns",
+                    icon: Eye,
+                    onSelect: () => void onUnhideAll(),
+                  });
                   return (
                     <QuickContextMenu key={c.id} title={c.name} items={items}>
                       <li
@@ -322,6 +361,7 @@ export default function VoiceAgentsOutboundPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </QuickContextMenu>
   );
 }
 

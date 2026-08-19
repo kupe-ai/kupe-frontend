@@ -299,6 +299,11 @@ export function BillingPlanCards({
                   note="Phone number rental"
                   show={rentalRate != null}
                 />
+                <PlanFeature
+                  text={`${plan.channels} concurrent channel${plan.channels === 1 ? "" : "s"}`}
+                  note="Concurrency"
+                  show={plan.channels != null}
+                />
                 {plan.code === "enterprise" && (
                   <>
                     <PlanFeature text="Custom concurrency & rate limits" show />
