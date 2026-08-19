@@ -83,9 +83,14 @@ export function PeopleListsPanel({ createOpen, onCreateOpenChange }: {
       toast.message("Add at least one recipient with a phone number");
       return;
     }
+    const name = recipients.listName.trim();
+    if (lists.some((l) => l.name.trim().toLowerCase() === name.toLowerCase())) {
+      toast.error("A people list with this name already exists. Pick a different name.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const list = await createNamedRecipientList(recipients.listName.trim());
+      const list = await createNamedRecipientList(name);
       await saveRecipientsToList(list.id, recipients.columns, recipients.rows);
       toast.message("People list saved");
       onCreateOpenChange(false);

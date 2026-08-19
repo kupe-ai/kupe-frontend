@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Pause, Play, Trash2 } from "lucide-react";
+import { Copy, Pause, Play, RotateCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { KupeIcon } from "@/components/icons/kupe-icon";
@@ -43,6 +43,7 @@ import { useSession } from "@/context/session-context";
 import { listVoiceAgents } from "@/lib/api/voice/agents";
 import {
   canDeleteCampaign,
+  cloneCampaign,
   createCampaign,
   deleteCampaign,
   ensureCampaignRecipients,
@@ -181,64 +182,84 @@ export default function VoiceAgentsOutboundPage() {
                         toast.message("Name copied");
                       },
                     },
-                    c.status === "paused" || c.status === "draft"
-                      ? {
-                          label: "Resume",
-                          icon: Play,
-                          onSelect: () => {
-                            void (async () => {
-                              try {
-                                if (c.status === "draft") {
-                                  const agent = await api.getAgent(c.agent_id);
-                                  const required = requiredVariablesForAgent(agent);
-                                  if (required.length > 0) {
-                                    const page = await api.listBatchContactsCursor(c.id, {
-                                      limit: 100,
-                                      cursor: "",
-                                      status: "pending",
-                                    });
-                                    for (const contact of page.items) {
-                                      const missing = missingVariablesForContact(
-                                        required,
-                                        contact.variables,
-                                      );
-                                      if (missing.length) {
-                                        toast.error(
-                                          formatMissingVarsMessage(missing, {
-                                            phone: contact.phone_number,
-                                            more: Math.max(0, page.total - 1),
-                                          }),
-                                        );
-                                        navigate(`/outbound-campaigns/${c.id}`);
-                                        return;
-                                      }
-                                    }
+                  ];
+                  if (c.status === "paused" || c.status === "draft") {
+                    items.push({
+                      label: c.status === "draft" ? "Start" : "Resume",
+                      icon: Play,
+                      onSelect: () => {
+                        void (async () => {
+                          try {
+                            if (c.status === "draft") {
+                              const agent = await api.getAgent(c.agent_id);
+                              const required = requiredVariablesForAgent(agent);
+                              if (required.length > 0) {
+                                const page = await api.listBatchContactsCursor(c.id, {
+                                  limit: 100,
+                                  cursor: "",
+                                  status: "pending",
+                                });
+                                for (const contact of page.items) {
+                                  const missing = missingVariablesForContact(
+                                    required,
+                                    contact.variables,
+                                  );
+                                  if (missing.length) {
+                                    toast.error(
+                                      formatMissingVarsMessage(missing, {
+                                        phone: contact.phone_number,
+                                        more: Math.max(0, page.total - 1),
+                                      }),
+                                    );
+                                    navigate(`/outbound-campaigns/${c.id}`);
+                                    return;
                                   }
                                 }
-                                await resumeCampaign(c.id);
-                                toast.message("Campaign resumed");
-                                refresh();
-                              } catch (err) {
-                                toast.error(
-                                  err instanceof Error ? err.message : "Couldn't resume campaign",
-                                );
                               }
-                            })();
-                          },
-                        }
-                      : {
-                          label: "Pause",
-                          icon: Pause,
-                          onSelect: () => {
-                            void pauseCampaign(c.id)
-                              .then(() => {
-                                toast.message("Campaign paused");
-                                refresh();
-                              })
-                              .catch(() => toast.error("Couldn't pause campaign"));
-                          },
-                        },
-                  ];
+                            }
+                            await resumeCampaign(c.id);
+                            toast.message(c.status === "draft" ? "Campaign started" : "Campaign resumed");
+                            refresh();
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error ? err.message : "Couldn't resume campaign",
+                            );
+                          }
+                        })();
+                      },
+                    });
+                  } else if (c.status === "running") {
+                    items.push({
+                      label: "Pause",
+                      icon: Pause,
+                      onSelect: () => {
+                        void pauseCampaign(c.id)
+                          .then(() => {
+                            toast.message("Campaign paused");
+                            refresh();
+                          })
+                          .catch(() => toast.error("Couldn't pause campaign"));
+                      },
+                    });
+                  } else if (c.status === "completed") {
+                    items.push({
+                      label: "Re-run",
+                      icon: RotateCw,
+                      onSelect: () => {
+                        void (async () => {
+                          try {
+                            const copy = await cloneCampaign(c.id);
+                            toast.message("Campaign copied — start it when you're ready");
+                            navigate(`/outbound-campaigns/${copy.id}`);
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error ? err.message : "Couldn't re-run campaign",
+                            );
+                          }
+                        })();
+                      },
+                    });
+                  }
                   if (canDeleteCampaign(c)) {
                     items.push({
                       label: "Delete",
@@ -512,12 +533,15 @@ function ScheduleCampaignDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 sm:max-w-2xl" showCloseButton>
-        <DialogHeader>
+      <DialogContent
+        className="flex max-h-[min(92vh,44rem)] w-[min(96vw,42rem)] max-w-2xl flex-col gap-0 overflow-hidden sm:max-w-2xl"
+        showCloseButton
+      >
+        <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>Schedule campaign</DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4 flex flex-wrap gap-3 border-b border-border sm:gap-4">
+        <div className="mt-4 flex shrink-0 flex-wrap gap-3 border-b border-border sm:gap-4">
           {STEPS.map((label, i) => (
             <button
               key={label}
@@ -533,9 +557,9 @@ function ScheduleCampaignDialog({
           ))}
         </div>
 
-        <div className="mt-5 min-h-[260px] space-y-4">
+        <div className="mt-5 min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           {step === 0 ? (
-            <>
+            <div className="space-y-4">
               <div className="space-y-1.5">
                 <Label>
                   Campaign name <span className="text-destructive">*</span>
@@ -578,7 +602,7 @@ function ScheduleCampaignDialog({
                   </Select>
                 </div>
               </div>
-            </>
+            </div>
           ) : null}
 
           {step === 1 ? (
@@ -620,7 +644,7 @@ function ScheduleCampaignDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="mt-4 sm:justify-between">
+        <DialogFooter className="mt-4 shrink-0 sm:justify-between">
           <span className="text-sm text-muted-foreground">
             Step {step + 1} of {STEPS.length}
           </span>

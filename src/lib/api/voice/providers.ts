@@ -41,7 +41,7 @@ export interface VoiceProvidersCatalog {
 }
 
 async function loadProviders(): Promise<ProvidersResponse> {
-  const res = await fetch(`${BACKEND_URL}/v1/providers`);
+  const res = await fetch(`${BACKEND_URL}/v1/providers`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Backend returned ${res.status}`);
   return res.json();
 }

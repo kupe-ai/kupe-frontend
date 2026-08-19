@@ -17,7 +17,7 @@ export default function ProvidersPanel({ selection, onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/v1/providers`)
+    fetch(`${BACKEND_URL}/v1/providers`, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error(`Backend returned ${res.status}`);
         return res.json();

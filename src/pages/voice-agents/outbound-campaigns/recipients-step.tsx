@@ -100,6 +100,20 @@ export function RecipientsStep({
       .finally(() => setListsLoading(false));
   }, []);
 
+  const requiredKey = requiredVariables.join("\0");
+  useEffect(() => {
+    if (value.mode !== "new") return;
+    const keys = requiredKey ? requiredKey.split("\0") : [];
+    const missing = missingColumnsForRecipients(keys, value.columns);
+    if (!missing.length) return;
+    const columns = [...value.columns, ...missing];
+    onChange({
+      ...value,
+      columns,
+      rows: ensureTrailingBlank(columns, value.rows),
+    });
+  }, [requiredKey, value.mode]);
+
   function patch(partial: Partial<RecipientsState>) {
     onChange({ ...value, ...partial });
   }
@@ -166,37 +180,53 @@ export function RecipientsStep({
   }
 
   return (
-    <div className="space-y-3 py-2 text-sm">
+    <div className="min-w-0 space-y-3 py-2 text-sm">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="font-medium">Recipients</p>
           <p className="text-muted-foreground">
             Save people as a named list you can reuse, or pick an older list.
           </p>
         </div>
         {value.mode === "new" ? (
-          <Badge variant="secondary">{analysis.people} {analysis.people === 1 ? "person" : "people"}</Badge>
+          <Badge variant="secondary" className="shrink-0">
+            {analysis.people} {analysis.people === 1 ? "person" : "people"}
+          </Badge>
         ) : selected ? (
-          <Badge variant="secondary">
+          <Badge variant="secondary" className="shrink-0">
             {selected.member_count} {selected.member_count === 1 ? "person" : "people"}
           </Badge>
         ) : null}
       </div>
 
       {requiredVariables.length > 0 ? (
-        <Alert variant={missingRequiredCols.length ? "destructive" : "default"}>
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-            <span>
+        <Alert
+          variant={missingRequiredCols.length ? "destructive" : "default"}
+          className="min-w-0 overflow-hidden"
+        >
+          <AlertDescription className="min-w-0 space-y-2">
+            <p className="text-pretty">
               {missingRequiredCols.length
-                ? `This agent needs ${missingRequiredCols.map((k) => `{{${k}}}`).join(", ")} on every recipient — add those columns before launch.`
-                : `Agent expects: ${requiredVariables.map((k) => `{{${k}}}`).join(", ")}`}
-            </span>
+                ? "This agent needs these fields on every recipient — add the missing columns before launch."
+                : "Fill these fields for each recipient so the agent can use them."}
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {requiredVariables.map((key) => (
+                <Badge
+                  key={key}
+                  variant={missingRequiredCols.includes(key) ? "destructive" : "secondary"}
+                  className="max-w-full font-mono text-[11px]"
+                >
+                  <span className="truncate">{`{{${key}}}`}</span>
+                </Badge>
+              ))}
+            </div>
             {missingRequiredCols.length > 0 && value.mode === "new" ? (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
-                className="shrink-0 rounded-full"
+                className="rounded-full"
                 onClick={() => {
                   const columns = [...value.columns];
                   for (const key of missingRequiredCols) {
@@ -281,7 +311,7 @@ export function RecipientsStep({
               <Input
                 value={value.listName}
                 onChange={(e) => patch({ listName: e.target.value })}
-                placeholder="Q3 renewals — West"
+                placeholder="Give this list a name"
               />
             </div>
           ) : null}
@@ -296,7 +326,7 @@ export function RecipientsStep({
                   addPhone(draftPhone);
                 }
               }}
-              placeholder="+15551234567"
+              placeholder="Add a phone number"
               aria-label="Recipient phone"
             />
             <Button
@@ -313,7 +343,7 @@ export function RecipientsStep({
           <button
             type="button"
             className={cn(
-              "flex w-full flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center text-muted-foreground hover:bg-muted/30",
+              "flex w-full flex-col items-center gap-1.5 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-4 text-center text-sm text-muted-foreground hover:bg-muted/30",
               dragOver && "border-primary bg-primary/5 text-foreground",
             )}
             onClick={() => fileInputRef.current?.click()}
@@ -364,20 +394,25 @@ export function RecipientsStep({
             </div>
           ) : null}
 
-          <div className="max-h-[240px] overflow-auto rounded-xl border border-border">
-            <table className="w-full min-w-max caption-bottom text-sm">
+          <div className="max-h-[240px] w-full min-w-0 overflow-auto rounded-xl border border-border">
+            <table className="w-max min-w-full caption-bottom text-sm">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b border-border">
-                  {value.columns.map((col) => (
+                  {value.columns.map((col, colIndex) => (
                     <th
                       key={col}
-                      className="h-9 px-2.5 text-left text-xs font-medium tracking-wide whitespace-nowrap text-muted-foreground"
+                      className={cn(
+                        "h-9 p-1.5 text-left text-xs font-medium tracking-wide text-muted-foreground",
+                        colIndex === 0 && "sticky left-0 z-20 bg-background",
+                      )}
                     >
-                      {col}
-                      {col === PHONE_COLUMN ? " *" : ""}
+                      <span className="block max-w-[10rem] truncate px-2.5" title={col}>
+                        {col}
+                        {col === PHONE_COLUMN ? " *" : ""}
+                      </span>
                     </th>
                   ))}
-                  <th className="w-10 px-2" />
+                  <th className="sticky right-0 z-20 w-10 bg-background p-1.5" />
                 </tr>
               </thead>
               <tbody>
@@ -386,19 +421,22 @@ export function RecipientsStep({
                   const phoneEmpty = !row.values[PHONE_COLUMN]?.trim();
                   return (
                     <tr key={row.id} className="border-b border-border last:border-0">
-                      {value.columns.map((col) => {
+                      {value.columns.map((col, colIndex) => {
                         const empty = !row.values[col]?.trim();
                         const invalid = !blank && empty;
                         return (
-                          <td key={col} className="p-1.5">
+                          <td
+                            key={col}
+                            className={cn("p-1.5", colIndex === 0 && "sticky left-0 z-10 bg-background")}
+                          >
                             <Input
                               value={row.values[col] ?? ""}
                               onChange={(e) => updateCell(row.id, col, e.target.value)}
-                              placeholder={col === PHONE_COLUMN ? "+15551234567" : col}
+                              placeholder={col === PHONE_COLUMN ? "Phone" : ""}
                               aria-invalid={invalid}
                               aria-label={`${col} row ${index + 1}`}
                               className={cn(
-                                "min-w-[9rem]",
+                                "w-40",
                                 invalid && col === PHONE_COLUMN && phoneEmpty
                                   ? "border-destructive"
                                   : undefined,
@@ -407,7 +445,7 @@ export function RecipientsStep({
                           </td>
                         );
                       })}
-                      <td className="p-1.5">
+                      <td className="sticky right-0 z-10 bg-background p-1.5">
                         <Button
                           type="button"
                           variant="ghost"

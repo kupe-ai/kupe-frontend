@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Pause, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, Pause, Play, RotateCw, Trash2 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
-import { PipelineFunnel } from "@/components/voice-agents/pipeline-funnel";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +35,7 @@ import {
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import {
   canDeleteCampaign,
+  cloneCampaign,
   deleteCampaign,
   getCampaign,
   getCampaignStats,
@@ -101,6 +101,7 @@ export default function VoiceAgentsOutboundDetailPage() {
   const [tab, setTab] = useState("overview");
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [rerunning, setRerunning] = useState(false);
 
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [peopleTotal, setPeopleTotal] = useState(0);
@@ -163,6 +164,20 @@ export default function VoiceAgentsOutboundDetailPage() {
   useEffect(() => {
     if (tab === "recipients") void loadPeople(null, true);
   }, [tab, statusFilter, loadPeople]);
+
+  async function onRerun() {
+    if (!campaign || rerunning) return;
+    setRerunning(true);
+    try {
+      const copy = await cloneCampaign(campaign.id);
+      toast.message("Campaign copied — start it when you're ready");
+      navigate(`/outbound-campaigns/${copy.id}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't re-run campaign");
+    } finally {
+      setRerunning(false);
+    }
+  }
 
   async function onPauseResume() {
     if (!campaign) return;
@@ -250,15 +265,6 @@ export default function VoiceAgentsOutboundDetailPage() {
     [overview],
   );
 
-  const funnelStages = useMemo(() => {
-    if (overview.total === 0) return [];
-    return [
-      { label: "Total", value: overview.total },
-      { label: "Reached", value: overview.done + overview.ongoing },
-      { label: "Answered", value: overview.answered },
-    ];
-  }, [overview]);
-
   if (loading || !campaign) {
     return (
       <div className="voice-page flex flex-col gap-4">
@@ -293,6 +299,12 @@ export default function VoiceAgentsOutboundDetailPage() {
             <Button variant="outline" className="rounded-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="size-4" />
               Delete
+            </Button>
+          ) : null}
+          {campaign.status === "completed" ? (
+            <Button className="rounded-full" disabled={rerunning} onClick={() => void onRerun()}>
+              <RotateCw className="size-4" />
+              {rerunning ? "Copying…" : "Re-run"}
             </Button>
           ) : null}
           {(campaign.status === "running" ||
@@ -378,8 +390,6 @@ export default function VoiceAgentsOutboundDetailPage() {
                   </ChartContainer>
                 )}
               </div>
-
-              {funnelStages.length > 0 ? <PipelineFunnel stages={funnelStages} /> : null}
             </>
           )}
         </TabsContent>

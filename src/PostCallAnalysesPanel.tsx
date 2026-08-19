@@ -47,7 +47,7 @@ export function PostCallAnalysesPanel({ orgId }: Props) {
       .catch((e) => setError(e.message));
 
   useEffect(() => {
-    fetch(`${BACKEND_URL}/v1/providers`)
+    fetch(`${BACKEND_URL}/v1/providers`, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error(`Backend returned ${res.status}`);
         return res.json();

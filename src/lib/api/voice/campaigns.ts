@@ -123,6 +123,43 @@ export async function deleteCampaign(campaignId: string) {
   await api.deleteBatch(campaignId);
 }
 
+export async function cloneCampaign(sourceId: string): Promise<VoiceCampaign> {
+  const source = await api.getBatch(sourceId);
+  const created = await api.createBatch({
+    org_id: source.org_id,
+    project_id: source.project_id,
+    agent_id: source.agent_id,
+    telephony_account_id: source.telephony_account_id,
+    name: source.name,
+    max_concurrent_calls: source.max_concurrent_calls,
+    retry_policy: source.retry_policy,
+    schedule: source.schedule,
+  });
+  if (source.recipient_list_id) {
+    await api.attachRecipientListToBatch(created.id, source.recipient_list_id);
+  } else {
+    let cursor: string | null = "";
+    for (;;) {
+      const page = await api.listBatchContactsCursor(sourceId, {
+        limit: 200,
+        cursor: cursor || "",
+      });
+      if (page.items.length > 0) {
+        await api.addBatchContactsBulk(
+          created.id,
+          page.items.map((c) => ({
+            phone_number: c.phone_number,
+            variables: c.variables ?? {},
+          })),
+        );
+      }
+      if (!page.next_cursor || page.items.length === 0) break;
+      cursor = page.next_cursor;
+    }
+  }
+  return toCampaign(await api.getBatch(created.id));
+}
+
 export async function listRecipientLists(params?: { limit?: number; offset?: number }) {
   const { orgId, projectId } = requireScope();
   return api.listRecipientLists(orgId, projectId, params);
@@ -131,6 +168,11 @@ export async function listRecipientLists(params?: { limit?: number; offset?: num
 export async function createNamedRecipientList(name: string, description = "") {
   const { orgId, projectId } = requireScope();
   return api.createRecipientList({ org_id: orgId, project_id: projectId, name, description });
+}
+
+export async function findRecipientListByName(name: string): Promise<RecipientList | null> {
+  const page = await listRecipientLists({ limit: 1, name: name.trim() });
+  return page.items[0] ?? null;
 }
 
 export async function saveRecipientsToList(
@@ -183,17 +225,12 @@ export async function ensureCampaignRecipients(opts: {
 
   let listId = opts.boundListId ?? null;
   if (!listId) {
-    try {
+    const existing = await findRecipientListByName(name);
+    if (existing) {
+      listId = existing.id;
+    } else {
       const list = await createNamedRecipientList(name);
       listId = list.id;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (msg.toLowerCase().includes("already exists")) {
-        const list = await createNamedRecipientList(`${name} · ${new Date().toLocaleTimeString()}`);
-        listId = list.id;
-      } else {
-        throw err;
-      }
     }
   }
 

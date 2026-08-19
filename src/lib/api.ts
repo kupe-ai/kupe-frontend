@@ -75,7 +75,7 @@ import type {
   KnowledgeFile,
 } from "../types";
 
-export type ListParams = { limit?: number; offset?: number };
+export type ListParams = { limit?: number; offset?: number; name?: string };
 export type DisplayCurrency = "USD" | "INR";
 
 function qs(params?: ListParams): string {
@@ -83,6 +83,7 @@ function qs(params?: ListParams): string {
   const sp = new URLSearchParams();
   if (params.limit != null) sp.set("limit", String(params.limit));
   if (params.offset != null) sp.set("offset", String(params.offset));
+  if (params.name) sp.set("name", params.name);
   const s = sp.toString();
   return s ? `?${s}` : "";
 }
@@ -136,7 +137,8 @@ async function throwIfNotOk(res: Response, path: string, method: string): Promis
   const message =
     typeof detail === "string" ? detail : detail != null ? JSON.stringify(detail) : `Backend returned ${res.status}`;
   const err = new Error(message);
-  if (res.status !== 401 && res.status !== 403 && res.status !== 404) {
+  // Expected client errors (auth, missing, validation, conflicts) are not bugs.
+  if (![400, 401, 403, 404, 409, 422].includes(res.status)) {
     captureException(err, { source: "api.http", path, method, status: res.status });
   }
   throw err;
