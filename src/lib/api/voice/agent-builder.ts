@@ -401,7 +401,7 @@ export async function deleteAgentTool(agentId: string, id: string) {
 const SYSTEM_TOOL_DESCRIPTIONS: Record<SystemToolName, string> = {
   end_call: "Hang up when the conversation is complete.",
   transfer_call: "Warm-transfer to a destination configured below.",
-  voicemail: "Leave a voicemail if the callee doesn't pick up (telephony only).",
+  voicemail: "Leave a voicemail if the callee doesn't pick up (outbound telephony only).",
 };
 
 export type SystemToolName = "end_call" | "transfer_call" | "voicemail";

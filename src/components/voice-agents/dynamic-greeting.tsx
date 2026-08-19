@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -122,9 +121,14 @@ export function DynamicGreetingSwitch({ config, setEnabled }: DynamicGreetingSta
         {/* Deliberately not a <label>: Radix renders the Switch as a button,
             which a wrapping label would toggle a second time. */}
         <span className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Sparkles
-            className={config.enabled ? "size-3.5 text-primary" : "size-3.5"}
-            strokeWidth={1.75}
+          <img
+            src="/brand/kupe-mark.png"
+            alt=""
+            width={14}
+            height={14}
+            className="size-3.5 shrink-0 rounded-[3px] object-contain"
+            draggable={false}
+            aria-hidden
           />
           <span className="whitespace-nowrap">Dynamic</span>
           <Switch

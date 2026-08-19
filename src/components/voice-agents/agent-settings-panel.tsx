@@ -811,7 +811,10 @@ export function AgentSettingsPanel({
           </Select>
         </SettingRow>
       )}
-      <SettingRow title="Voicemail" description="Leave a message when voicemail is detected">
+      <SettingRow
+        title="Voicemail"
+        description="On outbound calls, detect an answering machine and leave a message instead of talking to it. Inbound calls skip the check — someone already picked up."
+      >
         <Switch checked={settings.voicemail_enabled} onCheckedChange={(v) => set("voicemail_enabled", v)} />
       </SettingRow>
       <SettingRow title="Voicemail message" description="What the agent says on voicemail" className="items-start">
