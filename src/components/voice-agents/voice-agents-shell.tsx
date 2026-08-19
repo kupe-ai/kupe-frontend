@@ -5,7 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { ModernIcon } from "@/components/icons/modern-icon";
+import { NavItemIcon } from "@/components/voice-agents/nav-item-icon";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
@@ -15,12 +15,14 @@ import {
 function NavLinkRow({
   href,
   label,
+  id,
   icon,
   active,
   collapsed,
 }: {
   href: string;
   label: string;
+  id: string;
   icon: (typeof VOICE_AGENTS_FOOTER_NAV)[number]["icon"];
   active: boolean;
   collapsed?: boolean;
@@ -37,7 +39,7 @@ function NavLinkRow({
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
       )}
     >
-      <ModernIcon name={icon} className="size-5" />
+      <NavItemIcon id={id} icon={icon} className="size-5" />
       {!collapsed && <span className="truncate">{label}</span>}
     </Link>
   );
@@ -101,6 +103,7 @@ export function VoiceAgentsShell({ children }: { children: ReactNode }) {
                   key={item.id}
                   href={item.href}
                   label={item.label}
+                  id={item.id}
                   icon={item.icon}
                   active={isVoiceAgentsNavActive(pathname, item.href)}
                   collapsed={collapsed}
@@ -116,6 +119,7 @@ export function VoiceAgentsShell({ children }: { children: ReactNode }) {
               key={item.id}
               href={item.href}
               label={item.label}
+              id={item.id}
               icon={item.icon}
               active={isVoiceAgentsNavActive(pathname, item.href)}
               collapsed={collapsed}

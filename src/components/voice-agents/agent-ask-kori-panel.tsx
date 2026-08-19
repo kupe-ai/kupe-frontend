@@ -53,7 +53,7 @@ function formatDuration(totalSeconds: number): string {
 }
 
 /**
- * Embedded Ask Kupe companion for the agent editor — always visible on the
+ * Embedded Ask Kai companion for the agent editor — always visible on the
  * right. Text chat runs a live kupe-harness (Kai) session scoped to this
  * agent (see lib/ask-ai/kupe-agent-store.ts) and can actually edit the
  * agent via kupe-mcp tool calls, not just suggest changes. Talk uses a
@@ -380,7 +380,7 @@ export function AgentAskKoriPanel({
                   {t.text && <MarkdownMessage text={t.text} />}
                   {t.error && <p className="text-xs text-destructive">{sanitizeChatError(t.error)}</p>}
                   {t.streaming && !t.text && t.steps.length === 0 && (
-                    <WorkingShimmer label={t.status || "Kupe is working…"} />
+                    <WorkingShimmer label={t.status || "Kai is working…"} />
                   )}
                 </div>
               ),
@@ -394,7 +394,7 @@ export function AgentAskKoriPanel({
           value={draft}
           onChange={setDraft}
           onSend={onSend}
-          placeholder={live ? "Talking — type to ask Kupe after the call…" : "Ask AI or describe a change…"}
+          placeholder={live ? "Talking — type to ask Kai after the call…" : "Ask Kai or describe a change…"}
           disabled={live}
           sending={sending}
           attachments={kupeStore.attachments}

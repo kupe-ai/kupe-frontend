@@ -1,7 +1,7 @@
 /** Module-level (not React-context) store for the Kai/Kupe autonomous
  * agent session that backs both the "What should your voice agent do?"
  * create flow (pages/voice-agents/agents/page.tsx) and the in-editor
- * "Ask Kupe" panel (components/voice-agents/agent-ask-kori-panel.tsx).
+ * "Ask Kai" panel (components/voice-agents/agent-ask-kori-panel.tsx).
  *
  * Living outside the component tree is deliberate: creating an agent
  * kicks off a harness turn that keeps running tool calls (attach a voice,

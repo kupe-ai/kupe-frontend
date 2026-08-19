@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getShortcutLabel } from "@/lib/platform";
+import { NavItemIcon } from "@/components/voice-agents/nav-item-icon";
 import { ModernIcon } from "@/components/icons/modern-icon";
 import { KupeIcon, type KupeIconName } from "@/components/icons/kupe-icon";
 import {
@@ -185,7 +186,7 @@ export function CommandPalette({
                       onSelect={() => go(item.href, item.label)}
                       className={cn("group/nav gap-2.5", active && "font-semibold")}
                     >
-                      <ModernIcon name={item.icon} className="size-5 text-muted-foreground" />
+                      <NavItemIcon id={item.id} icon={item.icon} className="size-5 text-muted-foreground" />
                       <span className="flex-1">{item.label}</span>
                       {active && (
                         <span className="text-xs text-muted-foreground">Current</span>

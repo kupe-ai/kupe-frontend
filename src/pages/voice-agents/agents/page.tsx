@@ -150,7 +150,7 @@ export default function VoiceAgentsAgentsPage() {
         title="Agents"
         actions={
           <div className="flex items-center gap-2">
-            <AskAiToolbarButton label="Ask Kupe" />
+            <AskAiToolbarButton label="Ask Kai" />
             <Button
               className="group/nav rounded-full"
               onClick={() => void createFromScratch()}

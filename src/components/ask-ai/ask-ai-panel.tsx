@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
-import { AiStar } from "@/components/brand/ai-star";
-import { Sparkles } from "lucide-react";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
+import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 import {
@@ -57,8 +57,8 @@ export function AskAiPanel() {
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
         <SheetHeader className="gap-1 border-b border-border px-4 py-3">
           <SheetTitle className="flex items-center gap-2 text-[15px]">
-            <AiStar size={16} />
-            Ask Kupe
+            <AgentAvatar seed={KAI_AVATAR_SEED} size={16} alt="" />
+            Ask Kai
           </SheetTitle>
           <SheetDescription className="text-xs">
             Manages agents, campaigns, calls, and analytics for this workspace.
@@ -69,8 +69,8 @@ export function AskAiPanel() {
           <ConversationContent className="gap-4 px-4">
             {kupeStore.turns.length === 0 ? (
               <ConversationEmptyState
-                icon={<Sparkles className="size-6" />}
-                title="What should Kupe do?"
+                icon={<AgentAvatar seed={KAI_AVATAR_SEED} size={24} alt="" />}
+                title="What should Kai do?"
                 description="Try one of these, or type your own request below."
               >
                 <div className="mt-2">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
+import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
 import { VoicePageHeader } from "@/components/voice-agents/shared";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export default function AskKupePage() {
   const canSubmit = (prompt.trim().length > 0 || kupeStore.attachments.length > 0) && !busy && hasWorkspace;
 
   useEffect(() => {
-    document.title = "Ask Kupe · Voice Agents · Kupe";
+    document.title = "Ask Kai · Voice Agents · Kupe";
   }, []);
 
   function submit(text = prompt) {
@@ -73,14 +74,32 @@ export default function AskKupePage() {
   }
 
   return (
-    <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-6">
-      <VoicePageHeader title="Ask Kupe" />
+    <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-[min(52%,36rem)]"
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_18%,color-mix(in_oklab,var(--kupe-hero)_18%,transparent),transparent_62%)] dark:bg-[radial-gradient(ellipse_at_100%_18%,color-mix(in_oklab,var(--kupe-hero)_32%,transparent),transparent_68%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_88%,color-mix(in_oklab,var(--kupe-hero-soft)_10%,transparent),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_100%_88%,color-mix(in_oklab,var(--kupe-hero-soft)_22%,transparent),transparent_74%)]" />
+        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/25 to-transparent dark:via-primary/35" />
+      </div>
+
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-6">
+      <VoicePageHeader
+        title="Ask Kai"
+        className="relative z-[1]"
+        actions={
+          <p className="hidden text-[13px] text-muted-foreground sm:block">
+            Helper agent of Kupe AI
+          </p>
+        }
+      />
 
       {!chatting ? (
         <section className="mt-10 flex flex-1 flex-col items-center text-center">
-          <AgentAvatar muted size={64} alt="" className="text-neutral-500 opacity-60 dark:text-neutral-400" />
+          <AgentAvatar seed={KAI_AVATAR_SEED} muted size={64} alt="" className="text-neutral-500 opacity-60 dark:text-neutral-400" />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
-            What should Kupe do?
+            What should Kai do?
           </h1>
           <div className="mt-5 w-full max-w-2xl space-y-3">
             <AttachmentChips files={kupeStore.attachments} onRemove={removeAttachment} />
@@ -117,14 +136,14 @@ export default function AskKupePage() {
                     if (e.key === "Enter") submit();
                   }}
                   className="h-12 w-full min-w-0 rounded-full border-0 bg-transparent px-3 text-left text-sm outline-none placeholder:text-muted-foreground md:h-14 md:text-base"
-                  placeholder={focused && !prompt ? "Ask Kupe…" : undefined}
-                  aria-label="Ask Kupe"
+                  placeholder={focused && !prompt ? "Ask Kai…" : undefined}
+                  aria-label="Ask Kai"
                   disabled={busy || !hasWorkspace}
                 />
                 {!prompt && !focused ? (
                   <CyclingPromptPlaceholder
                     paused={busy}
-                    prefix="Ask Kupe to"
+                    prefix="Ask Kai to"
                     suffixes={[
                       "create a voice agent that qualifies inbound leads",
                       "launch a campaign from a CSV of leads",
@@ -187,6 +206,7 @@ export default function AskKupePage() {
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

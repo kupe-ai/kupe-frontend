@@ -1,5 +1,5 @@
 /** Chat-facing copy. Vendor names, JSON blobs, and subscription-tier
- * messages must never render in the Ask Kupe UI -- PostHog still gets
+ * messages must never render in the Ask Kai UI -- PostHog still gets
  * the raw payload from the harness / captureException properties. */
 
 import { isAbortError, isBrowserNetworkError } from "@/lib/network-error";

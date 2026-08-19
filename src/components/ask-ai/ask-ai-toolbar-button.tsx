@@ -2,12 +2,13 @@
 
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { AiStar } from "@/components/brand/ai-star";
+import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
+import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { Button } from "@/components/ui/button";
 
 export function AskAiToolbarButton({
   className,
-  label = "Ask Kupe",
+  label = "Ask Kai",
   labelClassName,
 }: {
   className?: string;
@@ -33,7 +34,7 @@ export function AskAiToolbarButton({
         className,
       )}
     >
-      <AiStar size={14} className="shrink-0" />
+      <AgentAvatar seed={KAI_AVATAR_SEED} size={14} className="shrink-0" alt="" />
       <span className={labelClassName}>{label}</span>
     </Button>
   );

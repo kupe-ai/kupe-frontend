@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Check, ChevronDown, ChevronRight, Loader2, Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Brain, Check, ChevronDown, ChevronRight, Loader2, Wrench } from "lucide-react";
 import type { AgentStep } from "@/lib/ask-ai/types";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -34,6 +34,7 @@ function ReasoningRow({
         type="button"
         className="flex w-full items-center gap-1.5 text-left"
       >
+        <Brain className="size-3 shrink-0 text-muted-foreground" />
         {active ? (
           <span className="kori-shimmer-text font-medium">Thinking...</span>
         ) : (
@@ -66,7 +67,7 @@ function ToolCallRow({ step }: { step: Extract<AgentStep, { kind: "tool_call" }>
           ) : step.isError ? (
             <span className="ml-1.5 text-muted-foreground">attempted</span>
           ) : (
-            <Check className="ml-1.5 inline size-3 text-muted-foreground" />
+            <Check className="ml-1.5 inline size-3 text-emerald-500" />
           )}
         </div>
       </CollapsibleTrigger>
@@ -93,7 +94,10 @@ function ToolCallRow({ step }: { step: Extract<AgentStep, { kind: "tool_call" }>
 }
 
 export function AgentSteps({ steps, streaming }: { steps: AgentStep[]; streaming: boolean }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(streaming);
+  useEffect(() => {
+    setOpen(streaming);
+  }, [streaming]);
   const toolCalls = steps.filter((s) => s.kind === "tool_call").length;
   const thoughts = steps.filter((s) => s.kind === "reasoning").length;
   const parts = [

@@ -8,8 +8,8 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ModernIcon } from "@/components/icons/modern-icon";
 import { KupeIcon } from "@/components/icons/kupe-icon";
+import { NavItemIcon } from "@/components/voice-agents/nav-item-icon";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -92,7 +92,7 @@ function NavLinks({
                 : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             );
 
-            const icon = <ModernIcon name={item.icon} className="size-5" />;
+            const icon = <NavItemIcon id={item.id} icon={item.icon} className="size-5" />;
 
             const link = isSettings ? (
               <button
@@ -392,7 +392,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                   active ? "text-primary" : "text-muted-foreground",
                 )}
               >
-                <ModernIcon name={item.icon} className="size-5" />
+                <NavItemIcon id={item.id} icon={item.icon} className="size-5" />
                 {item.label}
               </Link>
             );

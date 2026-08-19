@@ -25,7 +25,7 @@ export function AskKupeTurn({ turn }: { turn: ChatTurn }) {
           </MessageContent>
         </Message>
       ) : turn.streaming && turn.steps.length === 0 ? (
-        <WorkingShimmer label={turn.status || "Kupe is working…"} />
+        <WorkingShimmer label={turn.status || "Kai is working…"} />
       ) : null}
       {turn.error ? <p className="text-xs text-destructive">{sanitizeChatError(turn.error)}</p> : null}
     </div>
