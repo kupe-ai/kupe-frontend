@@ -145,6 +145,7 @@ const DEFAULTS: Required<
   nudges: [],
   hangup_after_unanswered_nudges: false,
   thinking_sounds: false,
+  auto_cut_enabled: false,
   voicemail_enabled: false,
   voicemail_message: "",
   max_call_length_minutes: 10,
@@ -766,6 +767,12 @@ export function AgentSettingsPanel({
           checked={settings.hangup_after_unanswered_nudges}
           onCheckedChange={(v) => set("hangup_after_unanswered_nudges", v)}
         />
+      </SettingRow>
+      <SettingRow
+        title="Allow agent to hang up"
+        description="Lets the agent end the call when the conversation is done"
+      >
+        <Switch checked={!!settings.auto_cut_enabled} onCheckedChange={(v) => set("auto_cut_enabled", v)} />
       </SettingRow>
       <SettingRow title="Voicemail" description="Leave a message when voicemail is detected">
         <Switch checked={settings.voicemail_enabled} onCheckedChange={(v) => set("voicemail_enabled", v)} />
