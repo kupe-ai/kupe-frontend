@@ -329,7 +329,7 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       { method: "GET", path: "/v1/orgs/{org_id}/usage", summary: "Usage/cost summary for an org." },
       { method: "GET", path: "/v1/orgs/{org_id}/usage/daily", summary: "Daily usage rollups." },
       { method: "GET", path: "/v1/orgs/{org_id}/usage/sessions", summary: "Call sessions with clubbed cost. Pass currency=USD|INR (default USD)." },
-      { method: "GET", path: "/v1/sessions/{session_id}/usage", summary: "Per-call metric breakdown, including TTS used on the call." },
+      { method: "GET", path: "/v1/sessions/{session_id}/usage", summary: "Per-call metric breakdown, including TTS used on the call and a Kupe infra_cost markup line." },
       { method: "GET", path: "/v1/orgs/{org_id}/usage/standalone", summary: "Non-call usage such as Voice Library TTS." },
     ],
     curlTabs: [

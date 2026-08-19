@@ -12,6 +12,7 @@ import { enterAgentScope, removeAttachment, sendForAgent, uploadAttachment } fro
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { applyPerceivedLatency } from "@/lib/voice/turn-latency";
 import { isThinkingPhone } from "@/lib/voice/thinking-phone";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
 import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
@@ -50,9 +51,6 @@ function formatDuration(totalSeconds: number): string {
   const s = totalSeconds % 60;
   return `${m}:${String(s).padStart(2, "0")}`;
 }
-
-/** Sub-800ms is the target for user-stops-speaking -> agent-starts-speaking. */
-const LATENCY_TARGET_MS = 800;
 
 /**
  * Embedded Ask Kupe companion for the agent editor — always visible on the
@@ -175,7 +173,11 @@ export function AgentAskKoriPanel({
             value_ms?: number;
           };
           if (parsed.kind === "latency" && parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
-            pendingLatencyRef.current = parsed.value_ms;
+            setVoiceMessages((prev) => {
+              const { turns, attached } = applyPerceivedLatency(prev, parsed.value_ms!, "kori");
+              pendingLatencyRef.current = attached ? null : parsed.value_ms!;
+              return turns;
+            });
           }
         } catch {
           // ignore non-JSON / non-latency data messages
@@ -347,11 +349,7 @@ export function AgentAskKoriPanel({
               <div key={m.id} className="animate-pop-in-up space-y-1.5">
                 <p className="text-sm leading-relaxed text-foreground">{m.text}</p>
                 {m.latencyMs !== undefined && (
-                  <span
-                    className={`block text-[10px] ${
-                      m.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
-                    }`}
-                  >
+                  <span className="block text-[10px] text-muted-foreground">
                     responded in {Math.round(m.latencyMs)} ms
                   </span>
                 )}

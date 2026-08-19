@@ -153,7 +153,7 @@ function VoiceLibraryPageInner() {
           />
           <VoiceSection
             title="My voices"
-            description="Voices you've cloned — private by default, or shared with your workspace."
+            description="Voices you've cloned — private by default, or public for every user once saved in the database."
             voices={myVoices}
             loading={loading}
             isOwner
@@ -163,7 +163,7 @@ function VoiceLibraryPageInner() {
           />
           <VoiceSection
             title="All voices"
-            description="Catalog voices for every provider, plus workspace voices others have made public."
+            description="Catalog voices for every provider, plus cloned voices anyone has marked public in the database."
             voices={otherVoices}
             loading={loading}
             onChanged={() => void refresh()}

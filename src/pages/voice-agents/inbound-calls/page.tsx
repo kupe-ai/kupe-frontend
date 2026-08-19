@@ -539,10 +539,6 @@ function ManageInboundDialog({
                 "—"
               )}
             </p>
-            <p className="mt-3 text-xs font-medium text-muted-foreground">Plivo Answer URL</p>
-            <p className="mt-1 break-all font-mono text-xs">{`${API_BASE_URL}/v1/telephony/plivo/inbound`}</p>
-            <p className="mt-2 text-xs font-medium text-muted-foreground">Plivo Hangup URL</p>
-            <p className="mt-1 break-all font-mono text-xs">{`${API_BASE_URL}/v1/telephony/plivo/inbound/status`}</p>
           </div>
 
           <div className="space-y-1.5">

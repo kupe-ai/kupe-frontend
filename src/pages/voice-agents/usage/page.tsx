@@ -49,6 +49,7 @@ const METRIC_LABEL: Record<string, string> = {
   tts_audio_seconds: "Text-to-speech (audio)",
   phone_number_purchase: "Phone number purchased",
   phone_number_rent: "Monthly rent",
+  infra_cost: "Infra cost",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -281,7 +282,6 @@ export default function UsagePage() {
         <StatTile
           label="Usage Cost"
           value={loading ? null : formatMoney(displayCost, currency)}
-          caption={costSummary?.fx_date ? `Rate as of ${costSummary.fx_date}` : undefined}
         />
         <StatTile label="Call sessions" value={loading ? null : String(sessionTotal)} />
       </div>
@@ -430,7 +430,9 @@ export default function UsagePage() {
                       <td className="py-2 pr-3 text-muted-foreground">
                         {formatProviderModel(m.provider_name, m.model_name)}
                       </td>
-                      <td className="py-2 text-right font-mono tabular-nums">{m.total_quantity.toLocaleString()}</td>
+                      <td className="py-2 text-right font-mono tabular-nums">
+                        {m.metric_type === "infra_cost" ? "—" : m.total_quantity.toLocaleString()}
+                      </td>
                       <td className="py-2 text-right font-mono tabular-nums">
                         {formatMoney(m.cost ?? 0, m.currency || currency)}
                       </td>

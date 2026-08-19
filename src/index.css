@@ -333,6 +333,10 @@
   .text-primary {
     color: var(--primary) !important;
   }
+
+  .dark .text-primary {
+    color: var(--primary-from) !important;
+  }
 }
 
 /* ------------------------------------------------------------------ *

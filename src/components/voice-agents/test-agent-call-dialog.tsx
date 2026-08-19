@@ -15,6 +15,7 @@ import { api } from "@/lib/api";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { isThinkingPhone } from "@/lib/voice/thinking-phone";
+import { applyPerceivedLatency } from "@/lib/voice/turn-latency";
 
 interface LiveTurn {
   id: string;
@@ -35,9 +36,6 @@ function formatDuration(totalSeconds: number): string {
 function demoVarLabel(key: string): string {
   return key.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ");
 }
-
-/** Sub-800ms is the target for user-stops-speaking -> agent-starts-speaking. */
-const LATENCY_TARGET_MS = 800;
 
 function callErrorCopy(raw: string): { title: string; body: string } {
   if (/concurrency|didn't hang up|did not hang up/i.test(raw)) {
@@ -187,7 +185,11 @@ export function TestAgentCallDialog({
           };
           if (parsed.kind === "latency") {
             if (parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
-              pendingLatencyRef.current = parsed.value_ms;
+              setTurns((prev) => {
+                const { turns, attached } = applyPerceivedLatency(prev, parsed.value_ms!, "agent");
+                pendingLatencyRef.current = attached ? null : parsed.value_ms!;
+                return turns;
+              });
             }
             return;
           }
@@ -195,19 +197,26 @@ export function TestAgentCallDialog({
           const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
           if (role === "agent" && isThinkingPhone(parsed.text)) return;
           const id = `${role}-live`;
-          const latencyMs =
-            role === "agent" && parsed.final !== false ? (pendingLatencyRef.current ?? undefined) : undefined;
-          if (latencyMs !== undefined) pendingLatencyRef.current = null;
           setTurns((prev) => {
             const next = [...prev];
             if (parsed.final === false) {
               const idx = next.findIndex((t) => t.id === id);
-              if (idx >= 0) next[idx] = { id, role, text: parsed.text! };
+              if (idx >= 0) next[idx] = { ...next[idx], text: parsed.text! };
               else next.push({ id, role, text: parsed.text! });
               return next;
             }
             const liveIdx = next.findIndex((t) => t.id === id);
-            const turn = { id: `${role}-${next.length}-${parsed.text!.slice(0, 12)}`, role, text: parsed.text!, latencyMs };
+            const pending =
+              role === "agent"
+                ? (pendingLatencyRef.current ?? (liveIdx >= 0 ? next[liveIdx].latencyMs : undefined))
+                : undefined;
+            if (pending !== undefined) pendingLatencyRef.current = null;
+            const turn = {
+              id: `${role}-${next.length}-${parsed.text!.slice(0, 12)}`,
+              role,
+              text: parsed.text!,
+              latencyMs: pending,
+            };
             if (liveIdx >= 0) next[liveIdx] = turn;
             else next.push(turn);
             return next;
@@ -448,11 +457,7 @@ export function TestAgentCallDialog({
                         <MessageContent variant="contained">{t.text}</MessageContent>
                       </Message>
                       {t.latencyMs !== undefined && (
-                        <span
-                          className={`mt-0.5 px-1 text-[10px] ${
-                            t.latencyMs <= LATENCY_TARGET_MS ? "text-muted-foreground" : "text-amber-600"
-                          }`}
-                        >
+                        <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">
                           responded in {Math.round(t.latencyMs)} ms
                         </span>
                       )}
