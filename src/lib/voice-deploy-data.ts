@@ -216,13 +216,15 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
     tone: "emerald",
     headline: "Answer every inbound call with your agent.",
     about:
-      "Bind an agent to a number and set when it answers. Calls outside those hours are not connected. Availability is stored on the inbound deployment and evaluated in the number’s timezone.",
+      "Bind an agent to a number and set when it answers. Calls outside those hours are not connected. Availability is stored on the inbound deployment and evaluated in the number’s timezone. For Plivo, set the number’s Answer URL to https://x.kupe.in/v1/telephony/plivo/inbound and Hangup URL to https://x.kupe.in/v1/telephony/plivo/inbound/status (POST). Kupe-managed numbers get these URLs attached on purchase.",
     endpoints: [
       { method: "POST", path: "/v1/inbound", summary: "Create an inbound deployment (agent + number + hours)." },
       { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/inbound", summary: "List inbound deployments." },
       { method: "GET", path: "/v1/inbound/{deployment_id}", summary: "Get one inbound deployment." },
       { method: "PATCH", path: "/v1/inbound/{deployment_id}", summary: "Update name, status, agent, or availability." },
       { method: "DELETE", path: "/v1/inbound/{deployment_id}", summary: "Remove an inbound deployment." },
+      { method: "POST", path: "/v1/telephony/plivo/inbound", summary: "Plivo inbound Answer URL (voice_url) — set this on the number." },
+      { method: "POST", path: "/v1/telephony/plivo/inbound/status", summary: "Plivo inbound Hangup URL (hangup_url)." },
       { method: "POST", path: "/v1/orgs/{org_id}/telephony-accounts", summary: "Connect a Twilio/Plivo/Exotel account." },
       { method: "GET", path: "/v1/orgs/{org_id}/telephony-accounts", summary: "List connected telephony accounts." },
     ],

@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { flagForNumber } from "@/lib/country-flag";
 import type { PlivoComplianceApplication, PlivoCountry, PlivoNumberSearchResult } from "@/types";
+import { API_BASE_URL } from "@/lib/voice-deploy-data";
 
 type ProviderPick = "twilio" | "plivo";
 type Step =
@@ -333,7 +334,11 @@ function ByokForm({
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         {isPlivo
-          ? "Uses your own Plivo account. Calls bill to Plivo, not the Kupe wallet."
+          ? "Uses your own Plivo account. Calls bill to Plivo, not the Kupe wallet. Set this number’s Answer URL to POST " +
+            `${API_BASE_URL}/v1/telephony/plivo/inbound` +
+            " and Hangup URL to POST " +
+            `${API_BASE_URL}/v1/telephony/plivo/inbound/status` +
+            "."
           : "Uses your own Twilio account."}
       </p>
       <div className="space-y-1.5">

@@ -53,6 +53,7 @@ import {
 } from "@/lib/api/voice/inbound";
 import { listPhoneNumbers, type VoicePhoneNumber } from "@/lib/api/voice/telephony";
 import type { VoiceAgent } from "@/lib/api/voice/types";
+import { API_BASE_URL } from "@/lib/voice-deploy-data";
 
 const STEPS = ["Agent", "Availability", "Review & Deploy"] as const;
 const INBOUND_COLS = "grid-cols-[minmax(0,1.1fr)_minmax(9rem,1fr)_minmax(0,1.3fr)_5.5rem]";
@@ -149,6 +150,14 @@ export default function VoiceAgentsInboundPage() {
                       onSelect: () => {
                         void navigator.clipboard.writeText(d.from_number);
                         toast.message("Number copied");
+                      },
+                    },
+                    {
+                      label: "Copy Plivo answer URL",
+                      icon: Copy,
+                      onSelect: () => {
+                        void navigator.clipboard.writeText(`${API_BASE_URL}/v1/telephony/plivo/inbound`);
+                        toast.message("Plivo answer URL copied");
                       },
                     },
                     isLiveStatus(d.status)
@@ -530,6 +539,10 @@ function ManageInboundDialog({
                 "—"
               )}
             </p>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">Plivo Answer URL</p>
+            <p className="mt-1 break-all font-mono text-xs">{`${API_BASE_URL}/v1/telephony/plivo/inbound`}</p>
+            <p className="mt-2 text-xs font-medium text-muted-foreground">Plivo Hangup URL</p>
+            <p className="mt-1 break-all font-mono text-xs">{`${API_BASE_URL}/v1/telephony/plivo/inbound/status`}</p>
           </div>
 
           <div className="space-y-1.5">
