@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Eye, EyeOff, Pause, Play, RotateCw, Search, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Pause, Play, RotateCw, Search, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -43,7 +43,6 @@ import {
   getCampaign,
   getCampaignCallAnalytics,
   getCampaignStats,
-  hideCampaign,
   listDialJobsPage,
   pauseCampaign,
   removeCampaignRecipients,
@@ -387,16 +386,6 @@ export default function VoiceAgentsOutboundDetailPage() {
     }
   }
 
-  async function onHide() {
-    if (!campaign) return;
-    try {
-      await hideCampaign(campaign.id);
-      toast.message("Campaign hidden");
-      navigate("/outbound-campaigns");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't hide campaign");
-    }
-  }
 
   async function onUnhideAll() {
     try {
@@ -487,10 +476,6 @@ export default function VoiceAgentsOutboundDetailPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" className="rounded-full" onClick={() => void onHide()}>
-            <EyeOff className="size-4" />
-            Hide
-          </Button>
           {canDeleteCampaign(campaign) ? (
             <Button variant="outline" className="rounded-full" onClick={() => setDeleteOpen(true)}>
               <Trash2 className="size-4" />
@@ -498,9 +483,9 @@ export default function VoiceAgentsOutboundDetailPage() {
             </Button>
           ) : null}
           {campaign.status === "completed" ? (
-            <Button className="rounded-full" disabled={rerunning} onClick={() => void onRerun()}>
+            <Button className="rounded-full" loading={rerunning} onClick={() => void onRerun()}>
               <RotateCw className="size-4" />
-              {rerunning ? "Copying…" : "Re-run"}
+              Re-run
             </Button>
           ) : null}
           {(campaign.status === "running" ||

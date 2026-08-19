@@ -297,7 +297,8 @@ function CreateInboundDialog({
     }
   }, [open]);
 
-  function next() {
+  async function next() {
+    if (submitting) return;
     if (step === 0) {
       if (!name.trim() || !agentId) {
         toast.message("Fill required fields");
@@ -316,7 +317,7 @@ function CreateInboundDialog({
       setStep((s) => s + 1);
       return;
     }
-    void deploy();
+    await deploy();
   }
 
   async function deploy() {
@@ -438,8 +439,8 @@ function CreateInboundDialog({
                 Back
               </Button>
             ) : null}
-            <Button className="rounded-full" onClick={next} disabled={submitting}>
-              {step === STEPS.length - 1 ? (submitting ? "Deploying…" : "Deploy") : "Next"}
+            <Button className="rounded-full" onClick={() => void next()} loading={submitting}>
+              {step === STEPS.length - 1 ? "Deploy" : "Next"}
             </Button>
           </div>
         </DialogFooter>

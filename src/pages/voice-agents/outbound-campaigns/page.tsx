@@ -390,6 +390,7 @@ function ScheduleCampaignDialog({
   const [recipients, setRecipients] = useState<RecipientsState>(createEmptyRecipientsState);
   const [recipientSummary, setRecipientSummary] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [advancing, setAdvancing] = useState(false);
   const [schedule, setSchedule] = useState<BatchSchedule>(EMPTY_BATCH_SCHEDULE);
   const [listsAttached, setListsAttached] = useState(false);
   const [boundListId, setBoundListId] = useState<string | null>(null);
@@ -469,6 +470,9 @@ function ScheduleCampaignDialog({
   }
 
   async function next() {
+    if (advancing || submitting) return;
+    setAdvancing(true);
+    try {
     if (step === 0) {
       if (!name.trim() || !agentId || !connection) {
         toast.message("Fill required fields");
@@ -542,7 +546,10 @@ function ScheduleCampaignDialog({
       setStep((s) => s + 1);
       return;
     }
-    void launch();
+    await launch();
+    } finally {
+      setAdvancing(false);
+    }
   }
 
   async function launch() {
@@ -716,15 +723,15 @@ function ScheduleCampaignDialog({
             <Button
               className="rounded-full"
               onClick={() => void next()}
+              loading={advancing || submitting}
               disabled={
-                submitting ||
-                (step === 1 &&
-                  ((recipients.mode === "new" &&
-                    (recipientPeople === 0 || !recipients.listName.trim())) ||
-                    (recipients.mode === "saved" && !recipients.selectedListId)))
+                step === 1 &&
+                ((recipients.mode === "new" &&
+                  (recipientPeople === 0 || !recipients.listName.trim())) ||
+                  (recipients.mode === "saved" && !recipients.selectedListId))
               }
             >
-              {step === STEPS.length - 1 ? (submitting ? "Launching…" : "Launch") : "Next"}
+              {step === STEPS.length - 1 ? "Launch" : "Next"}
             </Button>
           </div>
         </DialogFooter>
