@@ -534,6 +534,11 @@ export const api = {
     authedJson<Batch>("/v1/batches", { method: "POST", body: JSON.stringify(body) }),
   getBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}`),
   getBatchStats: (batchId: string) => authedJson<BatchStats>(`/v1/batches/${batchId}/stats`),
+  streamBatchEvents: (batchId: string, signal?: AbortSignal) =>
+    authedFetch(`/v1/batches/${batchId}/events`, {
+      signal,
+      headers: { Accept: "text/event-stream" },
+    }),
   getBatchCallAnalytics: (batchId: string) =>
     authedJson<CampaignCallAnalytics>(`/v1/batches/${batchId}/call-analytics`),
   getCampaignAnalytics: (

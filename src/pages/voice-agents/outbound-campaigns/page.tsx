@@ -103,8 +103,13 @@ export default function VoiceAgentsOutboundPage() {
   const anyRunning = campaigns.some((c) => c.status === "running");
   useEffect(() => {
     if (!anyRunning) return;
-    const tick = window.setInterval(() => refresh({ silent: true }), 2500);
-    return () => window.clearInterval(tick);
+    const tick = window.setInterval(() => refresh({ silent: true }), 30000);
+    const onFocus = () => refresh({ silent: true });
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(tick);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [anyRunning, refresh]);
 
   async function confirmDelete() {

@@ -16,6 +16,7 @@ import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStat
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { isThinkingPhone } from "@/lib/voice/thinking-phone";
 import { applyPerceivedLatency } from "@/lib/voice/turn-latency";
+import { isToolCallMarkup, stripToolCallMarkup } from "@/lib/voice/tool-call-text";
 
 interface LiveTurn {
   id: string;
@@ -186,7 +187,9 @@ export function TestAgentCallDialog({
           if (parsed.kind === "latency") {
             if (parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
               setTurns((prev) => {
-                const { turns, attached } = applyPerceivedLatency(prev, parsed.value_ms!, "agent");
+                const { turns, attached } = applyPerceivedLatency(prev, parsed.value_ms!, "agent", {
+                  skipFirst: true,
+                });
                 pendingLatencyRef.current = attached ? null : parsed.value_ms!;
                 return turns;
               });
@@ -195,26 +198,28 @@ export function TestAgentCallDialog({
           }
           if (parsed.kind !== "transcript" || !parsed.text) return;
           const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
-          if (role === "agent" && isThinkingPhone(parsed.text)) return;
+          const spoken = role === "agent" ? stripToolCallMarkup(parsed.text) : parsed.text;
+          if (role === "agent" && (isThinkingPhone(parsed.text) || isToolCallMarkup(parsed.text) || !spoken)) return;
           const id = `${role}-live`;
           setTurns((prev) => {
             const next = [...prev];
             if (parsed.final === false) {
               const idx = next.findIndex((t) => t.id === id);
-              if (idx >= 0) next[idx] = { ...next[idx], text: parsed.text! };
-              else next.push({ id, role, text: parsed.text! });
+              if (idx >= 0) next[idx] = { ...next[idx], text: spoken };
+              else next.push({ id, role, text: spoken });
               return next;
             }
             const liveIdx = next.findIndex((t) => t.id === id);
+            const greeting = role === "agent" && !next.some((t) => t.role === "agent" && t.id !== id);
             const pending =
-              role === "agent"
+              role === "agent" && !greeting
                 ? (pendingLatencyRef.current ?? (liveIdx >= 0 ? next[liveIdx].latencyMs : undefined))
                 : undefined;
             if (pending !== undefined) pendingLatencyRef.current = null;
             const turn = {
-              id: `${role}-${next.length}-${parsed.text!.slice(0, 12)}`,
+              id: `${role}-${next.length}-${spoken.slice(0, 12)}`,
               role,
-              text: parsed.text!,
+              text: spoken,
               latencyMs: pending,
             };
             if (liveIdx >= 0) next[liveIdx] = turn;
@@ -234,13 +239,18 @@ export function TestAgentCallDialog({
             const next = [...prev];
             for (const seg of segments) {
               if (!seg.final || !seg.text) continue;
-              if (role === "agent" && isThinkingPhone(seg.text)) continue;
+              if (role === "agent" && (isThinkingPhone(seg.text) || isToolCallMarkup(seg.text))) continue;
+              const spoken = role === "agent" ? stripToolCallMarkup(seg.text) : seg.text;
+              if (role === "agent" && !spoken) continue;
               const idx = next.findIndex((t) => t.id === seg.id);
+              const greeting = role === "agent" && idx < 0 && !next.some((t) => t.role === "agent");
               const latencyMs =
-                role === "agent" && idx < 0 ? (pendingLatencyRef.current ?? undefined) : next[idx]?.latencyMs;
+                role === "agent" && idx < 0 && !greeting
+                  ? (pendingLatencyRef.current ?? undefined)
+                  : next[idx]?.latencyMs;
               if (latencyMs !== undefined && role === "agent" && idx < 0) pendingLatencyRef.current = null;
-              if (idx >= 0) next[idx] = { id: seg.id, role, text: seg.text, latencyMs: next[idx].latencyMs };
-              else next.push({ id: seg.id, role, text: seg.text, latencyMs });
+              if (idx >= 0) next[idx] = { id: seg.id, role, text: spoken, latencyMs: next[idx].latencyMs };
+              else next.push({ id: seg.id, role, text: spoken, latencyMs });
             }
             return next;
           });

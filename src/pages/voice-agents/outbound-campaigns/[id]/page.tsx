@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Eye, EyeOff, Pause, Play, RotateCw, Search, Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -48,6 +48,7 @@ import {
   pauseCampaign,
   removeCampaignRecipients,
   resumeCampaign,
+  subscribeCampaignLive,
   unhideAllCampaigns,
   type VoiceCampaign,
 } from "@/lib/api/voice/campaigns";
@@ -139,6 +140,12 @@ export default function VoiceAgentsOutboundDetailPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const tabRef = useRef(tab);
+  const cursorStackRef = useRef(cursorStack);
+  const statusFilterRef = useRef(statusFilter);
+  tabRef.current = tab;
+  cursorStackRef.current = cursorStack;
+  statusFilterRef.current = statusFilter;
 
   const refresh = useCallback(async (opts?: { silent?: boolean }) => {
     if (!id) return;
@@ -211,16 +218,80 @@ export default function VoiceAgentsOutboundDetailPage() {
   }, [tab, statusFilter, searchQuery, loadPeople]);
 
   useEffect(() => {
-    if (!id || campaign?.status !== "running") return;
-    const tick = window.setInterval(() => {
+    if (!id) return;
+    const ac = new AbortController();
+    let stopped = false;
+
+    const applyLive = (event: {
+      campaign_status?: VoiceCampaign["status"] | "cancelled";
+      contact_id?: string | null;
+      live_status?: string | null;
+      attempt_status?: string | null;
+      contact_status?: string | null;
+      contacts_by_status?: Record<string, number>;
+      attempts_by_status?: Record<string, number>;
+    }) => {
+      if (event.campaign_status) {
+        const mapped =
+          event.campaign_status === "cancelled" ? "completed" : event.campaign_status;
+        setCampaign((prev) => (prev ? { ...prev, status: mapped } : prev));
+      }
+      if (event.contacts_by_status || event.attempts_by_status) {
+        setStats((prev) => ({
+          batch_id: id,
+          contacts_by_status: event.contacts_by_status ?? prev?.contacts_by_status ?? {},
+          attempts_by_status: event.attempts_by_status ?? prev?.attempts_by_status ?? {},
+        }));
+      }
+      if (event.contact_id) {
+        setPeople((prev) =>
+          prev.map((row) =>
+            row.id !== event.contact_id
+              ? row
+              : {
+                  ...row,
+                  raw_status: event.contact_status || row.raw_status,
+                  attempt_status: event.attempt_status ?? row.attempt_status,
+                  live_status: event.live_status ?? row.live_status,
+                },
+          ),
+        );
+        if (statusFilterRef.current !== "all" && tabRef.current === "recipients") {
+          const cursor = cursorStackRef.current[cursorStackRef.current.length - 1] ?? null;
+          void loadPeople(cursor);
+        }
+      }
+    };
+
+    const connect = async () => {
+      while (!stopped && !ac.signal.aborted) {
+        try {
+          await subscribeCampaignLive(id, applyLive, ac.signal);
+        } catch {
+          if (ac.signal.aborted || stopped) return;
+        }
+        if (stopped || ac.signal.aborted) return;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    };
+    void connect();
+
+    const onFocus = () => {
       void refresh({ silent: true });
-      if (tab === "recipients") {
-        const cursor = cursorStack[cursorStack.length - 1] ?? null;
+      if (tabRef.current === "recipients") {
+        const cursor = cursorStackRef.current[cursorStackRef.current.length - 1] ?? null;
         void loadPeople(cursor);
       }
-    }, 2500);
-    return () => window.clearInterval(tick);
-  }, [id, campaign?.status, tab, cursorStack, refresh, loadPeople]);
+    };
+    window.addEventListener("focus", onFocus);
+    const fallback = window.setInterval(onFocus, 60000);
+    return () => {
+      stopped = true;
+      ac.abort();
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(fallback);
+    };
+  }, [id, refresh, loadPeople]);
 
   async function onRerun() {
     if (!campaign || rerunning) return;

@@ -298,3 +298,56 @@ export async function listDialJobs(campaignId: string): Promise<VoiceDialJob[]> 
   const page = await listDialJobsPage(campaignId, { limit: 100, cursor: "" });
   return page.items;
 }
+
+export type CampaignLiveEvent = {
+  batch_id?: string;
+  campaign_status?: VoiceCampaign["status"] | "cancelled";
+  contact_id?: string | null;
+  live_status?: string | null;
+  attempt_status?: string | null;
+  contact_status?: string | null;
+  talking?: number;
+  left?: number;
+  done?: number;
+  contacts_by_status?: Record<string, number>;
+  attempts_by_status?: Record<string, number>;
+};
+
+function parseSseDataFrames(buffer: string): { events: CampaignLiveEvent[]; rest: string } {
+  const normalized = buffer.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const parts = normalized.split("\n\n");
+  const rest = parts.pop() ?? "";
+  const events: CampaignLiveEvent[] = [];
+  for (const frame of parts) {
+    const line = frame.split("\n").find((l) => l.startsWith("data:"));
+    if (!line) continue;
+    try {
+      events.push(JSON.parse(line.slice(5).trim()) as CampaignLiveEvent);
+    } catch {
+      /* ping / malformed */
+    }
+  }
+  return { events, rest };
+}
+
+export async function subscribeCampaignLive(
+  campaignId: string,
+  onEvent: (event: CampaignLiveEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const res = await api.streamBatchEvents(campaignId, signal);
+  if (!res.ok || !res.body) {
+    throw new Error(`Live status stream failed (${res.status})`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parsed = parseSseDataFrames(buffer);
+    buffer = parsed.rest;
+    for (const event of parsed.events) onEvent(event);
+  }
+}
