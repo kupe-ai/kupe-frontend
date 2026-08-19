@@ -7,7 +7,7 @@ import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
 import { Button } from "@/components/ui/button";
-import { Conversation, ConversationContent } from "@/components/ui/conversation";
+import { Conversation, ConversationContent, useChatStickScroll } from "@/components/ui/conversation";
 import { AttachmentChips, ChatComposer, ComposerSubmitButton, SuggestionChips } from "@/components/ask-ai/chat-composer";
 import { AskKupeTurn } from "@/components/ask-ai/ask-kupe-thread";
 import { useWorkspace } from "@/context/workspace-context";
@@ -31,6 +31,7 @@ const SUGGESTIONS = [
 export default function AskKupePage() {
   const kupeStore = useKupeAgentStore();
   const { org, project } = useWorkspace();
+  const { contextRef: chatScrollRef, scrollToBottomOnNewTask } = useChatStickScroll();
   const [prompt, setPrompt] = useState("");
   const [focused, setFocused] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -53,6 +54,7 @@ export default function AskKupePage() {
       return;
     }
     setPrompt("");
+    scrollToBottomOnNewTask();
     const message = value || "Use the attached file.";
     if (kupeStore.scopeAgentId) {
       void sendForAgent(orgId, projectId, kupeStore.scopeAgentId, message);
@@ -161,7 +163,7 @@ export default function AskKupePage() {
         </section>
       ) : (
         <>
-          <Conversation className="mt-4 min-h-0 flex-1">
+          <Conversation className="mt-4 min-h-0 flex-1" contextRef={chatScrollRef}>
             <ConversationContent className="mx-auto w-full max-w-2xl gap-4 px-0">
               {kupeStore.turns.map((turn) => (
                 <AskKupeTurn key={turn.id} turn={turn} />

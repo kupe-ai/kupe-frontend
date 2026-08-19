@@ -15,6 +15,7 @@ import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { isConcurrencyLimitError } from "@/lib/voice/concurrency-limit";
 import { applyPerceivedLatency } from "@/lib/voice/turn-latency";
 import { isThinkingPhone } from "@/lib/voice/thinking-phone";
+import { Conversation, ConversationContent, useChatStickScroll } from "@/components/ui/conversation";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
 import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
 import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
@@ -74,6 +75,7 @@ export function AgentAskKoriPanel({
 }) {
   const { org, project } = useWorkspace();
   const kupeStore = useKupeAgentStore();
+  const { contextRef: chatScrollRef, scrollToBottomOnNewTask } = useChatStickScroll();
   const [draft, setDraft] = useState("");
 
   const [voiceMessages, setVoiceMessages] = useState<VoiceBubble[]>([]);
@@ -153,6 +155,7 @@ export function AgentAskKoriPanel({
     setMuted(false);
     setVoiceMessages([]);
     pendingLatencyRef.current = null;
+    scrollToBottomOnNewTask();
     try {
       const handle = await startWebCall(agentId, {
         onStatusChange: (s) => setCallStatus(s),
@@ -232,7 +235,9 @@ export function AgentAskKoriPanel({
       toast.error("Select an organization and project first");
       return;
     }
-    await sendForAgent(org.id, project.id, agentId, trimmed);
+    const send = sendForAgent(org.id, project.id, agentId, trimmed);
+    scrollToBottomOnNewTask();
+    await send;
   }
 
   function onSend() {
@@ -339,7 +344,8 @@ export function AgentAskKoriPanel({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-4">
+      <Conversation className="min-h-0 flex-1" contextRef={chatScrollRef}>
+        <ConversationContent className="flex flex-col gap-4 px-3 py-4">
         {live ? (
           voiceMessages.map((m) =>
             m.role === "user" ? (
@@ -390,7 +396,8 @@ export function AgentAskKoriPanel({
             )}
           </>
         )}
-      </div>
+        </ConversationContent>
+      </Conversation>
 
       <div className="shrink-0 border-t border-border p-3">
         <ChatComposer

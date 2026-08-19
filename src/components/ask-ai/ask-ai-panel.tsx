@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
+import { Conversation, ConversationContent, ConversationEmptyState, useChatStickScroll } from "@/components/ui/conversation";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
@@ -31,6 +31,7 @@ export function AskAiPanel() {
   const { open, setOpen } = useAskAiPanel();
   const kupeStore = useKupeAgentStore();
   const workspace = useWorkspaceOptional();
+  const { contextRef: chatScrollRef, scrollToBottomOnNewTask } = useChatStickScroll();
   const [draft, setDraft] = useState("");
   const orgId = workspace?.org?.id;
   const projectId = workspace?.project?.id;
@@ -44,6 +45,7 @@ export function AskAiPanel() {
       return;
     }
     setDraft("");
+    scrollToBottomOnNewTask();
     const message = value || "Use the attached file.";
     if (kupeStore.scopeAgentId) {
       void sendForAgent(orgId, projectId, kupeStore.scopeAgentId, message);
@@ -65,7 +67,7 @@ export function AskAiPanel() {
           </SheetDescription>
         </SheetHeader>
 
-        <Conversation className="min-h-0 flex-1">
+        <Conversation className="min-h-0 flex-1" contextRef={chatScrollRef}>
           <ConversationContent className="gap-4 px-4">
             {kupeStore.turns.length === 0 ? (
               <ConversationEmptyState

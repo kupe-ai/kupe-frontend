@@ -332,19 +332,22 @@ export default function VoiceAgentEditorPage() {
                     versions.map((v) => (
                       <DropdownMenuItem
                         key={v.id}
-                        className="gap-2"
+                        className="w-full min-w-0 items-start gap-2 py-1.5"
                         onClick={() => setPreviewVersion(v)}
                       >
-                        <span className="shrink-0 font-medium">v{v.version}</span>
-                        <span
-                          className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-                          title={v.message ?? undefined}
-                        >
-                          {v.message ?? ""}
-                        </span>
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {new Date(v.created_at).toLocaleDateString()}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="shrink-0 font-medium">v{v.version}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {new Date(v.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          {v.message ? (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground" title={v.message}>
+                              {v.message}
+                            </p>
+                          ) : null}
+                        </div>
                       </DropdownMenuItem>
                     ))
                   )}

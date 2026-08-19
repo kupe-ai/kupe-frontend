@@ -128,10 +128,10 @@ export async function commitVoiceAgentVersion(agentId: string, message?: string)
 export async function listVoiceAgentVersions(agentId: string) {
   const page = await api.listAgentVersions(agentId, { limit: 50 });
   return page.items.map((v) => ({
-    id: `${agentId}-v${v.version}`,
+    id: v.id != null ? String(v.id) : `${agentId}-v${v.version}`,
     version: v.version,
     label: v.changed_by,
-    message: v.message,
+    message: v.message ?? null,
     created_at: v.created_at,
     snapshot: v.snapshot,
   }));

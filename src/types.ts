@@ -544,6 +544,7 @@ export type Agent = {
 };
 
 export type AgentVersion = {
+  id?: number;
   version: number;
   snapshot: Record<string, unknown>;
   changed_by: string | null;

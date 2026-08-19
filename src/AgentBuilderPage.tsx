@@ -1328,8 +1328,14 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                     key={v.version}
                     className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-sm"
                   >
-                    <span>
-                      v{v.version} — {new Date(v.created_at).toLocaleString()}
+                    <span className="min-w-0">
+                      <span className="font-medium">v{v.version}</span>
+                      {v.message ? (
+                        <span className="text-muted-foreground"> — {v.message}</span>
+                      ) : null}
+                      <span className="block text-xs text-muted-foreground">
+                        {new Date(v.created_at).toLocaleString()}
+                      </span>
                     </span>
                     <Button
                       variant="outline"

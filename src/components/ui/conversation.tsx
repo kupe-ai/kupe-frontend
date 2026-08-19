@@ -1,18 +1,35 @@
 "use client"
 
 import type { ComponentProps } from "react"
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 import { ArrowDownIcon } from "lucide-react"
-import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom"
+import {
+  StickToBottom,
+  useStickToBottomContext,
+  type StickToBottomContext,
+} from "use-stick-to-bottom"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>
 
+/** Follows new tokens while the user is at the bottom; lets them scroll
+ * away mid-generation. Call `scrollToBottomOnNewTask` when they send a
+ * new message so the view snaps down even if they had scrolled up. */
+export function useChatStickScroll() {
+  const contextRef = useRef<StickToBottomContext>(null)
+  const scrollToBottomOnNewTask = useCallback(() => {
+    requestAnimationFrame(() => {
+      void contextRef.current?.scrollToBottom("smooth")
+    })
+  }, [])
+  return { contextRef, scrollToBottomOnNewTask }
+}
+
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
-    className={cn("relative flex-1 overflow-y-auto", className)}
+    className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain", className)}
     initial="smooth"
     resize="smooth"
     role="log"
