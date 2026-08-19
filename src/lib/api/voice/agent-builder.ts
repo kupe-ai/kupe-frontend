@@ -10,7 +10,9 @@ import type {
   AutoCutMode,
   CallGoalConfig,
   CallTransferConfig,
+  DynamicGreetingConfig,
   ExpectedToolCall,
+  MemoryScope,
   PromptVariable,
 } from "@/types";
 
@@ -84,6 +86,10 @@ export interface AgentSettings {
   voicemail_enabled?: boolean;
   voicemail_message?: string | null;
   max_call_length_minutes?: number;
+  memory_enabled?: boolean;
+  memory_retention_days?: number;
+  memory_max_calls?: number;
+  memory_scope?: MemoryScope;
 }
 
 function extraKey(agentId: string, kind: string) {
@@ -480,6 +486,12 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     auto_cut_enabled: config?.auto_cut.enabled ?? false,
     auto_cut_mode: config?.auto_cut.mode ?? "warm",
     knowledge_base_ids: config?.knowledge_base_ids ?? [],
+    // Memory defaults to on, so an agent saved before the feature existed
+    // reads back as enabled here exactly as the backend treats it.
+    memory_enabled: config?.memory?.enabled ?? true,
+    memory_retention_days: config?.memory?.retention_days ?? 30,
+    memory_max_calls: config?.memory?.max_calls ?? 5,
+    memory_scope: config?.memory?.scope ?? "agent",
   };
 }
 
@@ -564,9 +576,38 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
       enabled: data.voicemail_enabled ?? agent.config.voicemail_detection.enabled,
       message: data.voicemail_message ?? agent.config.voicemail_detection.message,
     },
+    memory: {
+      ...agent.config.memory,
+      enabled: data.memory_enabled ?? agent.config.memory?.enabled ?? true,
+      retention_days: data.memory_retention_days ?? agent.config.memory?.retention_days ?? 30,
+      max_calls: data.memory_max_calls ?? agent.config.memory?.max_calls ?? 5,
+      scope: data.memory_scope ?? agent.config.memory?.scope ?? "agent",
+    },
   };
   await api.updateAgent(agentId, { config });
   return data;
+}
+
+/** The greeting's own on/off switch, read and written straight off the agent
+ * config so the First message field can own it without going through the
+ * flattened AgentSettings shape the Settings panel uses. */
+export async function getDynamicGreetingConfig(agentId: string): Promise<DynamicGreetingConfig> {
+  const agent = await api.getAgent(agentId);
+  return {
+    enabled: agent.config?.dynamic_greeting?.enabled ?? false,
+    instructions: agent.config?.dynamic_greeting?.instructions ?? "",
+  };
+}
+
+export async function updateDynamicGreetingConfig(
+  agentId: string,
+  dynamicGreeting: DynamicGreetingConfig,
+): Promise<DynamicGreetingConfig> {
+  const agent = await api.getAgent(agentId);
+  await api.updateAgent(agentId, {
+    config: { ...agent.config, dynamic_greeting: dynamicGreeting },
+  });
+  return dynamicGreeting;
 }
 
 // Text-only (LLM simulation) agent tests + background test runs -- real

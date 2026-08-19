@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { StatusChip } from "@/components/ui/status-chip";
+import { StatusChip, TestRunStatusChip } from "@/components/ui/status-chip";
 import { getTestRun } from "@/lib/api/voice/agent-builder";
 import type { AgentTestRun, AgentTestRunResult } from "@/types";
 
@@ -53,7 +53,7 @@ export function TestRunDetailPanel({
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             {run?.run_name || "Test run"}
-            {run ? <StatusChip status={run.status} /> : null}
+            {run ? <TestRunStatusChip status={run.status} /> : null}
             {inFlight ? <Loader2 className="size-3.5 animate-spin text-muted-foreground" /> : null}
           </SheetTitle>
           <SheetDescription>

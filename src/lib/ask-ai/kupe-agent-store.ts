@@ -320,10 +320,12 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
         signal: controller.signal,
       });
     let resp = await postTurn();
-    // JWT refresh between session create and this POST used to 403 because
-    // the harness compared Bearer strings. Recreate once with the current
-    // token so a stale session id does not stick.
-    if (resp.status === 403) {
+    // 403: JWT refreshed between session create and this POST (the harness
+    // compares Bearer strings). 404: the harness holds sessions in memory
+    // only, so ours is gone whenever it restarts, sweeps us as idle, or
+    // evicts us at capacity -- an expected outcome, not a failure to show
+    // the user. Either way the cached id is dead: drop it and recreate once.
+    if (resp.status === 403 || resp.status === 404) {
       setState({ sessionId: null });
       sid = await ensureSession(orgId, headers, controller.signal);
       resp = await postTurn();
@@ -356,11 +358,19 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
 }
 
 export async function uploadAttachment(orgId: string, file: File): Promise<void> {
-  const sid = await ensureSession(orgId);
   const headers = await authHeaders(false);
   const body = new FormData();
   body.append("file", file);
-  const resp = await fetch(`${HARNESS_URL}/v1/sessions/${sid}/files`, { method: "POST", headers, body });
+  const upload = (id: string) =>
+    fetch(`${HARNESS_URL}/v1/sessions/${id}/files`, { method: "POST", headers, body });
+
+  let resp = await upload(await ensureSession(orgId));
+  // Same stale-session recovery as runTurn: the harness drops sessions from
+  // memory, so an upload can land after ours is already gone.
+  if (resp.status === 403 || resp.status === 404) {
+    setState({ sessionId: null });
+    resp = await upload(await ensureSession(orgId));
+  }
   if (!resp.ok) {
     const detail = await resp.text();
     throw new Error(detail || `Upload failed: ${resp.status}`);

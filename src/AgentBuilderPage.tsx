@@ -87,6 +87,8 @@ const DEFAULT_CONFIG: AgentConfig = {
   },
   auto_cut: { enabled: false, mode: "warm" },
   call_transfer: { enabled: false, destinations: [] },
+  memory: { enabled: true, retention_days: 30, max_calls: 5, scope: "agent" },
+  dynamic_greeting: { enabled: false, instructions: "" },
   variables: [],
 };
 
@@ -176,6 +178,14 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
       destinations: Array.isArray((data.call_transfer as AgentConfig["call_transfer"] | undefined)?.destinations)
         ? (data.call_transfer as AgentConfig["call_transfer"]).destinations
         : DEFAULT_CONFIG.call_transfer.destinations,
+    },
+    memory: {
+      ...DEFAULT_CONFIG.memory,
+      ...((data.memory as AgentConfig["memory"]) ?? {}),
+    },
+    dynamic_greeting: {
+      ...DEFAULT_CONFIG.dynamic_greeting,
+      ...((data.dynamic_greeting as AgentConfig["dynamic_greeting"]) ?? {}),
     },
     variables: Array.isArray(data.variables)
       ? (data.variables as AgentConfig["variables"])

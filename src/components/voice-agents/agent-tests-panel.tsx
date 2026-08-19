@@ -7,7 +7,7 @@ import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StatusChip } from "@/components/ui/status-chip";
+import { TestRunStatusChip } from "@/components/ui/status-chip";
 import {
   Dialog,
   DialogContent,
@@ -269,7 +269,7 @@ export function AgentTestsPanel({ agentId, seed }: { agentId: string; seed: stri
                         {inFlight ? <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
                         <span className="truncate text-sm font-medium">{r.run_name || `Run · v${r.agent_version}`}</span>
                       </span>
-                      <StatusChip status={r.status} />
+                      <TestRunStatusChip status={r.status} />
                       <span className="text-sm text-muted-foreground">
                         {r.completed_test_count}/{r.total_test_count}
                       </span>

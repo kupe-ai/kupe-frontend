@@ -155,11 +155,19 @@ export function useKupeAgent() {
 
   const uploadAttachment = useCallback(
     async (file: File) => {
-      const sid = await ensureSession();
       const headers = await authHeaders(false);
       const form = new FormData();
       form.append("file", file);
-      const resp = await fetch(`${HARNESS_URL}/v1/sessions/${sid}/files`, { method: "POST", headers, body: form });
+      const upload = (id: string) =>
+        fetch(`${HARNESS_URL}/v1/sessions/${id}/files`, { method: "POST", headers, body: form });
+
+      let resp = await upload(await ensureSession());
+      // Same stale-session recovery as sendMessage: the harness drops sessions
+      // from memory, so an upload can land after ours is already gone.
+      if (resp.status === 403 || resp.status === 404) {
+        sessionIdRef.current = null;
+        resp = await upload(await ensureSession());
+      }
       if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
       const meta = (await resp.json()) as AttachedFile;
       setAttachments((a) => [...a, meta]);
@@ -192,12 +200,23 @@ export function useKupeAgent() {
         const controller = new AbortController();
         abortRef.current = controller;
 
-        const resp = await fetch(`${HARNESS_URL}/v1/sessions/${sid}/messages`, {
-          method: "POST",
-          headers: { ...headers, Accept: "text/event-stream", "Cache-Control": "no-store" },
-          body: JSON.stringify({ message: trimmed, attachment_ids: attachmentIds }),
-          signal: controller.signal,
-        });
+        const postTurn = (id: string) =>
+          fetch(`${HARNESS_URL}/v1/sessions/${id}/messages`, {
+            method: "POST",
+            headers: { ...headers, Accept: "text/event-stream", "Cache-Control": "no-store" },
+            body: JSON.stringify({ message: trimmed, attachment_ids: attachmentIds }),
+            signal: controller.signal,
+          });
+
+        let resp = await postTurn(sid);
+        // The harness holds sessions in memory, so ours is gone whenever it
+        // restarts, sweeps us as idle, or evicts us at capacity (404); 403 is
+        // the same story after a JWT refresh. Both mean the cached id is dead,
+        // not that the turn is impossible -- clear it and recreate once.
+        if (resp.status === 403 || resp.status === 404) {
+          sessionIdRef.current = null;
+          resp = await postTurn(await ensureSession());
+        }
         if (!resp.ok || !resp.body) {
           throw new Error(`Kupe turn failed: ${resp.status}`);
         }

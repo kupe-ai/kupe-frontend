@@ -34,6 +34,8 @@ import {
 import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import { listKnowledgeBases } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceAgent } from "@/lib/api/voice/types";
+import { captureEvent } from "@/lib/posthog";
+import type { MemoryScope } from "@/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
@@ -112,6 +114,13 @@ function providerOptions(
   });
 }
 
+/** Keeps a half-typed or emptied number field from sending nonsense; the
+ * backend clamps to the same bounds. */
+function clamp(value: number, min: number, max: number, fallback: number): number {
+  if (!Number.isFinite(value) || value === 0) return fallback;
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h3 className="border-t border-border pt-5 text-sm font-semibold tracking-tight first:border-t-0 first:pt-0">
@@ -150,6 +159,10 @@ const DEFAULTS: Required<
   voicemail_enabled: false,
   voicemail_message: "",
   max_call_length_minutes: 10,
+  memory_enabled: true,
+  memory_retention_days: 30,
+  memory_max_calls: 5,
+  memory_scope: "agent",
 };
 
 const AUTO_SAVE_MS = 1000;
@@ -819,6 +832,74 @@ export function AgentSettingsPanel({
           className="h-9 w-20 rounded-full text-center"
         />
       </SettingRow>
+
+      <SectionTitle>Memory</SectionTitle>
+      <SettingRow
+        title="Remember callers"
+        description="Summarizes every call after it ends and reloads it the next time that number calls, so the agent picks up where it left off instead of starting cold."
+      >
+        <Switch
+          checked={settings.memory_enabled}
+          onCheckedChange={(v) => {
+            set("memory_enabled", v);
+            captureEvent("agent_memory_configured", { agent_id: agentId, enabled: v });
+          }}
+        />
+      </SettingRow>
+      {settings.memory_enabled && (
+        <>
+          <SettingRow
+            title="Keep memories for"
+            description="Summaries older than this are deleted automatically."
+          >
+            <Input
+              type="number"
+              min={1}
+              max={365}
+              value={settings.memory_retention_days}
+              onChange={(e) =>
+                set("memory_retention_days", clamp(Number(e.target.value), 1, 365, 30))
+              }
+              className="h-9 w-20 rounded-full text-center"
+            />
+            <span className="text-sm text-muted-foreground">days</span>
+          </SettingRow>
+          <SettingRow
+            title="Calls to recall"
+            description="How many past calls go into the prompt. Each one costs tokens on every turn, so keep it tight."
+          >
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={settings.memory_max_calls}
+              onChange={(e) => set("memory_max_calls", clamp(Number(e.target.value), 1, 20, 5))}
+              className="h-9 w-20 rounded-full text-center"
+            />
+          </SettingRow>
+          <SettingRow
+            title="Share with other agents"
+            description={
+              settings.memory_scope === "project"
+                ? "Every agent in this project sees the same caller history."
+                : "Only this agent remembers its own calls with the caller."
+            }
+          >
+            <Select
+              value={settings.memory_scope ?? "agent"}
+              onValueChange={(v) => set("memory_scope", v as MemoryScope)}
+            >
+              <SelectTrigger className="h-9 w-44 rounded-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="agent">This agent only</SelectItem>
+                <SelectItem value="project">All project agents</SelectItem>
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </>
+      )}
     </div>
   );
 }

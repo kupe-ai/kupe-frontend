@@ -24,6 +24,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   answered: "success",
 
   failed: "destructive",
+  fail: "destructive",
   error: "destructive",
   rejected: "destructive",
   cancelled: "destructive",
@@ -112,5 +113,33 @@ export function StatusChip({
     >
       {children ?? formatStatusLabel(status)}
     </Badge>
+  );
+}
+
+/** Run-level chip: Success / Fail once finished, not "Completed". */
+export function TestRunStatusChip({
+  status,
+  className,
+}: {
+  status: string | null | undefined;
+  className?: string;
+}) {
+  if (status === "queued" || status === "running") {
+    return <StatusChip status={status} className={className} />;
+  }
+  if (status === "failed" || status === "errored" || status === "fail") {
+    return (
+      <StatusChip status="fail" className={className}>
+        Fail
+      </StatusChip>
+    );
+  }
+  if (!status) {
+    return <StatusChip status={status} className={className} />;
+  }
+  return (
+    <StatusChip status="success" className={className}>
+      Success
+    </StatusChip>
   );
 }

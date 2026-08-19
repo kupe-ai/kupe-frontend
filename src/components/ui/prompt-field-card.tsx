@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Expand } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PromptEditor } from "@/components/ui/prompt-editor";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
-function PromptVariablesFooter({ className }: { className?: string }) {
+function PromptVariablesFooter({
+  className,
+  trailing,
+}: {
+  className?: string;
+  trailing?: ReactNode;
+}) {
   return (
     <div
       className={cn(
@@ -21,6 +27,7 @@ function PromptVariablesFooter({ className }: { className?: string }) {
         </span>{" "}
         to add variables
       </p>
+      {trailing ? <div className="flex shrink-0 items-center gap-2">{trailing}</div> : null}
     </div>
   );
 }
@@ -32,6 +39,7 @@ export function PromptFieldCard({
   expandTitle,
   minHeight = "150px",
   maxHeight,
+  footerTrailing,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -39,6 +47,9 @@ export function PromptFieldCard({
   expandTitle: string;
   minHeight?: string;
   maxHeight?: string;
+  /** Right-hand side of the footer, opposite the `{{` hint — for a control
+   * that belongs to this field rather than to the page. */
+  footerTrailing?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const editorClassName = "w-full rounded-none border-0 bg-transparent shadow-none";
@@ -78,7 +89,7 @@ export function PromptFieldCard({
         </button>
 
         {renderEditor(false)}
-        <PromptVariablesFooter />
+        <PromptVariablesFooter trailing={footerTrailing} />
       </div>
 
       <Dialog open={expanded} onOpenChange={setExpanded}>
@@ -93,7 +104,7 @@ export function PromptFieldCard({
           </DialogTitle>
           <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
             {renderEditor(true)}
-            <PromptVariablesFooter />
+            <PromptVariablesFooter trailing={footerTrailing} />
           </div>
         </DialogContent>
       </Dialog>

@@ -10,6 +10,7 @@ export type DeployApiSlug =
   | "agents-sdk"
   | "dnd-lists"
   | "agent-management"
+  | "caller-memory"
   | "call-transfer"
   | "voice-cloning"
   | "tool-integrations";
@@ -385,7 +386,7 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
     tone: "violet",
     headline: "Manage agents as code — every save is a new version.",
     about:
-      "Agents are versioned: every PATCH creates a new version and you can list or revert to any prior one. An agent's config carries its provider selection (llm_id, stt_id, tts_id, tts_voice_id), system prompt, tools, call-transfer destinations, and call-behavior knobs such as thinking_sounds — everything the voice-agents UI edits is available here too. Set config.thinking_sounds.enabled to play a short language-specific filler (hmm / umm, or the Indic equivalent) through the agent's TTS the instant the caller finishes speaking, before the real reply audio starts.",
+      "Agents are versioned: every PATCH creates a new version and you can list or revert to any prior one. An agent's config carries its provider selection (llm_id, stt_id, tts_id, tts_voice_id), system prompt, tools, call-transfer destinations, and call-behavior knobs such as thinking_sounds — everything the voice-agents UI edits is available here too. Set config.thinking_sounds.enabled to play a short language-specific filler (hmm / umm, or the Indic equivalent) through the agent's TTS the instant the caller finishes speaking, before the real reply audio starts. config is deep-merged on PATCH, so send only the keys you are changing. See Caller memory & dynamic greetings for config.memory and config.dynamic_greeting.",
     endpoints: [
       { method: "POST", path: "/v1/orgs/{org_id}/projects/{project_id}/agents", summary: "Create an agent." },
       { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/agents", summary: "List agents, paginated." },
@@ -432,6 +433,81 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
   -d '{
     "config": {
       "thinking_sounds": { "enabled": true }
+    }
+  }'`,
+      },
+    ],
+  },
+  {
+    slug: "caller-memory",
+    title: "Caller memory & dynamic greetings",
+    description: "Let an agent remember past calls with a number, and open each call from that context.",
+    kind: "person",
+    tone: "emerald",
+    headline: "Agents remember who called before — and can write their opening line from it.",
+    about:
+      "config.memory is on by default: when a call ends, Kupe summarizes it and stores that summary against the caller's number (normalized to E.164, so 9173063080 and +919173063080 are the same person). On their next call the newest max_calls summaries — plus durable facts the summarizer extracted, like preferred name, language, and anything still owed — are appended to the agent's system prompt with instructions to use them like someone who genuinely remembers the caller rather than someone reading a file. Nothing is stored for a call that never became a conversation, and summaries are deleted automatically once they pass retention_days (1–365, default 30). scope decides reach: \"agent\" keeps each agent's history separate, \"project\" gives every agent in the project one shared history per caller. Web test calls from the dashboard are keyed as user:<uuid> so you can exercise all of this without dialing.\n\nconfig.dynamic_greeting builds on it. Off, the agent speaks its greeting field verbatim. On, the session's own LLM writes the opening line from the same prompt the call runs on — recalled memory and resolved {{variables}} included — and streams it into TTS sentence by sentence so the first words start synthesizing before the sentence after them exists. Your greeting stays meaningful either way: it is the tone, language, and length reference for the generated line, and it is what gets spoken verbatim if the first token is slow or the provider errors, so a call never opens in silence. Add dynamic_greeting.instructions to steer just that first line. Turning memory off leaves dynamic greetings with no history to open on, so the generated line becomes a plain warm greeting rather than a personalized one.\n\nStored memories are readable and erasable per caller. GET the memories endpoint to see exactly what an agent will carry into the next call; DELETE it to answer a \"forget me\" request — that is immediate and permanent, and it requires a contact, so there is no way to wipe every caller at once. Deleting is not the same as opting out: future calls are still summarized until you patch config.memory.enabled to false.",
+    endpoints: [
+      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Set config.memory (enabled, retention_days, max_calls, scope) or config.dynamic_greeting (enabled, instructions). config is deep-merged, so a one-key patch keeps the rest." },
+      { method: "GET", path: "/v1/agents/{agent_id}/memories", summary: "List stored memories, newest first, paginated. Optional ?contact= narrows to one caller in any common phone format." },
+      { method: "DELETE", path: "/v1/agents/{agent_id}/memories", summary: "Erase every memory for one caller. ?contact= is required. Returns { contact_key, deleted }." },
+      { method: "GET", path: "/v1/agents/{agent_id}", summary: "Read an agent's current memory and greeting configuration." },
+    ],
+    curlTabs: [
+      {
+        id: "configure-memory",
+        label: "configure-memory",
+        code: `curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "config": {
+      "memory": {
+        "enabled": true,
+        "retention_days": 60,
+        "max_calls": 5,
+        "scope": "agent"
+      }
+    }
+  }'`,
+      },
+      {
+        id: "dynamic-greeting",
+        label: "dynamic-greeting",
+        code: `curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "greeting": "Hi, this is Asha from Acme — how can I help?",
+    "config": {
+      "dynamic_greeting": {
+        "enabled": true,
+        "instructions": "If they have an unpaid invoice, mention the due date before anything else."
+      }
+    }
+  }'`,
+      },
+      {
+        id: "read-memories",
+        label: "read-memories",
+        code: `curl "${API_BASE_URL}/v1/agents/<agent_id>/memories?contact=9173063080&limit=5" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "forget-caller",
+        label: "forget-caller",
+        code: `curl -X DELETE "${API_BASE_URL}/v1/agents/<agent_id>/memories?contact=%2B919173063080" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "disable-memory",
+        label: "disable-memory",
+        code: `curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -d '{
+    "config": {
+      "memory": { "enabled": false }
     }
   }'`,
       },

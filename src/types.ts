@@ -459,6 +459,29 @@ export type CallTransferConfig = {
   destinations: TransferDestination[];
 };
 
+/** "agent": the caller's history with this agent only. "project": every agent
+ * in the project shares one history per caller. */
+export type MemoryScope = "agent" | "project";
+
+/** Persistent per-caller memory, on by default. Each completed call is
+ * summarized after hangup and keyed to the caller's phone number; the next
+ * call from that number loads the most recent `max_calls` summaries into the
+ * agent's prompt. */
+export type AgentMemoryConfig = {
+  enabled: boolean;
+  retention_days: number;
+  max_calls: number;
+  scope: MemoryScope;
+};
+
+/** Writes the opening line per call (from the prompt plus recalled memory)
+ * instead of speaking `greeting` verbatim. `greeting` stays on as the style
+ * reference and as the fallback spoken if generation fails. */
+export type DynamicGreetingConfig = {
+  enabled: boolean;
+  instructions: string;
+};
+
 export type PromptVariable = {
   key: string;
   description: string;
@@ -485,6 +508,8 @@ export type AgentConfig = {
   voicemail_detection: VoicemailDetectionConfig;
   auto_cut: AutoCutConfig;
   call_transfer: CallTransferConfig;
+  memory: AgentMemoryConfig;
+  dynamic_greeting: DynamicGreetingConfig;
   variables: PromptVariable[];
   call_goal?: CallGoalConfig | null;
   knowledge_base_ids?: string[];
@@ -591,7 +616,7 @@ export type AgentTestRun = {
   agent_version: number;
   run_name: string | null;
   multiplier: number;
-  status: "queued" | "running" | "completed" | "failed";
+  status: "queued" | "running" | "passed" | "failed" | "completed";
   total_test_count: number;
   completed_test_count: number;
   created_at: string;

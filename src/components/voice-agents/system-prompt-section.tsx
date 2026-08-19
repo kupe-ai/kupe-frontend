@@ -4,6 +4,11 @@ import { Info } from "lucide-react";
 import { PromptFieldCard } from "@/components/ui/prompt-field-card";
 import { Separator } from "@/components/ui/separator";
 import {
+  DynamicGreetingInstructions,
+  DynamicGreetingSwitch,
+  useDynamicGreeting,
+} from "@/components/voice-agents/dynamic-greeting";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -38,16 +43,19 @@ function PromptSectionHeader({
 }
 
 export function SystemPromptSection({
+  agentId,
   systemPrompt,
   firstMessage,
   onSystemPromptChange,
   onFirstMessageChange,
 }: {
+  agentId: string;
   systemPrompt: string;
   firstMessage: string;
   onSystemPromptChange: (value: string) => void;
   onFirstMessageChange: (value: string) => void;
 }) {
+  const dynamicGreeting = useDynamicGreeting(agentId);
   return (
     <div className="flex h-full flex-col px-6 py-6 md:px-10 lg:px-12">
       <div className="flex min-h-full flex-col gap-6 pb-2">
@@ -78,7 +86,9 @@ export function SystemPromptSection({
             expandTitle="First message"
             minHeight="60px"
             maxHeight="120px"
+            footerTrailing={<DynamicGreetingSwitch {...dynamicGreeting} />}
           />
+          <DynamicGreetingInstructions {...dynamicGreeting} />
         </div>
       </div>
     </div>

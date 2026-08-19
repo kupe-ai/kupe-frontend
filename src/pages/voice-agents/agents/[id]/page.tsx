@@ -271,6 +271,7 @@ export default function VoiceAgentEditorPage() {
       {section === "instructions" && (
         <SystemPromptSection
           key={`${id}-${instructionsSeed}`}
+          agentId={id}
           systemPrompt={systemPrompt}
           firstMessage={firstMessage}
           onSystemPromptChange={(value) => {
