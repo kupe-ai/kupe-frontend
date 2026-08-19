@@ -16,7 +16,7 @@ export function NavItemIcon({
   className?: string;
 }) {
   if (id === "ask-kupe") {
-    return <AgentAvatar seed={KAI_AVATAR_SEED} size={20} alt="" className={cn("shrink-0", className)} />;
+    return <AgentAvatar seed={KAI_AVATAR_SEED} fade size={20} alt="" className={cn("shrink-0", className)} />;
   }
   return <ModernIcon name={icon} className={className} />;
 }

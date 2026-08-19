@@ -8,6 +8,7 @@ export function AgentAvatar({
   className,
   alt = "",
   muted = false,
+  fade = false,
 }: {
   seed?: string;
   size?: number;
@@ -15,11 +16,14 @@ export function AgentAvatar({
   alt?: string;
   /** Theme-aware sage mark with a transparent base — for hero / empty states. */
   muted?: boolean;
+  /** Seed green at the top, fading to transparent at the bottom. */
+  fade?: boolean;
 }) {
   const uid = useId().replace(/:/g, "");
   const { from, to } = avatarGradientForSeed(seed);
   const gid = `agent-av-g-${uid}`;
   const mid = `agent-av-m-${uid}`;
+  const wash = muted || fade;
 
   return (
     <span
@@ -40,12 +44,12 @@ export function AgentAvatar({
       >
         <defs>
           <linearGradient id={gid} x1="32" y1="6" x2="32" y2="64" gradientUnits="userSpaceOnUse">
-            {muted ? (
+            {wash ? (
               <>
-                <stop offset="0%" stopColor="currentColor" stopOpacity="0.9" />
-                <stop offset="46%" stopColor="currentColor" stopOpacity="0.55" />
-                <stop offset="78%" stopColor="currentColor" stopOpacity="0.14" />
-                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+                <stop offset="0%" stopColor={fade ? from : "currentColor"} stopOpacity="0.95" />
+                <stop offset="42%" stopColor={fade ? from : "currentColor"} stopOpacity="0.55" />
+                <stop offset="76%" stopColor={fade ? to : "currentColor"} stopOpacity="0.12" />
+                <stop offset="100%" stopColor={fade ? to : "currentColor"} stopOpacity="0" />
               </>
             ) : (
               <>

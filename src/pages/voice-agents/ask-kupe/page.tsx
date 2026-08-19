@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
-import { VoicePageHeader } from "@/components/voice-agents/shared";
 import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent } from "@/components/ui/conversation";
 import { AttachmentChips, ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
@@ -79,33 +78,15 @@ export default function AskKupePage() {
         aria-hidden
         className="pointer-events-none absolute inset-y-0 right-0 w-[min(52%,36rem)]"
       >
-        <div
-          className="absolute inset-0 opacity-70 dark:opacity-100"
-          style={{
-            background: [
-              "radial-gradient(ellipse 90% 70% at 100% 22%, color-mix(in oklab, var(--kupe-hero-bright) 55%, transparent) 0%, color-mix(in oklab, var(--kupe-hero) 38%, transparent) 32%, transparent 68%)",
-              "radial-gradient(ellipse 85% 65% at 100% 82%, color-mix(in oklab, var(--kupe-hero-glow) 40%, transparent) 0%, color-mix(in oklab, var(--kupe-hero) 28%, transparent) 36%, transparent 72%)",
-              "linear-gradient(to left, color-mix(in oklab, var(--kupe-hero-bright) 28%, transparent) 0%, color-mix(in oklab, var(--kupe-hero) 22%, transparent) 18%, color-mix(in oklab, var(--kupe-hero) 10%, transparent) 42%, transparent 78%)",
-            ].join(", "),
-          }}
-        />
-        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-[color-mix(in_oklab,var(--kupe-hero-bright)_55%,transparent)] to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_18%,color-mix(in_oklab,var(--kupe-hero)_18%,transparent),transparent_62%)] dark:bg-[radial-gradient(ellipse_at_100%_18%,color-mix(in_oklab,var(--kupe-hero)_32%,transparent),transparent_68%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_88%,color-mix(in_oklab,var(--kupe-hero-soft)_10%,transparent),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_100%_88%,color-mix(in_oklab,var(--kupe-hero-soft)_22%,transparent),transparent_74%)]" />
+        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/25 to-transparent dark:via-primary/35" />
       </div>
 
       <div className="relative mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-6">
-      <VoicePageHeader
-        title="Ask Kai"
-        className="relative z-[1]"
-        actions={
-          <p className="hidden text-[13px] text-muted-foreground sm:block">
-            Helper agent of Kupe AI
-          </p>
-        }
-      />
-
       {!chatting ? (
-        <section className="mt-10 flex flex-1 flex-col items-center text-center">
-          <AgentAvatar seed={KAI_AVATAR_SEED} muted size={64} alt="" className="text-neutral-500 opacity-60 dark:text-neutral-400" />
+        <section className="flex flex-1 flex-col items-center justify-center text-center">
+          <AgentAvatar seed={KAI_AVATAR_SEED} fade size={64} alt="" />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
             What should Kai do?
           </h1>
