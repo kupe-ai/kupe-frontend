@@ -37,7 +37,8 @@ export type KupeIconName =
   | "clock"
   | "copy"
   | "plug"
-  | "wallet";
+  | "wallet"
+  | "sparkles";
 
 type SvgProps = { className?: string };
 
@@ -476,6 +477,16 @@ function WalletIcon({ className }: SvgProps) {
   );
 }
 
+function SparklesIcon({ className }: SvgProps) {
+  return (
+    <Frame name="sparkles" className={className}>
+      <path d="M12 3.4 13.4 8.2 18 9.6 13.4 11 12 15.8 10.6 11 6 9.6 10.6 8.2Z" />
+      <path className="ki-spark" d="M18.2 14.2 18.9 16.4 21 17.1 18.9 17.8 18.2 20 17.5 17.8 15.4 17.1 17.5 16.4Z" />
+      <path className="ki-spark" d="M6.2 14.6 6.7 16.2 8.2 16.7 6.7 17.2 6.2 18.8 5.7 17.2 4.2 16.7 5.7 16.2Z" />
+    </Frame>
+  );
+}
+
 function PlugIcon({ className }: SvgProps) {
   return (
     <Frame name="plug" className={className}>
@@ -530,6 +541,7 @@ const ICONS: Record<KupeIconName, (props: SvgProps) => ReactElement> = {
   copy: CopyIcon,
   plug: PlugIcon,
   wallet: WalletIcon,
+  sparkles: SparklesIcon,
 };
 
 export function KupeIcon({

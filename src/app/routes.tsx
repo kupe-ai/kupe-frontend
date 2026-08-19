@@ -17,7 +17,7 @@ const LoginPage = lazyWithRetry(() => import("@/pages/login/page"));
 const AuthCallbackPage = lazyWithRetry(() => import("@/pages/auth-callback/page"));
 const IntegrationsCallbackPage = lazyWithRetry(() => import("@/pages/integrations-callback/page"));
 const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding/page"));
-const VoiceAgentsHomePage = lazyWithRetry(() => import("@/pages/voice-agents/page"));
+const VoiceAgentsAskKupePage = lazyWithRetry(() => import("@/pages/voice-agents/ask-kupe/page"));
 const VoiceAgentsAgentsPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/page"));
 const VoiceAgentEditorPage = lazyWithRetry(() => import("@/pages/voice-agents/agents/[id]/page"));
 const VoiceAgentsKnowledgePage = lazyWithRetry(() => import("@/pages/voice-agents/knowledge-base/page"));
@@ -81,6 +81,14 @@ export default function AppRoutes() {
               element={
                 <Suspense fallback={<VoiceAgentsPageShimmer />}>
                   <VoiceAgentsHomePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/ask-kupe"
+              element={
+                <Suspense fallback={<VoiceAgentsPageShimmer />}>
+                  <VoiceAgentsAskKupePage />
                 </Suspense>
               }
             />

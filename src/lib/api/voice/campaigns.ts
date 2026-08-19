@@ -123,6 +123,15 @@ export function canDeleteCampaign(campaign: Pick<VoiceCampaign, "status" | "star
   return campaign.status === "draft" && !campaign.started_at;
 }
 
+export async function hideCampaign(campaignId: string) {
+  await api.hideBatch(campaignId);
+}
+
+export async function unhideAllCampaigns() {
+  const { orgId, projectId } = requireScope();
+  return api.unhideBatches(orgId, projectId);
+}
+
 export async function deleteCampaign(campaignId: string) {
   await api.deleteBatch(campaignId);
 }

@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
-import { Message, MessageContent } from "@/components/ui/message";
 import { AiStar } from "@/components/brand/ai-star";
 import { Sparkles } from "lucide-react";
 import { useAskAiPanel } from "@/lib/ask-ai/panel-context";
@@ -17,11 +16,8 @@ import {
   sendForNewAgent,
   uploadAttachment,
 } from "@/lib/ask-ai/kupe-agent-store";
-import type { ChatTurn } from "@/lib/ask-ai/types";
-import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
-import { MarkdownMessage } from "@/components/ask-ai/markdown-message";
 import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
-import { sanitizeChatError } from "@/lib/ask-ai/public-error";
+import { AskKupeTurn } from "@/components/ask-ai/ask-kupe-thread";
 import { useWorkspaceOptional } from "@/context/workspace-context";
 
 const SUGGESTIONS = [
@@ -82,7 +78,7 @@ export function AskAiPanel() {
                 </div>
               </ConversationEmptyState>
             ) : (
-              kupeStore.turns.map((turn) => <Turn key={turn.id} turn={turn} />)
+              kupeStore.turns.map((turn) => <AskKupeTurn key={turn.id} turn={turn} />)
             )}
           </ConversationContent>
         </Conversation>
@@ -122,31 +118,5 @@ export function AskAiPanel() {
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-function Turn({ turn }: { turn: ChatTurn }) {
-  if (turn.role === "user") {
-    return (
-      <Message from="user">
-        <MessageContent>{turn.text}</MessageContent>
-      </Message>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {turn.steps.length > 0 ? <AgentSteps steps={turn.steps} streaming={turn.streaming} /> : null}
-      {turn.text ? (
-        <Message from="assistant">
-          <MessageContent variant="flat">
-            <MarkdownMessage text={turn.text} />
-          </MessageContent>
-        </Message>
-      ) : turn.streaming && turn.steps.length === 0 ? (
-        <WorkingShimmer label={turn.status || "Kupe is working…"} />
-      ) : null}
-      {turn.error ? <p className="text-xs text-destructive">{sanitizeChatError(turn.error)}</p> : null}
-    </div>
   );
 }

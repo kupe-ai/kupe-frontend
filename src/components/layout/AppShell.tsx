@@ -17,7 +17,6 @@ import { BrandLockup } from "@/components/brand/wordmark";
 import { CommandPalette, SidebarSearchBar } from "@/components/layout/CommandPalette";
 import { SidebarQuickCreate } from "@/components/sidebar-quick-create";
 import { SidebarWorkspaceMenu } from "@/components/sidebar-workspace-menu";
-import { AskAiToolbarButton } from "@/components/ask-ai/ask-ai-toolbar-button";
 import { SidebarCollapseProvider } from "@/components/sidebar-collapse";
 import {
   SettingsDialogProvider,
@@ -177,7 +176,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const isEditor = /^\/agents\/[^/]+\/?$/.test(pathname);
   const isKbDetail = /^\/knowledge-base\/[^/]+\/?$/.test(pathname);
-  const lockOverflow = isEditor || isKbDetail;
+  const isAskKupe = pathname === "/ask-kupe" || pathname.startsWith("/ask-kupe/");
+  const lockOverflow = isEditor || isKbDetail || isAskKupe;
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -281,7 +281,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
             <SidebarQuickCreate collapsed={collapsed} onOpenSearch={() => setSearchOpen(true)} />
-            {!collapsed && <AskAiToolbarButton />}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -353,7 +352,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <BrandLockup height={22} />
             </Link>
             <div className="flex items-center gap-1">
-              <AskAiToolbarButton className="h-8" />
               <Button
                 variant="ghost"
                 size="icon"

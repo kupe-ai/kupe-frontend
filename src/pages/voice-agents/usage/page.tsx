@@ -79,6 +79,16 @@ function toISODate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+const VIEWER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+function formatLocalWhen(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function formatDuration(seconds: number | null | undefined) {
   if (seconds == null) return "—";
   const s = Math.max(0, Math.round(seconds));
@@ -323,7 +333,10 @@ export default function UsagePage() {
         <thead>
           <tr className="border-b border-border">
             <th className="text-caption px-5 py-2.5 text-left font-medium">Session</th>
-            <th className="text-caption px-5 py-2.5 text-left font-medium">When</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">
+              When
+              <span className="ml-1.5 font-normal text-muted-foreground">{VIEWER_TIMEZONE.replaceAll("_", " ")}</span>
+            </th>
             <th className="text-caption px-5 py-2.5 text-left font-medium">Channel</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Duration</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
@@ -337,7 +350,7 @@ export default function UsagePage() {
               onClick={() => setOpenSessionId(row.session_id)}
             >
               <td className="px-5 py-2.5 font-mono text-xs">{shortId(row.session_id)}</td>
-              <td className="px-5 py-2.5 whitespace-nowrap">{row.created_at ? row.created_at.slice(0, 16).replace("T", " ") : "—"}</td>
+              <td className="px-5 py-2.5 whitespace-nowrap">{formatLocalWhen(row.created_at)}</td>
               <td className="px-5 py-2.5">
                 <ChannelBadge channel={row.channel} />
               </td>

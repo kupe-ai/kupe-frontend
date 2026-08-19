@@ -19,6 +19,12 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
     id: "top",
     items: [
       {
+        id: "ask-kupe",
+        label: "Ask Kupe",
+        href: "/ask-kupe",
+        icon: "sparkles",
+      },
+      {
         id: "home",
         label: "Home",
         href: "/",

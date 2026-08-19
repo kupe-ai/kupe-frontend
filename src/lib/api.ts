@@ -641,6 +641,9 @@ export const api = {
   pauseBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/pause`, { method: "POST" }),
   resumeBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/resume`, { method: "POST" }),
   cancelBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}/cancel`, { method: "POST" }),
+  hideBatch: (batchId: string) => authedJson<void>(`/v1/batches/${batchId}/hide`, { method: "POST" }),
+  unhideBatches: (orgId: string, projectId: string) =>
+    authedJson<{ unhidden: number }>(`/v1/orgs/${orgId}/projects/${projectId}/batches:unhide`, { method: "POST" }),
   deleteBatch: (batchId: string) => authedJson<void>(`/v1/batches/${batchId}`, { method: "DELETE" }),
   updateBatchSchedule: (batchId: string, schedule: BatchSchedule) =>
     authedJson<Batch>(`/v1/batches/${batchId}/schedule`, { method: "PATCH", body: JSON.stringify(schedule) }),
