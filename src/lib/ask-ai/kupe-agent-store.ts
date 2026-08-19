@@ -121,13 +121,14 @@ function sseHeaders(): Promise<HeadersInit> {
   }));
 }
 
-async function ensureSession(orgId: string, headers?: HeadersInit): Promise<string> {
+async function ensureSession(orgId: string, headers?: HeadersInit, signal?: AbortSignal): Promise<string> {
   if (state.sessionId) return state.sessionId;
   const h = headers ?? (await authHeaders());
   const resp = await fetch(`${HARNESS_URL}/v1/sessions`, {
     method: "POST",
     headers: h,
     body: JSON.stringify({ org_id: orgId }),
+    signal,
   });
   if (!resp.ok) throw new Error(`Could not start Kupe: ${resp.status}`);
   const body = (await resp.json()) as { session_id: string };
@@ -304,12 +305,13 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
     patchAssistant({ streaming: false, ...extra });
   };
 
+  abortController?.abort();
+  const controller = new AbortController();
+  abortController = controller;
+
   try {
     const headers = await sseHeaders();
-    let sid = await ensureSession(orgId, headers);
-    abortController?.abort();
-    const controller = new AbortController();
-    abortController = controller;
+    let sid = await ensureSession(orgId, headers, controller.signal);
     const postTurn = () =>
       fetch(`${HARNESS_URL}/v1/sessions/${sid}/messages`, {
         method: "POST",
@@ -323,7 +325,7 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
     // token so a stale session id does not stick.
     if (resp.status === 403) {
       setState({ sessionId: null });
-      sid = await ensureSession(orgId, headers);
+      sid = await ensureSession(orgId, headers, controller.signal);
       resp = await postTurn();
     }
     if (!resp.ok || !resp.body) throw new Error(`Kupe turn failed: ${resp.status}`);
@@ -379,6 +381,20 @@ export function sendForNewAgent(orgId: string, projectId: string, userText: stri
 export function sendForAgent(orgId: string, projectId: string, agentId: string, userText: string): Promise<void> {
   setState({ scopeAgentId: agentId });
   return runTurn(orgId, userText, editPrompt(orgId, projectId, agentId, userText));
+}
+
+/** Abort the in-flight harness turn without wiping the conversation.
+ * Disconnecting the SSE stream is enough for kupe-harness to unwind the
+ * turn (see send_message in kupe-harness/app/api.py). */
+export function stopTurn(): void {
+  if (!state.busy) return;
+  turnEpoch += 1;
+  abortController?.abort();
+  abortController = null;
+  setState((s) => ({
+    busy: false,
+    turns: s.turns.map((t) => (t.streaming ? { ...t, streaming: false, status: undefined } : t)),
+  }));
 }
 
 export function resetSession(): void {

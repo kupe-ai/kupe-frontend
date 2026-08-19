@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
 import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/context/workspace-context";
-import { enterAgentScope, removeAttachment, sendForAgent, uploadAttachment } from "@/lib/ask-ai/kupe-agent-store";
+import { enterAgentScope, removeAttachment, sendForAgent, stopTurn, uploadAttachment } from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
@@ -397,6 +397,7 @@ export function AgentAskKoriPanel({
           placeholder={live ? "Talking — type to ask Kai after the call…" : "Ask Kai or describe a change…"}
           disabled={live}
           sending={sending}
+          onStop={stopTurn}
           attachments={kupeStore.attachments}
           onAttach={(file) => void onAttach(file)}
           onRemoveAttachment={removeAttachment}

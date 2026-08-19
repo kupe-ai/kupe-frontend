@@ -13,6 +13,7 @@ import {
   resetSession,
   sendForAgent,
   sendForNewAgent,
+  stopTurn,
   uploadAttachment,
 } from "@/lib/ask-ai/kupe-agent-store";
 import { ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
@@ -91,6 +92,7 @@ export function AskAiPanel() {
             placeholder="Ask anything… (Shift+Enter for new line)"
             disabled={!hasWorkspace}
             sending={kupeStore.busy}
+            onStop={stopTurn}
             attachments={kupeStore.attachments}
             onAttach={(file) => {
               if (!orgId) {

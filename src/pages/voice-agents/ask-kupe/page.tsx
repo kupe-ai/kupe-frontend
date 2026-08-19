@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
 import { CyclingPromptPlaceholder } from "@/components/voice-agents/cycling-prompt";
 import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent } from "@/components/ui/conversation";
-import { AttachmentChips, ChatComposer, SuggestionChips } from "@/components/ask-ai/chat-composer";
+import { AttachmentChips, ChatComposer, ComposerSubmitButton, SuggestionChips } from "@/components/ask-ai/chat-composer";
 import { AskKupeTurn } from "@/components/ask-ai/ask-kupe-thread";
 import { useWorkspace } from "@/context/workspace-context";
 import {
@@ -16,6 +16,7 @@ import {
   resetSession,
   sendForAgent,
   sendForNewAgent,
+  stopTurn,
   uploadAttachment,
 } from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
@@ -142,17 +143,14 @@ export default function AskKupePage() {
                   />
                 ) : null}
               </div>
-              <Button
-                type="button"
+              <ComposerSubmitButton
+                sending={busy}
+                onSend={() => submit()}
+                onStop={stopTurn}
+                canSend={canSubmit}
                 size="icon"
                 className="mr-1.5 size-9 shrink-0 rounded-full"
-                onClick={() => submit()}
-                aria-label="Send"
-                loading={busy}
-                disabled={!canSubmit && !busy}
-              >
-                <ArrowUp className="size-4" />
-              </Button>
+              />
             </div>
             {!hasWorkspace ? (
               <p className="text-xs text-muted-foreground">Select a workspace to start.</p>
@@ -178,6 +176,7 @@ export default function AskKupePage() {
               placeholder="Ask anything… (Shift+Enter for new line)"
               disabled={!hasWorkspace}
               sending={busy}
+              onStop={stopTurn}
               attachments={kupeStore.attachments}
               onAttach={(file) => void onAttach(file)}
               onRemoveAttachment={removeAttachment}

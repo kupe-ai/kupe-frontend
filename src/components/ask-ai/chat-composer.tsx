@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ArrowUp, Loader2, Paperclip, Plus, X } from "lucide-react";
+import { ArrowUp, Paperclip, Plus, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AttachedFile } from "@/lib/ask-ai/types";
@@ -34,10 +34,56 @@ export function AttachmentChips({
   );
 }
 
+export function ComposerSubmitButton({
+  sending,
+  onSend,
+  onStop,
+  disabled,
+  canSend,
+  className,
+  size = "icon-sm",
+}: {
+  sending?: boolean;
+  onSend: () => void;
+  onStop?: () => void;
+  disabled?: boolean;
+  canSend: boolean;
+  className?: string;
+  size?: "icon" | "icon-sm";
+}) {
+  if (sending) {
+    return (
+      <Button
+        type="button"
+        size={size}
+        className={className}
+        onClick={onStop}
+        disabled={!onStop}
+        aria-label="Stop generating"
+      >
+        <Square className="size-2.5 fill-current" />
+      </Button>
+    );
+  }
+  return (
+    <Button
+      type="button"
+      size={size}
+      className={className}
+      onClick={onSend}
+      disabled={!canSend || disabled}
+      aria-label="Send"
+    >
+      <ArrowUp className="size-4" />
+    </Button>
+  );
+}
+
 export function ChatComposer({
   value,
   onChange,
   onSend,
+  onStop,
   placeholder,
   disabled,
   sending,
@@ -50,6 +96,7 @@ export function ChatComposer({
   value: string;
   onChange: (v: string) => void;
   onSend: () => void;
+  onStop?: () => void;
   placeholder: string;
   disabled?: boolean;
   sending?: boolean;
@@ -119,16 +166,14 @@ export function ChatComposer({
             }
           }}
         />
-        <Button
-          type="button"
-          size="icon-sm"
+        <ComposerSubmitButton
+          sending={sending}
+          onSend={onSend}
+          onStop={onStop}
+          disabled={disabled}
+          canSend={value.trim().length > 0 || attachments.length > 0}
           className="mb-0.5 shrink-0 rounded-full"
-          onClick={onSend}
-          disabled={(!value.trim() && attachments.length === 0) || sending || disabled}
-          aria-label="Send"
-        >
-          {sending ? <Loader2 className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}
-        </Button>
+        />
       </div>
     </div>
   );
