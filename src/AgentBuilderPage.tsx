@@ -67,7 +67,7 @@ const DEFAULT_CONFIG: AgentConfig = {
   session: { max_duration_seconds: 180, allow_interruptions: true, record_calls: true },
   turn: { vad_stop_secs: 0.2, eagerness: 5, volume_threshold_db: -30 },
   audio: {
-    noise_cancellation: "off",
+    noise_cancellation: "medium",
     background_noise: { enabled: false, source: "preset", id: "office", volume: 0.25 },
   },
   end_of_call_warning: {
