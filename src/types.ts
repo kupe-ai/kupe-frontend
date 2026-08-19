@@ -430,8 +430,13 @@ export type VoicemailDetectionConfig = {
   response_delay: number;
 };
 
+/** "warm" lets the closing line finish playing; "instant" cuts the line as
+ * soon as the agent calls end_call (and the agent is told not to say goodbye). */
+export type AutoCutMode = "warm" | "instant";
+
 export type AutoCutConfig = {
   enabled: boolean;
+  mode: AutoCutMode;
 };
 
 export type TransferRingStrategy = "simultaneous" | "sequential";

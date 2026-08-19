@@ -7,6 +7,7 @@ import type {
   AgentTest,
   AgentTestRun,
   AnalysisField,
+  AutoCutMode,
   CallGoalConfig,
   CallTransferConfig,
   ExpectedToolCall,
@@ -79,6 +80,7 @@ export interface AgentSettings {
     hangup_after_unanswered_nudges?: boolean;
   thinking_sounds?: boolean;
   auto_cut_enabled?: boolean;
+  auto_cut_mode?: AutoCutMode;
   voicemail_enabled?: boolean;
   voicemail_message?: string | null;
   max_call_length_minutes?: number;
@@ -476,6 +478,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     hangup_after_unanswered_nudges: config?.silence_breaker.hangup_after_unanswered ?? false,
     thinking_sounds: config?.thinking_sounds?.enabled ?? false,
     auto_cut_enabled: config?.auto_cut.enabled ?? false,
+    auto_cut_mode: config?.auto_cut.mode ?? "warm",
     knowledge_base_ids: config?.knowledge_base_ids ?? [],
   };
 }
@@ -554,6 +557,7 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
     auto_cut: {
       ...agent.config.auto_cut,
       enabled: data.auto_cut_enabled ?? agent.config.auto_cut.enabled,
+      mode: data.auto_cut_mode ?? agent.config.auto_cut.mode ?? "warm",
     },
     voicemail_detection: {
       ...agent.config.voicemail_detection,

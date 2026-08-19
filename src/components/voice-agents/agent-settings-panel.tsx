@@ -146,6 +146,7 @@ const DEFAULTS: Required<
   hangup_after_unanswered_nudges: false,
   thinking_sounds: false,
   auto_cut_enabled: false,
+  auto_cut_mode: "warm",
   voicemail_enabled: false,
   voicemail_message: "",
   max_call_length_minutes: 10,
@@ -774,6 +775,29 @@ export function AgentSettingsPanel({
       >
         <Switch checked={!!settings.auto_cut_enabled} onCheckedChange={(v) => set("auto_cut_enabled", v)} />
       </SettingRow>
+      {settings.auto_cut_enabled && (
+        <SettingRow
+          title="Hang up style"
+          description={
+            settings.auto_cut_mode === "instant"
+              ? "Cuts the line the moment the agent decides to end — no goodbye."
+              : "Lets the agent finish its closing line before hanging up."
+          }
+        >
+          <Select
+            value={settings.auto_cut_mode ?? "warm"}
+            onValueChange={(v) => set("auto_cut_mode", v as "warm" | "instant")}
+          >
+            <SelectTrigger className="h-9 w-36 rounded-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="warm">Warm cut</SelectItem>
+              <SelectItem value="instant">Instant cut</SelectItem>
+            </SelectContent>
+          </Select>
+        </SettingRow>
+      )}
       <SettingRow title="Voicemail" description="Leave a message when voicemail is detected">
         <Switch checked={settings.voicemail_enabled} onCheckedChange={(v) => set("voicemail_enabled", v)} />
       </SettingRow>
