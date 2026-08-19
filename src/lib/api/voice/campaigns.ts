@@ -160,7 +160,7 @@ export async function cloneCampaign(sourceId: string): Promise<VoiceCampaign> {
   return toCampaign(await api.getBatch(created.id));
 }
 
-export async function listRecipientLists(params?: { limit?: number; offset?: number }) {
+export async function listRecipientLists(params?: { limit?: number; offset?: number; name?: string }) {
   const { orgId, projectId } = requireScope();
   return api.listRecipientLists(orgId, projectId, params);
 }
