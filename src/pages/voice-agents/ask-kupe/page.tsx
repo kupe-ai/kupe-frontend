@@ -86,7 +86,7 @@ export default function AskKupePage() {
       <div className="relative mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-6">
       {!chatting ? (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
-          <AgentAvatar seed={KAI_AVATAR_SEED} fade size={64} alt="" />
+          <AgentAvatar seed={KAI_AVATAR_SEED} fade size={168} alt="" />
           <h1 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
             What should Kai do?
           </h1>

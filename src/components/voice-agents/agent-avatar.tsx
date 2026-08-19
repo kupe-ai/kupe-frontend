@@ -24,6 +24,8 @@ export function AgentAvatar({
   const gid = `agent-av-g-${uid}`;
   const mid = `agent-av-m-${uid}`;
   const wash = muted || fade;
+  const fadeFrom = "oklch(0.87 0.15 154)";
+  const fadeTo = "oklch(0.63 0.19 149 / 0)";
 
   return (
     <span
@@ -44,12 +46,19 @@ export function AgentAvatar({
       >
         <defs>
           <linearGradient id={gid} x1="32" y1="6" x2="32" y2="64" gradientUnits="userSpaceOnUse">
-            {wash ? (
+            {fade ? (
               <>
-                <stop offset="0%" stopColor={fade ? from : "currentColor"} stopOpacity="0.95" />
-                <stop offset="42%" stopColor={fade ? from : "currentColor"} stopOpacity="0.55" />
-                <stop offset="76%" stopColor={fade ? to : "currentColor"} stopOpacity="0.12" />
-                <stop offset="100%" stopColor={fade ? to : "currentColor"} stopOpacity="0" />
+                <stop offset="0%" stopColor={fadeFrom} />
+                <stop offset="38%" stopColor="oklch(0.79 0.17 152 / 0.72)" />
+                <stop offset="72%" stopColor="oklch(0.68 0.18 150 / 0.22)" />
+                <stop offset="100%" stopColor={fadeTo} />
+              </>
+            ) : wash ? (
+              <>
+                <stop offset="0%" stopColor="currentColor" stopOpacity="0.95" />
+                <stop offset="42%" stopColor="currentColor" stopOpacity="0.55" />
+                <stop offset="76%" stopColor="currentColor" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
               </>
             ) : (
               <>
