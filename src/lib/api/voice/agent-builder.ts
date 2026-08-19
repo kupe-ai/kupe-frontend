@@ -5,6 +5,7 @@ import { extractVariableNames } from "@/lib/prompt-variables";
 import type {
   AgentConfig,
   AgentTest,
+  DeepPartial,
   AgentTestRun,
   AnalysisField,
   AutoCutMode,
@@ -14,6 +15,7 @@ import type {
   ExpectedToolCall,
   MemoryScope,
   PromptVariable,
+  ThinkingSoundMode,
 } from "@/types";
 
 // Aliased for call-site continuity with the rest of this file/agent-tests-panel.tsx.
@@ -80,7 +82,7 @@ export interface AgentSettings {
   output_numbers_indic?: boolean;
   nudges?: Array<{ text: string; after_seconds: number }>;
     hangup_after_unanswered_nudges?: boolean;
-  thinking_sounds?: boolean;
+  thinking_sounds?: ThinkingSoundMode;
   auto_cut_enabled?: boolean;
   auto_cut_mode?: AutoCutMode;
   voicemail_enabled?: boolean;
@@ -90,6 +92,8 @@ export interface AgentSettings {
   memory_retention_days?: number;
   memory_max_calls?: number;
   memory_scope?: MemoryScope;
+  /** null = inherit workspace default timezone */
+  timezone?: string | null;
 }
 
 function extraKey(agentId: string, kind: string) {
@@ -119,7 +123,7 @@ export async function createInputVariable(agentId: string, data: Partial<InputVa
   const variables = [...(agent.config?.variables ?? [])];
   const key = data.name?.trim() || `var_${variables.length + 1}`;
   variables.push({ key, description: "", example: data.default_value ?? "" });
-  await api.updateAgent(agentId, { config: { ...agent.config, variables } });
+  await api.updateAgent(agentId, { config: { variables } });
   return {
     id: `${agentId}-in-${key}`,
     agent_id: agentId,
@@ -136,7 +140,7 @@ export async function updateInputVariable(agentId: string, id: string, data: Par
       ? { ...v, key: data.name ?? v.key, example: data.default_value ?? v.example }
       : v,
   );
-  await api.updateAgent(agentId, { config: { ...agent.config, variables } });
+  await api.updateAgent(agentId, { config: { variables } });
   return {
     id,
     agent_id: agentId,
@@ -149,7 +153,7 @@ export async function deleteInputVariable(agentId: string, id: string) {
   const agent = await api.getAgent(agentId);
   const key = id.replace(`${agentId}-in-`, "");
   const variables = (agent.config?.variables ?? []).filter((v) => v.key !== key);
-  await api.updateAgent(agentId, { config: { ...agent.config, variables } });
+  await api.updateAgent(agentId, { config: { variables } });
 }
 
 /**
@@ -171,7 +175,7 @@ export async function syncDeclaredVariablesFromText(agentId: string, ...texts: (
     ...(agent.config?.variables ?? []),
     ...missing.map((key) => ({ key, description: "", example: "" })),
   ];
-  await api.updateAgent(agentId, { config: { ...agent.config, variables } });
+  await api.updateAgent(agentId, { config: { variables } });
 }
 
 // Output variables are real: each row is one AnalysisField inside a single
@@ -270,7 +274,7 @@ export async function updateOutputVariable(
     const agent = await api.getAgent(agentId);
     if (agent.config?.call_goal?.output_field === fieldName) {
       await api.updateAgent(agentId, {
-        config: { ...agent.config, call_goal: { ...agent.config.call_goal, output_field: newName } },
+        config: { call_goal: { ...agent.config.call_goal, output_field: newName } },
       });
     }
   }
@@ -285,7 +289,7 @@ export async function deleteOutputVariable(agentId: string, id: string): Promise
   await api.updateAnalysis(analysisId, { fields });
   const agent = await api.getAgent(agentId);
   if (agent.config?.call_goal?.output_field === fieldName) {
-    await api.updateAgent(agentId, { config: { ...agent.config, call_goal: null } });
+    await api.updateAgent(agentId, { config: { call_goal: null } });
   }
 }
 
@@ -318,7 +322,7 @@ export async function createCallGoal(agentId: string, data: Partial<CallGoal>): 
     field_operator: data.field_operator ?? "eq",
     value: data.value ?? "",
   };
-  await api.updateAgent(agentId, { config: { ...agent.config, call_goal } });
+  await api.updateAgent(agentId, { config: { call_goal } });
   return {
     id: data.output_variable_id,
     agent_id: agentId,
@@ -330,7 +334,7 @@ export async function createCallGoal(agentId: string, data: Partial<CallGoal>): 
 
 export async function deleteCallGoal(agentId: string, _id: string): Promise<void> {
   const agent = await api.getAgent(agentId);
-  await api.updateAgent(agentId, { config: { ...agent.config, call_goal: null } });
+  await api.updateAgent(agentId, { config: { call_goal: null } });
 }
 
 export async function listAgentTools(agentId: string): Promise<AgentTool[]> {
@@ -434,19 +438,25 @@ export async function listSystemTools(agentId: string): Promise<SystemTool[]> {
 }
 
 export async function setSystemToolEnabled(agentId: string, name: SystemToolName, enabled: boolean): Promise<void> {
-  const agent = await api.getAgent(agentId);
-  const config: AgentConfig = { ...agent.config };
+  const config: DeepPartial<AgentConfig> = {};
   if (name === "end_call") {
-    config.auto_cut = { ...agent.config.auto_cut, enabled };
+    config.auto_cut = { enabled };
   } else if (name === "voicemail") {
-    config.voicemail_detection = { ...agent.config.voicemail_detection, enabled };
+    config.voicemail_detection = { enabled };
   } else {
+    const agent = await api.getAgent(agentId);
     if (enabled && agent.config.call_transfer.destinations.length === 0) {
       throw new Error("Add a transfer destination in Call Transfer settings before enabling this.");
     }
-    config.call_transfer = { ...agent.config.call_transfer, enabled };
+    config.call_transfer = { enabled };
   }
   await api.updateAgent(agentId, { config });
+}
+
+/** Agents saved before the three-way control only carry the old boolean. */
+function thinkingModeFromConfig(thinking: AgentConfig["thinking_sounds"] | undefined): ThinkingSoundMode {
+  if (thinking?.mode) return thinking.mode;
+  return thinking?.enabled ? "sounds" : "off";
 }
 
 function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
@@ -482,7 +492,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     output_numbers_indic: config?.llm.output_numbers_indic,
     nudges,
     hangup_after_unanswered_nudges: config?.silence_breaker.hangup_after_unanswered ?? false,
-    thinking_sounds: config?.thinking_sounds?.enabled ?? false,
+    thinking_sounds: thinkingModeFromConfig(config?.thinking_sounds),
     auto_cut_enabled: config?.auto_cut.enabled ?? false,
     auto_cut_mode: config?.auto_cut.mode ?? "warm",
     knowledge_base_ids: config?.knowledge_base_ids ?? [],
@@ -492,6 +502,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     memory_retention_days: config?.memory?.retention_days ?? 30,
     memory_max_calls: config?.memory?.max_calls ?? 5,
     memory_scope: config?.memory?.scope ?? "agent",
+    timezone: config?.timezone ?? null,
   };
 }
 
@@ -515,13 +526,21 @@ function backgroundFromSettings(data: AgentSettings, fallback: AgentConfig["audi
   };
 }
 
+/**
+ * Writes only the config sections this panel owns. PATCH /v1/agents deep-merges
+ * config, so anything omitted here is preserved server-side.
+ *
+ * It used to send `{...agent.config, ...changes}` off a read that could already
+ * be stale — every other panel (prompt, transfer, dynamic greeting, variables,
+ * tools) saves independently, so the last writer put the others back to
+ * whatever it had read. That is what made Memory settings snap back to
+ * 30 days / 5 calls right after being saved.
+ */
 export async function updateAgentSettings(agentId: string, data: AgentSettings) {
   const agent = await api.getAgent(agentId);
   const nudges = data.nudges ?? [];
-  const config: AgentConfig = {
-    ...agent.config,
+  const config: DeepPartial<AgentConfig> = {
     llm: {
-      ...agent.config.llm,
       temperature: data.temperature_override ?? agent.config.llm.temperature,
       language: data.starting_language ?? agent.config.llm.language,
       allowed_languages: data.allowed_languages?.length
@@ -540,50 +559,44 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
       pitch: data.pitch ?? agent.config.tts?.pitch ?? 0,
     },
     session: {
-      ...agent.config.session,
       allow_interruptions: data.allow_interruptions ?? agent.config.session.allow_interruptions,
       max_duration_seconds: data.max_call_length_minutes
         ? data.max_call_length_minutes * 60
         : agent.config.session.max_duration_seconds,
     },
     turn: {
-      ...agent.config.turn,
       eagerness: data.eagerness ?? agent.config.turn.eagerness ?? 5,
       volume_threshold_db: data.volume_threshold_db ?? agent.config.turn.volume_threshold_db ?? -30,
     },
     audio: {
-      ...agent.config.audio,
       background_noise: backgroundFromSettings(data, agent.config.audio.background_noise),
     },
     silence_breaker: {
-      ...agent.config.silence_breaker,
       enabled: nudges.length > 0,
       idle_seconds: nudges[0]?.after_seconds || agent.config.silence_breaker.idle_seconds || 8,
       messages: nudges.map((n) => ({ text: n.text, after_seconds: n.after_seconds })),
       hangup_after_unanswered: data.hangup_after_unanswered_nudges ?? false,
     },
     thinking_sounds: {
-      enabled: data.thinking_sounds ?? agent.config.thinking_sounds?.enabled ?? false,
+      mode: data.thinking_sounds ?? thinkingModeFromConfig(agent.config.thinking_sounds),
     },
     knowledge_base_ids: data.knowledge_base_ids ?? agent.config.knowledge_base_ids ?? [],
     auto_cut: {
-      ...agent.config.auto_cut,
       enabled: data.auto_cut_enabled ?? agent.config.auto_cut.enabled,
       mode: data.auto_cut_mode ?? agent.config.auto_cut.mode ?? "warm",
     },
     voicemail_detection: {
-      ...agent.config.voicemail_detection,
       enabled: data.voicemail_enabled ?? agent.config.voicemail_detection.enabled,
       message: data.voicemail_message ?? agent.config.voicemail_detection.message,
     },
     memory: {
-      ...agent.config.memory,
       enabled: data.memory_enabled ?? agent.config.memory?.enabled ?? true,
       retention_days: data.memory_retention_days ?? agent.config.memory?.retention_days ?? 30,
       max_calls: data.memory_max_calls ?? agent.config.memory?.max_calls ?? 5,
       scope: data.memory_scope ?? agent.config.memory?.scope ?? "agent",
     },
   };
+  if (data.timezone !== undefined) config.timezone = data.timezone;
   await api.updateAgent(agentId, { config });
   return data;
 }
@@ -603,10 +616,7 @@ export async function updateDynamicGreetingConfig(
   agentId: string,
   dynamicGreeting: DynamicGreetingConfig,
 ): Promise<DynamicGreetingConfig> {
-  const agent = await api.getAgent(agentId);
-  await api.updateAgent(agentId, {
-    config: { ...agent.config, dynamic_greeting: dynamicGreeting },
-  });
+  await api.updateAgent(agentId, { config: { dynamic_greeting: dynamicGreeting } });
   return dynamicGreeting;
 }
 
@@ -689,7 +699,7 @@ export async function updateCallTransferConfig(
 ): Promise<CallTransferConfig> {
   const agent = await api.getAgent(agentId);
   await api.updateAgent(agentId, {
-    config: { ...agent.config, call_transfer: callTransfer },
+    config: { call_transfer: callTransfer },
   });
   return callTransfer;
 }

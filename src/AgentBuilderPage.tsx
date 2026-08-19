@@ -79,7 +79,7 @@ const DEFAULT_CONFIG: AgentConfig = {
       "Just a heads up — we have about {remaining_seconds} seconds left in this {duration_seconds}-second call with {agent_name}.",
   },
   silence_breaker: { enabled: false, idle_seconds: 8, messages: [], hangup_after_unanswered: false },
-  thinking_sounds: { enabled: false },
+  thinking_sounds: { mode: "off", enabled: false },
   voicemail_detection: {
     enabled: true,
     message: "Sorry we missed you. Please call us back when you can.",
@@ -105,6 +105,12 @@ const EMPTY_FORM = {
 };
 
 const PAGE_SIZE = 20;
+
+/** Agents saved before the three-way control only carry the old boolean. */
+function normalizeThinkingSounds(raw: ThinkingSoundsConfig | undefined): ThinkingSoundsConfig {
+  const mode = raw?.mode ?? (raw?.enabled ? "sounds" : DEFAULT_CONFIG.thinking_sounds.mode);
+  return { mode, enabled: mode !== "off" };
+}
 
 function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefined): AgentConfig {
   const data = (raw ?? {}) as Record<string, unknown>;
@@ -159,11 +165,7 @@ function mergeConfig(raw: AgentConfig | Record<string, unknown> | null | undefin
       ...DEFAULT_CONFIG.silence_breaker,
       ...((data.silence_breaker as AgentConfig["silence_breaker"]) ?? {}),
     },
-    thinking_sounds: {
-      enabled:
-        (data.thinking_sounds as ThinkingSoundsConfig | undefined)?.enabled ??
-        DEFAULT_CONFIG.thinking_sounds.enabled,
-    },
+    thinking_sounds: normalizeThinkingSounds(data.thinking_sounds as ThinkingSoundsConfig | undefined),
     voicemail_detection: {
       ...DEFAULT_CONFIG.voicemail_detection,
       ...((data.voicemail_detection as AgentConfig["voicemail_detection"]) ?? {}),
@@ -332,9 +334,10 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
           ...prev.config.silence_breaker,
           ...(patch.silence_breaker ?? {}),
         },
-        thinking_sounds: {
-          enabled: patch.thinking_sounds?.enabled ?? prev.config.thinking_sounds.enabled,
-        },
+        thinking_sounds: normalizeThinkingSounds({
+          ...prev.config.thinking_sounds,
+          ...(patch.thinking_sounds ?? {}),
+        }),
         voicemail_detection: {
           ...prev.config.voicemail_detection,
           ...(patch.voicemail_detection ?? {}),

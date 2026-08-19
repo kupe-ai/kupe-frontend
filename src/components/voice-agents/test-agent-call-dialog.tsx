@@ -105,6 +105,7 @@ export function TestAgentCallDialog({
   const handleRef = useRef<WebCallHandle | null>(null);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const demoValuesRef = useRef<Record<string, string>>({});
+  const demoValuesPromiseRef = useRef<Promise<Record<string, string>> | null>(null);
   // Latest "user stopped -> agent started" latency, stashed here as it
   // arrives and attached to the next agent turn that lands.
   const pendingLatencyRef = useRef<number | null>(null);
@@ -129,20 +130,19 @@ export function TestAgentCallDialog({
     }
 
     let cancelled = false;
-    void api
+    const pending = api
       .getAgentDemoVariables(agentId)
-      .then((res) => {
-        if (cancelled) return;
-        const values = res.values || {};
-        setDemoValues(values);
-        demoValuesRef.current = values;
-        setDemoDirty(false);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setDemoValues({});
-        demoValuesRef.current = {};
-      });
+      .then((res) => res.values || {})
+      .catch(() => ({}) as Record<string, string>);
+    // The call-start effect below awaits this, so the very first call carries
+    // the resolved {{variable}} values instead of an empty map.
+    demoValuesPromiseRef.current = pending;
+    void pending.then((values) => {
+      if (cancelled) return;
+      setDemoValues(values);
+      demoValuesRef.current = values;
+      setDemoDirty(false);
+    });
 
     return () => {
       cancelled = true;
@@ -157,16 +157,23 @@ export function TestAgentCallDialog({
     setTurns([]);
     setElapsedSec(0);
     pendingLatencyRef.current = null;
-    void startWebCall(agentId, {
-      onStatusChange: (s) => !cancelled && setStatus(s),
-      onAgentAudioLevel: (l) => !cancelled && setLevel(l),
-      onAgentTrack: (track) => !cancelled && setAgentStream(new MediaStream([track])),
-      onLocalTrack: (track) => !cancelled && setLocalStream(new MediaStream([track])),
-      onError: (err) => {
-        if (cancelled) return;
-        setErrorMsg(friendlyVoiceError(err, webCallErrorMessage(err)));
-      },
-    }, demoValuesRef.current).then((handle) => {
+    // Wait for the demo variables before dialling. On a restart the fetch has
+    // long resolved and demoValuesRef holds whatever the panel was edited to,
+    // so reading the ref after the await covers both cases.
+    void (demoValuesPromiseRef.current ?? Promise.resolve({})).then(() => {
+      if (cancelled) return null;
+      return startWebCall(agentId, {
+        onStatusChange: (s) => !cancelled && setStatus(s),
+        onAgentAudioLevel: (l) => !cancelled && setLevel(l),
+        onAgentTrack: (track) => !cancelled && setAgentStream(new MediaStream([track])),
+        onLocalTrack: (track) => !cancelled && setLocalStream(new MediaStream([track])),
+        onError: (err) => {
+          if (cancelled) return;
+          setErrorMsg(friendlyVoiceError(err, webCallErrorMessage(err)));
+        },
+      }, demoValuesRef.current);
+    }).then((handle) => {
+      if (!handle) return;
       if (cancelled) {
         void handle.disconnect();
         return;

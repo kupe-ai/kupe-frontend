@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useWorkspace } from "@/context/workspace-context";
 import { TelephonyAccountsCard } from "@/TelephonyAccountsCard";
+import { TimezoneSelect } from "@/components/timezone-select";
+import { DEFAULT_TIMEZONE } from "@/lib/timezone-options";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +51,7 @@ export function KupeWorkspaceSettings() {
   const [orgName, setOrgName] = useState("");
   const [projectName, setProjectName] = useState("");
   const [country, setCountry] = useState(org?.country ?? "US");
+  const [timezone, setTimezone] = useState(org?.timezone ?? DEFAULT_TIMEZONE);
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -58,13 +61,14 @@ export function KupeWorkspaceSettings() {
   useEffect(() => {
     if (!org) return;
     setCountry(org.country ?? "US");
+    setTimezone(org.timezone ?? DEFAULT_TIMEZONE);
     setLoadingMembers(true);
     api
       .listMembers(org.id, { limit: 100 })
       .then((page) => setMembers(page.items))
       .catch((e) => toast.error(e.message))
       .finally(() => setLoadingMembers(false));
-  }, [org?.id, org?.country]);
+  }, [org?.id, org?.country, org?.timezone]);
 
   if (!org) {
     return (
@@ -100,7 +104,7 @@ export function KupeWorkspaceSettings() {
       <section className="rounded-2xl border border-border bg-card p-5 shadow-elevated">
         <h2 className="text-sm font-semibold tracking-tight">Workspace</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Organization, project, and calling country for this console.
+          Organization, project, calling country, and default timezone for agents.
         </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
@@ -210,6 +214,21 @@ export function KupeWorkspaceSettings() {
               <p className="text-xs text-muted-foreground">
                 Used to interpret local phone numbers in call-transfer settings.
               </p>
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <TimezoneSelect
+                value={timezone}
+                onChange={async (v) => {
+                  setTimezone(v);
+                  try {
+                    await api.updateOrg(org.id, { timezone: v });
+                    refresh();
+                  } catch (e) {
+                    toast.error((e as Error).message);
+                  }
+                }}
+                description="Default local time injected into every agent call. Individual agents can override this in Settings."
+              />
             </div>
           </div>
         )}

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SearchableMultiSelect, SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
+import { TimezoneSelect } from "@/components/timezone-select";
+import { useWorkspace } from "@/context/workspace-context";
 import { KupeVoicePicker } from "@/components/voice-agents/kupe-voice-picker";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 import { cn } from "@/lib/utils";
@@ -35,10 +38,11 @@ import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import { listKnowledgeBases } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { captureEvent } from "@/lib/posthog";
-import type { MemoryScope } from "@/types";
+import type { MemoryScope, ThinkingSoundMode } from "@/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
+import { DEFAULT_TIMEZONE, timezoneFlag, timezoneLabel } from "@/lib/timezone-options";
 
 function SettingRow({
   title,
@@ -121,6 +125,15 @@ function clamp(value: number, min: number, max: number, fallback: number): numbe
   return Math.max(min, Math.min(max, Math.round(value)));
 }
 
+/** The filler vocabularies live in kupe-agents/agents/runtime/thinking_sounds.py. */
+const THINKING_SOUND_HELP: Record<ThinkingSoundMode, string> = {
+  off: "Say nothing while the reply is generated — the caller hears silence until the agent speaks.",
+  sounds:
+    "Play a short hesitation in the agent's language (hmm, अं, ம்ம்) the moment the caller stops speaking.",
+  words:
+    "Acknowledge the caller in the agent's language (अच्छा, ठीक है, બરાબર, சரி, “got it”) instead of a hesitation sound.",
+};
+
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h3 className="border-t border-border pt-5 text-sm font-semibold tracking-tight first:border-t-0 first:pt-0">
@@ -153,7 +166,7 @@ const DEFAULTS: Required<
   output_numbers_indic: false,
   nudges: [],
   hangup_after_unanswered_nudges: false,
-  thinking_sounds: false,
+  thinking_sounds: "off",
   auto_cut_enabled: false,
   auto_cut_mode: "warm",
   voicemail_enabled: false,
@@ -163,6 +176,7 @@ const DEFAULTS: Required<
   memory_retention_days: 30,
   memory_max_calls: 5,
   memory_scope: "agent",
+  timezone: null,
 };
 
 const AUTO_SAVE_MS = 1000;
@@ -205,6 +219,8 @@ export function AgentSettingsPanel({
   agent?: VoiceAgent | null;
   onAgentUpdated?: () => void;
 }) {
+  const { org } = useWorkspace();
+  const orgTimezone = org?.timezone ?? DEFAULT_TIMEZONE;
   const [settings, setSettings] = useState(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -225,6 +241,10 @@ export function AgentSettingsPanel({
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | null>(null);
   const [kbOptions, setKbOptions] = useState<SearchableOption[]>([]);
 
+  // Read inside the load effect without making it a dependency -- see below.
+  const agentRef = useRef(agent);
+  agentRef.current = agent;
+
   useEffect(() => {
     setLlmId(agent?.llm_provider_id ?? "");
     setTtsId(agent?.tts_provider_id ?? "");
@@ -233,6 +253,11 @@ export function AgentSettingsPanel({
     defaultsApplied.current = false;
   }, [agent?.llm_provider_id, agent?.tts_provider_id, agent?.tts_voice_id, agent?.stt_provider_id]);
 
+  // Loads once per agent. It must NOT depend on the agent's provider ids:
+  // saving calls onAgentUpdated(), which refetches the agent, which used to
+  // re-run this effect and setSettings() from the server -- overwriting edits
+  // the debounced auto-save had not sent yet. That is what made a just-changed
+  // Memory value snap back to the stored default.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -257,9 +282,9 @@ export function AgentSettingsPanel({
         setSttProviders(catalog.stt);
         setLanguages(catalog.languages.length ? catalog.languages : CALL_LANGUAGES);
 
-        const nextLlm = pickDefaultId(catalog.llms, agent?.llm_provider_id);
-        const nextTts = pickDefaultId(catalog.tts, agent?.tts_provider_id);
-        const nextStt = pickDefaultId(catalog.stt, agent?.stt_provider_id);
+        const nextLlm = pickDefaultId(catalog.llms, agentRef.current?.llm_provider_id);
+        const nextTts = pickDefaultId(catalog.tts, agentRef.current?.tts_provider_id);
+        const nextStt = pickDefaultId(catalog.stt, agentRef.current?.stt_provider_id);
         setLlmId(nextLlm);
         setTtsId(nextTts);
         setSttId(nextStt);
@@ -279,7 +304,7 @@ export function AgentSettingsPanel({
     return () => {
       cancelled = true;
     };
-  }, [agentId, agent?.llm_provider_id, agent?.tts_provider_id, agent?.stt_provider_id]);
+  }, [agentId]);
 
   useEffect(() => {
     if (!ttsId) {
@@ -554,9 +579,30 @@ export function AgentSettingsPanel({
       <SectionTitle>Thinking & knowledge</SectionTitle>
       <SettingRow
         title="Thinking sounds"
-        description="Play a short hmm or umm in the caller's language the moment they finish speaking, while the reply is generated."
+        description={THINKING_SOUND_HELP[settings.thinking_sounds]}
       >
-        <Switch checked={settings.thinking_sounds} onCheckedChange={(v) => set("thinking_sounds", v)} />
+        <ToggleGroup
+          type="single"
+          value={settings.thinking_sounds}
+          spacing={0}
+          variant="outline"
+          size="sm"
+          onValueChange={(v) => {
+            // Radix clears the value when the active item is re-clicked.
+            if (v === "off" || v === "sounds" || v === "words") set("thinking_sounds", v);
+          }}
+          className="shrink-0"
+        >
+          <ToggleGroupItem value="off" aria-label="No thinking sound" className="px-2.5">
+            Off
+          </ToggleGroupItem>
+          <ToggleGroupItem value="sounds" aria-label="Play a hesitation sound" className="px-2.5">
+            Sounds
+          </ToggleGroupItem>
+          <ToggleGroupItem value="words" aria-label="Play an acknowledgement word" className="px-2.5">
+            Words
+          </ToggleGroupItem>
+        </ToggleGroup>
       </SettingRow>
       <SettingRow
         title="Knowledge bases"
@@ -834,6 +880,42 @@ export function AgentSettingsPanel({
           onChange={(e) => set("max_call_length_minutes", Number(e.target.value) || 1)}
           className="h-9 w-20 rounded-full text-center"
         />
+      </SettingRow>
+
+      <SectionTitle>Local time</SectionTitle>
+      <SettingRow
+        title="Timezone"
+        description={
+          settings.timezone
+            ? "This agent uses its own timezone for “today”, scheduling, and time-sensitive answers."
+            : `Uses the workspace default (${timezoneFlag(orgTimezone)} ${timezoneLabel(orgTimezone)}).`
+        }
+        className="items-start"
+      >
+        <div className="flex w-full max-w-md flex-col gap-2">
+          <Select
+            value={settings.timezone ? "custom" : "org"}
+            onValueChange={(mode) => set("timezone", mode === "org" ? null : orgTimezone)}
+          >
+            <SelectTrigger className="w-full rounded-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="org">
+                Workspace default ({timezoneFlag(orgTimezone)} {timezoneLabel(orgTimezone)})
+              </SelectItem>
+              <SelectItem value="custom">Custom timezone</SelectItem>
+            </SelectContent>
+          </Select>
+          {settings.timezone ? (
+            <TimezoneSelect
+              label=""
+              value={settings.timezone}
+              onChange={(tz) => set("timezone", tz)}
+              className="w-full max-w-none"
+            />
+          ) : null}
+        </div>
       </SettingRow>
 
       <SectionTitle>Memory</SectionTitle>

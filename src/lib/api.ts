@@ -5,6 +5,7 @@ import { captureEvent, captureException } from "./posthog";
 import { isConcurrencyLimitError } from "./voice/concurrency-limit";
 import type {
   Agent,
+  AgentPatch,
   AgentAnalysis,
   AgentTest,
   AgentTestRun,
@@ -219,6 +220,8 @@ export const api = {
   listOrgs: (params?: ListParams) => authedJson<Page<Organization>>(`/v1/orgs${qs(params)}`),
   createOrg: (name: string) =>
     authedJson<Organization>("/v1/orgs", { method: "POST", body: JSON.stringify({ name }) }),
+  updateOrg: (orgId: string, body: { country?: string; timezone?: string }) =>
+    authedJson<Organization>(`/v1/orgs/${orgId}`, { method: "PATCH", body: JSON.stringify(body) }),
   updateOrgCountry: (orgId: string, country: string) =>
     authedJson<Organization>(`/v1/orgs/${orgId}`, { method: "PATCH", body: JSON.stringify({ country }) }),
   getMembership: (orgId: string) => authedJson<Membership>(`/v1/orgs/${orgId}/members/me`),
@@ -362,7 +365,7 @@ export const api = {
     }),
   createAgent: (orgId: string, projectId: string, body: Partial<Agent>) =>
     authedJson<Agent>(`/v1/orgs/${orgId}/projects/${projectId}/agents`, { method: "POST", body: JSON.stringify(body) }),
-  updateAgent: (agentId: string, body: Partial<Agent>) =>
+  updateAgent: (agentId: string, body: AgentPatch) =>
     authedJson<Agent>(`/v1/agents/${agentId}`, { method: "PATCH", body: JSON.stringify(body) }),
   archiveAgent: (agentId: string) => authedJson<Agent>(`/v1/agents/${agentId}/archive`, { method: "POST" }),
   listAgentVersions: (agentId: string, params?: ListParams) =>

@@ -1,7 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { DateTimePicker } from "@/components/ui/date-time-picker";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
+import { TimezoneSelect } from "@/components/timezone-select";
 import { cn } from "@/lib/utils";
 import {
   DAY_LABELS,
@@ -9,36 +9,6 @@ import {
   isWithinHours,
   type InboundAvailability,
 } from "@/lib/api/voice/inbound";
-
-const PREFERRED_TIMEZONES = [
-  "Asia/Kolkata",
-  "Asia/Dubai",
-  "Asia/Singapore",
-  "Asia/Tokyo",
-  "Europe/London",
-  "America/New_York",
-  "America/Los_Angeles",
-  "UTC",
-];
-
-function timezoneOptions() {
-  const supported =
-    typeof Intl !== "undefined" && "supportedValuesOf" in Intl
-      ? (Intl as typeof Intl & { supportedValuesOf: (key: string) => string[] }).supportedValuesOf(
-          "timeZone",
-        )
-      : PREFERRED_TIMEZONES;
-  const seen = new Set<string>();
-  return [...PREFERRED_TIMEZONES, ...supported]
-    .filter((tz) => {
-      if (seen.has(tz)) return false;
-      seen.add(tz);
-      return true;
-    })
-    .map((tz) => ({ value: tz, label: tz.replaceAll("_", " ") }));
-}
-
-const TZ_OPTIONS = timezoneOptions();
 
 export function AvailabilityFields({
   value,
@@ -96,17 +66,7 @@ export function AvailabilityFields({
         ))}
       </div>
 
-      <div className="space-y-1.5">
-        <Label>Timezone</Label>
-        <SearchableSelect
-          value={value.timezone}
-          onChange={(timezone) => patch({ timezone })}
-          options={TZ_OPTIONS}
-          placeholder="Select timezone"
-          searchPlaceholder="Search timezones"
-          className="w-full max-w-none"
-        />
-      </div>
+      <TimezoneSelect value={value.timezone} onChange={(timezone) => patch({ timezone })} />
 
       {mode === "custom" ? (
         <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">

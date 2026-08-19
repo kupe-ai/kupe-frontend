@@ -67,6 +67,7 @@ export type Organization = {
   name: string;
   slug: string;
   country: string | null;
+  timezone: string;
   created_at: string;
 };
 
@@ -420,7 +421,13 @@ export type SilenceBreakerConfig = {
   hangup_after_unanswered?: boolean;
 };
 
+/** "sounds" plays a non-lexical hesitation (hmm / अं); "words" plays a short
+ * acknowledgement in the agent's language (अच्छा / ठीक है / બરાબર / சரி). */
+export type ThinkingSoundMode = "off" | "sounds" | "words";
+
 export type ThinkingSoundsConfig = {
+  mode: ThinkingSoundMode;
+  /** Legacy mirror of `mode !== "off"`, kept in the payload for older clients. */
   enabled: boolean;
 };
 
@@ -497,6 +504,7 @@ export type CallGoalConfig = {
 };
 
 export type AgentConfig = {
+  timezone?: string | null;
   llm: AgentLlmConfig;
   tts?: AgentTtsConfig;
   session: AgentSessionConfig;
@@ -566,6 +574,20 @@ export type Agent = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+};
+
+/** Recursively optional. Arrays are replaced wholesale, matching the
+ * deep-merge PATCH /v1/agents performs on `config`. */
+export type DeepPartial<T> = T extends (infer U)[]
+  ? U[]
+  : T extends object
+    ? { [K in keyof T]?: DeepPartial<T[K]> }
+    : T;
+
+/** Body for PATCH /v1/agents: `config` is deep-merged server-side, so callers
+ * send only the sections they own instead of a full (possibly stale) copy. */
+export type AgentPatch = Omit<Partial<Agent>, "config"> & {
+  config?: DeepPartial<AgentConfig>;
 };
 
 export type AgentVersion = {
