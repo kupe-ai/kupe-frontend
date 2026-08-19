@@ -42,6 +42,10 @@ export async function getAnalyticsGoals(_params: { agent_id?: string } = {}) {
   return { goal_status: {} as Record<string, number> };
 }
 
-export async function getAnalyticsGroupBy(_dimension: "campaign" | "agent" = "campaign") {
-  return [] as Array<Record<string, number | string>>;
+export async function getAnalyticsGroupBy(
+  _dimension: "campaign" | "agent" = "campaign",
+  params: { batch_id?: string | null; search?: string | null } = {},
+) {
+  const { orgId, projectId } = requireScope();
+  return api.getCampaignAnalytics(orgId, projectId, params);
 }

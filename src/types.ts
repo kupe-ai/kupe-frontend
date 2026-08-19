@@ -884,12 +884,31 @@ export type BatchContact = {
   attempt_count: number;
   created_at: string;
   updated_at: string;
+  attempt_status?: string | null;
+  live_status?: string | null;
 };
 
 export type BatchStats = {
   batch_id: string;
   contacts_by_status: Record<string, number>;
   attempts_by_status: Record<string, number>;
+};
+
+export type CampaignOutcomeRow = {
+  batch_id: string;
+  campaign: string;
+  connected: number;
+  failed: number;
+  no_answer: number;
+  busy: number;
+};
+
+export type CampaignCallAnalytics = {
+  total_calls: number;
+  connected_calls: number;
+  connectivity_rate: number;
+  avg_duration_seconds: number;
+  volume_by_hour: Record<string, number>;
 };
 
 export type RecipientList = {

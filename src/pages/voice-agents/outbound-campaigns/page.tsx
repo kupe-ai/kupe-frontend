@@ -81,18 +81,29 @@ export default function VoiceAgentsOutboundPage() {
   const [toDelete, setToDelete] = useState<VoiceCampaign | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const refresh = useCallback(() => {
-    setLoading(true);
+  const refresh = useCallback((opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     listCampaigns()
       .then(setCampaigns)
-      .catch(() => setCampaigns([]))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!opts?.silent) setCampaigns([]);
+      })
+      .finally(() => {
+        if (!opts?.silent) setLoading(false);
+      });
   }, []);
 
   useEffect(() => {
     document.title = "Outbound campaigns · Voice Agents · Kupe";
     refresh();
   }, [refresh]);
+
+  const anyRunning = campaigns.some((c) => c.status === "running");
+  useEffect(() => {
+    if (!anyRunning) return;
+    const tick = window.setInterval(() => refresh({ silent: true }), 2500);
+    return () => window.clearInterval(tick);
+  }, [anyRunning, refresh]);
 
   async function confirmDelete() {
     if (!toDelete || deleting) return;

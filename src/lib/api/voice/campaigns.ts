@@ -66,6 +66,10 @@ export async function getCampaignStats(campaignId: string) {
   return api.getBatchStats(campaignId);
 }
 
+export async function getCampaignCallAnalytics(campaignId: string) {
+  return api.getBatchCallAnalytics(campaignId);
+}
+
 export async function createCampaign(
   orgId: string,
   workspaceId: string,
@@ -247,9 +251,13 @@ export async function ensureCampaignRecipients(opts: {
   return { listId, people: saved.inserted, copied: attached.copied };
 }
 
+export async function removeCampaignRecipients(campaignId: string, contactIds: string[]) {
+  return api.deleteBatchContactsBulk(campaignId, contactIds);
+}
+
 export async function listDialJobsPage(
   campaignId: string,
-  params?: { limit?: number; cursor?: string | null; status?: string | null },
+  params?: { limit?: number; cursor?: string | null; status?: string | null; search?: string | null },
 ) {
   const page = await api.listBatchContactsCursor(campaignId, params);
   return {
@@ -261,14 +269,18 @@ export async function listDialJobsPage(
       variables: c.variables,
       attempt_count: c.attempt_count,
       status:
-        c.status === "completed"
-          ? ("done" as const)
-          : c.status === "failed" || c.status === "exhausted"
-            ? ("failed" as const)
-            : c.status === "in_progress"
-              ? ("dialing" as const)
-              : ("queued" as const),
+        c.live_status === "talking" || c.attempt_status === "in_progress"
+          ? ("connected" as const)
+          : c.status === "completed"
+            ? ("done" as const)
+            : c.status === "failed" || c.status === "exhausted"
+              ? ("failed" as const)
+              : c.status === "in_progress"
+                ? ("dialing" as const)
+                : ("queued" as const),
       raw_status: c.status,
+      attempt_status: c.attempt_status ?? null,
+      live_status: c.live_status ?? null,
     })),
   };
 }

@@ -18,6 +18,8 @@ import type {
   BatchCreateBody,
   BatchSchedule,
   BatchStats,
+  CampaignCallAnalytics,
+  CampaignOutcomeRow,
   CatalogTool,
   CatalogVoice,
   ComposioConnectOut,
@@ -521,22 +523,43 @@ export const api = {
     authedJson<Batch>("/v1/batches", { method: "POST", body: JSON.stringify(body) }),
   getBatch: (batchId: string) => authedJson<Batch>(`/v1/batches/${batchId}`),
   getBatchStats: (batchId: string) => authedJson<BatchStats>(`/v1/batches/${batchId}/stats`),
+  getBatchCallAnalytics: (batchId: string) =>
+    authedJson<CampaignCallAnalytics>(`/v1/batches/${batchId}/call-analytics`),
+  getCampaignAnalytics: (
+    orgId: string,
+    projectId: string,
+    params?: { batch_id?: string | null; search?: string | null },
+  ) => {
+    const sp = new URLSearchParams();
+    if (params?.batch_id) sp.set("batch_id", params.batch_id);
+    if (params?.search) sp.set("search", params.search);
+    const q = sp.toString();
+    return authedJson<CampaignOutcomeRow[]>(
+      `/v1/orgs/${orgId}/projects/${projectId}/batches/analytics${q ? `?${q}` : ""}`,
+    );
+  },
   listBatchContacts: (batchId: string, params?: ListParams) =>
     authedJson<Page<BatchContact>>(`/v1/batches/${batchId}/contacts${qs(params)}`),
   listBatchContactsCursor: (
     batchId: string,
-    params?: { limit?: number; cursor?: string | null; status?: string | null },
+    params?: { limit?: number; cursor?: string | null; status?: string | null; search?: string | null },
   ) => {
     const sp = new URLSearchParams();
     sp.set("limit", String(params?.limit ?? 50));
     sp.set("cursor", params?.cursor ?? "");
     if (params?.status) sp.set("status", params.status);
+    if (params?.search) sp.set("search", params.search);
     return authedJson<CursorContactsPage>(`/v1/batches/${batchId}/contacts?${sp}`);
   },
   addBatchContactsBulk: (batchId: string, contacts: { phone_number: string; variables?: Record<string, unknown> }[]) =>
     authedJson<BatchContact[]>(`/v1/batches/${batchId}/contacts:bulk`, {
       method: "POST",
       body: JSON.stringify({ contacts }),
+    }),
+  deleteBatchContactsBulk: (batchId: string, contactIds: string[]) =>
+    authedJson<{ deleted: number }>(`/v1/batches/${batchId}/contacts:bulk`, {
+      method: "DELETE",
+      body: JSON.stringify({ contact_ids: contactIds }),
     }),
   attachRecipientListToBatch: (batchId: string, recipientListId: string) =>
     authedJson<AttachListResult>(`/v1/batches/${batchId}/contacts:from-list`, {

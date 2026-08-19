@@ -1,15 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  ChevronDown,
   ChevronRight,
   Copy,
   Download,
@@ -37,14 +29,16 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CallVolumeChart } from "@/components/voice-agents/call-volume-chart";
+import { Input } from "@/components/ui/input";
 import {
-  ChartContainer,
-  ChartThemeGradient,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
-import { cn } from "@/lib/utils";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { listCampaigns } from "@/lib/api/voice/campaigns";
 import {
   getAnalyticsConnectivity,
   getAnalyticsEngagement,
@@ -55,6 +49,9 @@ import {
 import { listInteractions, prefetchInteraction } from "@/lib/api/voice/calls";
 import { uploadEvaluationCriteria } from "@/lib/api/voice/evaluation";
 import type { VoiceCall } from "@/lib/api/voice/types";
+import { cn } from "@/lib/utils";
+import type { VoiceCampaign } from "@/lib/api/voice/campaigns";
+import type { CampaignOutcomeRow } from "@/types";
 
 const ANALYTICS_TABS = [
   { id: "overview", label: "Overview" },
@@ -66,10 +63,6 @@ const ANALYTICS_TABS = [
   { id: "calllogs", label: "Call Logs" },
 ] as const;
 type AnalyticsTab = (typeof ANALYTICS_TABS)[number]["id"];
-
-const barConfig = {
-  rate: { label: "Calls", color: "var(--chart-2)" },
-} satisfies ChartConfig;
 
 function copyText(text: string) {
   void navigator.clipboard.writeText(text);
@@ -89,7 +82,11 @@ export default function VoiceAgentsAnalyticsPage() {
   const [connectivity, setConnectivity] = useState<Awaited<ReturnType<typeof getAnalyticsConnectivity>> | null>(null);
   const [engagement, setEngagement] = useState<Awaited<ReturnType<typeof getAnalyticsEngagement>> | null>(null);
   const [goals, setGoals] = useState<Awaited<ReturnType<typeof getAnalyticsGoals>> | null>(null);
-  const [groupBy, setGroupBy] = useState<Array<Record<string, number | string>>>([]);
+  const [groupBy, setGroupBy] = useState<CampaignOutcomeRow[]>([]);
+  const [campaignFilter, setCampaignFilter] = useState<string>("all");
+  const [groupSearchInput, setGroupSearchInput] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [campaignOptions, setCampaignOptions] = useState<VoiceCampaign[]>([]);
   const [calls, setCalls] = useState<VoiceCall[]>([]);
   const [callsTotal, setCallsTotal] = useState(0);
   const [callsLoading, setCallsLoading] = useState(false);
@@ -106,7 +103,17 @@ export default function VoiceAgentsAnalyticsPage() {
     }
     if (tab === "engagement") getAnalyticsEngagement().then(setEngagement).catch(() => setEngagement(null));
     if (tab === "goals") getAnalyticsGoals().then(setGoals).catch(() => setGoals(null));
-    if (tab === "groupby") getAnalyticsGroupBy("campaign").then(setGroupBy).catch(() => setGroupBy([]));
+    if (tab === "groupby") {
+      getAnalyticsGroupBy("campaign", {
+        batch_id: campaignFilter === "all" ? null : campaignFilter,
+        search: groupSearch || null,
+      })
+        .then(setGroupBy)
+        .catch(() => setGroupBy([]));
+      listCampaigns()
+        .then(setCampaignOptions)
+        .catch(() => setCampaignOptions([]));
+    }
     if (tab === "calllogs") {
       setCallsLoading(true);
       listInteractions({
@@ -124,7 +131,12 @@ export default function VoiceAgentsAnalyticsPage() {
         })
         .finally(() => setCallsLoading(false));
     }
-  }, [tab, logFilter, page, perPage]);
+  }, [tab, logFilter, page, perPage, campaignFilter, groupSearch]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setGroupSearch(groupSearchInput.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [groupSearchInput]);
 
   useEffect(() => {
     refreshTabData();
@@ -184,7 +196,16 @@ export default function VoiceAgentsAnalyticsPage() {
         {tab === "engagement" ? <EngagementTab data={engagement} /> : null}
         {tab === "tools" ? <ToolsTab /> : null}
         {tab === "goals" ? <GoalsTab data={goals} onUpload={() => setEvalOpen(true)} /> : null}
-        {tab === "groupby" ? <GroupByTab rows={groupBy} /> : null}
+        {tab === "groupby" ? (
+          <GroupByTab
+            rows={groupBy}
+            campaigns={campaignOptions}
+            campaignId={campaignFilter}
+            search={groupSearchInput}
+            onCampaignId={setCampaignFilter}
+            onSearch={setGroupSearchInput}
+          />
+        ) : null}
         {tab === "calllogs" ? (
           <CallLogsTab
             calls={calls}
@@ -231,38 +252,6 @@ function KpiRow({ items }: { items: { id: string; label: string; value: string }
   );
 }
 
-function VolumeChart({ byHour }: { byHour: Record<string, number> }) {
-  const data = useMemo(
-    () =>
-      Object.entries(byHour)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([hour, count]) => ({ hour: `${hour}:00`, rate: count })),
-    [byHour],
-  );
-
-  return (
-    <div className="mt-4 rounded-xl border border-border bg-card p-4">
-      <p className="mb-2 text-sm font-semibold">Call volume by hour of day</p>
-      {data.length === 0 ? (
-        <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">No calls in this period</div>
-      ) : (
-        <ChartContainer config={barConfig} className="h-[220px] w-full">
-          <BarChart data={data}>
-            <defs>
-              <ChartThemeGradient id="analytics-volume-fill" />
-            </defs>
-            <CartesianGrid vertical={false} strokeDasharray="3 3" />
-            <XAxis dataKey="hour" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
-            <YAxis tickLine={false} axisLine={false} width={28} tick={{ fontSize: 11 }} allowDecimals={false} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="rate" fill="url(#analytics-volume-fill)" radius={[6, 6, 2, 2]} maxBarSize={28} />
-          </BarChart>
-        </ChartContainer>
-      )}
-    </div>
-  );
-}
-
 function OverviewTab({ data }: { data: Awaited<ReturnType<typeof getAnalyticsOverview>> | null }) {
   if (!data) {
     return (
@@ -287,7 +276,7 @@ function OverviewTab({ data }: { data: Awaited<ReturnType<typeof getAnalyticsOve
   return (
     <div>
       <KpiRow items={items} />
-      <VolumeChart byHour={data.volume_by_hour} />
+      <CallVolumeChart byHour={data.volume_by_hour} gradientId="analytics-overview-volume" />
       <div className="mt-4 rounded-xl border border-border bg-card p-4">
         <p className="text-sm font-semibold">Top failure reasons</p>
         {Object.keys(data.failure_reasons).length === 0 ? (
@@ -335,7 +324,7 @@ function ConnectivityTab({
   return (
     <div>
       <KpiRow items={items} />
-      <VolumeChart byHour={overview.volume_by_hour} />
+      <CallVolumeChart byHour={overview.volume_by_hour} gradientId="analytics-connectivity-volume" />
       <TableCard title="Phone number health" className="mt-4">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -500,14 +489,43 @@ function GoalsTab({ data, onUpload }: { data: Awaited<ReturnType<typeof getAnaly
   );
 }
 
-function GroupByTab({ rows }: { rows: Array<Record<string, number | string>> }) {
+function GroupByTab({
+  rows,
+  campaigns,
+  campaignId,
+  search,
+  onCampaignId,
+  onSearch,
+}: {
+  rows: CampaignOutcomeRow[];
+  campaigns: VoiceCampaign[];
+  campaignId: string;
+  search: string;
+  onCampaignId: (id: string) => void;
+  onSearch: (q: string) => void;
+}) {
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <Button variant="outline" size="sm" className="h-8 rounded-full">
-          Campaign
-          <ChevronDown className="size-3.5" />
-        </Button>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Select value={campaignId} onValueChange={onCampaignId}>
+          <SelectTrigger className="h-8 w-[220px] rounded-full">
+            <SelectValue placeholder="Campaign" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All campaigns</SelectItem>
+            {campaigns.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Search campaigns…"
+          className="h-8 w-[220px] rounded-full"
+        />
       </div>
       <TableCard title="">
         <div className="overflow-x-auto">
@@ -530,17 +548,22 @@ function GroupByTab({ rows }: { rows: Array<Record<string, number | string>> }) 
                 </tr>
               ) : (
                 rows.map((row) => (
-                  <tr key={String(row.key)} className="border-b border-border last:border-0">
+                  <tr key={row.batch_id} className="border-b border-border last:border-0">
                     <td className="max-w-[12rem] px-3 py-2.5">
-                      <button type="button" className="inline-flex w-[11rem] max-w-[11rem] min-w-0 items-center gap-1" title={String(row.key)} onClick={() => copyText(String(row.key))}>
-                        <span className="min-w-0 truncate font-mono text-xs">{String(row.key)}</span>
+                      <button
+                        type="button"
+                        className="inline-flex w-[11rem] max-w-[11rem] min-w-0 items-center gap-1"
+                        title={row.campaign}
+                        onClick={() => copyText(row.campaign)}
+                      >
+                        <span className="min-w-0 truncate text-xs font-medium">{row.campaign}</span>
                         <Copy className="size-3 shrink-0 text-muted-foreground" />
                       </button>
                     </td>
-                    <td className="px-3 py-2.5 tabular-nums">{row.connected ?? 0}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{row.failed ?? 0}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{row.no_answer ?? 0}</td>
-                    <td className="px-3 py-2.5 tabular-nums">{row.busy ?? 0}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.connected}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.failed}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.no_answer}</td>
+                    <td className="px-3 py-2.5 tabular-nums">{row.busy}</td>
                   </tr>
                 ))
               )}
