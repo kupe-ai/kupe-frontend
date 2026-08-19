@@ -38,10 +38,10 @@ function demoVarLabel(key: string): string {
 }
 
 function callErrorCopy(raw: string): { title: string; body: string } {
-  if (/concurrency|didn't hang up|did not hang up/i.test(raw)) {
+  if (/concurrent call limit|concurrency/i.test(raw)) {
     return {
-      title: "Line was stuck",
-      body: "A previous test call didn’t hang up cleanly, so the line looked busy even with no one on it. Try again — we’ll clear it.",
+      title: "Too many calls at once",
+      body: raw,
     };
   }
   if (/balance|credits/i.test(raw)) {

@@ -1,5 +1,6 @@
 import { KoriApiError } from "@/lib/api/kori-errors";
 import { NETWORK_UNREACHABLE, isAbortError, isBrowserNetworkError } from "@/lib/network-error";
+import { concurrencyLimitCopy, isConcurrencyLimitError } from "@/lib/voice/concurrency-limit";
 
 /**
  * Map API/transport failures to short, human copy for toasts and empty states.
@@ -20,8 +21,8 @@ export function friendlyVoiceError(err: unknown, fallback: string): string {
       return "We couldn't find that. It may have been deleted.";
     }
     if (err.status === 429) {
-      if (/concurrency/i.test(msg)) {
-        return "A previous call didn't hang up cleanly. Try again.";
+      if (isConcurrencyLimitError(err) || /concurrency/i.test(msg)) {
+        return concurrencyLimitCopy(err);
       }
       return "Too many requests — wait a moment and try again.";
     }
@@ -43,8 +44,8 @@ export function friendlyVoiceError(err: unknown, fallback: string): string {
   if (err instanceof Error) {
     const msg = err.message.trim();
     if (msg === NETWORK_UNREACHABLE) return fallback;
-    if (/concurrency limit/i.test(msg)) {
-      return "A previous call didn't hang up cleanly. Try again.";
+    if (isConcurrencyLimitError(err)) {
+      return concurrencyLimitCopy(err);
     }
     if (msg && msg.length <= 120 && !looksTechnical(msg)) return msg;
   }

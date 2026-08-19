@@ -12,6 +12,7 @@ import { enterAgentScope, removeAttachment, sendForAgent, stopTurn, uploadAttach
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
 import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
+import { isConcurrencyLimitError } from "@/lib/voice/concurrency-limit";
 import { applyPerceivedLatency } from "@/lib/voice/turn-latency";
 import { isThinkingPhone } from "@/lib/voice/thinking-phone";
 import { AgentSteps, WorkingShimmer } from "@/components/ask-ai/agent-steps";
@@ -160,7 +161,8 @@ export function AgentAskKoriPanel({
         onLocalTrack: (track) => setLocalStream(new MediaStream([track])),
         onError: (err) => {
           const msg = friendlyVoiceError(err, webCallErrorMessage(err));
-          toast.error(msg);
+          if (isConcurrencyLimitError(err)) toast.warning(msg);
+          else toast.error(msg);
           setCallStatus("error");
         },
       });
@@ -209,7 +211,8 @@ export function AgentAskKoriPanel({
       );
     } catch (err) {
       const msg = friendlyVoiceError(err, webCallErrorMessage(err));
-      toast.error(msg);
+      if (isConcurrencyLimitError(err)) toast.warning(msg);
+      else toast.error(msg);
       setCallStatus("error");
     }
   }

@@ -1,7 +1,8 @@
 import { BACKEND_URL } from "../config";
 import { supabase } from "./supabase";
 import { NETWORK_UNREACHABLE, isAbortError, isBrowserNetworkError } from "./network-error";
-import { captureException } from "./posthog";
+import { captureEvent, captureException } from "./posthog";
+import { isConcurrencyLimitError } from "./voice/concurrency-limit";
 import type {
   Agent,
   AgentAnalysis,
@@ -139,8 +140,18 @@ async function throwIfNotOk(res: Response, path: string, method: string): Promis
   const message =
     typeof detail === "string" ? detail : detail != null ? JSON.stringify(detail) : `Backend returned ${res.status}`;
   const err = new Error(message);
-  // Expected client errors (auth, missing, validation, conflicts) are not bugs.
-  if (![400, 401, 403, 404, 409, 422].includes(res.status)) {
+  // Expected client errors (auth, missing, validation, conflicts, rate limits)
+  // are not product bugs. Concurrent-call caps are a user-facing warning.
+  if (isConcurrencyLimitError(err)) {
+    captureEvent("concurrency_limit_reached", {
+      level: "warning",
+      source: "api.http",
+      path,
+      method,
+      status: res.status,
+      message,
+    });
+  } else if (![400, 401, 403, 404, 409, 422, 429].includes(res.status)) {
     captureException(err, { source: "api.http", path, method, status: res.status });
   }
   throw err;
