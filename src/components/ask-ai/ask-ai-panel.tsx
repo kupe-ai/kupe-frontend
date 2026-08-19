@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent, ConversationEmptyState } from "@/components/ui/conversation";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KAI_AVATAR_SEED } from "@/components/voice-agents/nav-item-icon";
@@ -103,18 +102,8 @@ export function AskAiPanel() {
               );
             }}
             onRemoveAttachment={removeAttachment}
+            onNewConversation={kupeStore.turns.length > 0 ? () => resetSession() : undefined}
           />
-          {kupeStore.turns.length > 0 ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 px-1.5 text-xs text-muted-foreground"
-              onClick={() => resetSession()}
-            >
-              Start a new conversation
-            </Button>
-          ) : null}
         </div>
       </SheetContent>
     </Sheet>

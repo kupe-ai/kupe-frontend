@@ -170,7 +170,7 @@ export default function AskKupePage() {
               ))}
             </ConversationContent>
           </Conversation>
-          <div className="mx-auto w-full max-w-2xl shrink-0 space-y-2 pb-2 pt-3">
+          <div className="mx-auto w-full max-w-2xl shrink-0 pb-2 pt-3">
             <ChatComposer
               value={prompt}
               onChange={setPrompt}
@@ -181,17 +181,9 @@ export default function AskKupePage() {
               attachments={kupeStore.attachments}
               onAttach={(file) => void onAttach(file)}
               onRemoveAttachment={removeAttachment}
+              onNewConversation={() => resetSession()}
               rounded="full"
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-6 px-1.5 text-xs text-muted-foreground"
-              onClick={() => resetSession()}
-            >
-              Start a new conversation
-            </Button>
           </div>
         </>
       )}

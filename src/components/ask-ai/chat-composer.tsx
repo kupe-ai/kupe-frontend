@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { ArrowUp, Loader2, Paperclip, X } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AttachedFile } from "@/lib/ask-ai/types";
@@ -44,6 +44,7 @@ export function ChatComposer({
   attachments,
   onAttach,
   onRemoveAttachment,
+  onNewConversation,
   rounded = "xl",
 }: {
   value: string;
@@ -55,6 +56,7 @@ export function ChatComposer({
   attachments: AttachedFile[];
   onAttach?: (file: File) => void;
   onRemoveAttachment?: (id: string) => void;
+  onNewConversation?: () => void;
   rounded?: "xl" | "full";
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,6 +66,19 @@ export function ChatComposer({
     <div className="space-y-2">
       <AttachmentChips files={attachments} onRemove={onRemoveAttachment} />
       <div className={cn("flex items-end gap-2 border border-border bg-muted/30 px-3 py-2", round)}>
+        {onNewConversation ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="mb-0.5 shrink-0 rounded-full"
+            onClick={onNewConversation}
+            disabled={disabled || sending}
+            aria-label="Start a new conversation"
+          >
+            <Plus className="size-4" />
+          </Button>
+        ) : null}
         {onAttach ? (
           <>
             <input
