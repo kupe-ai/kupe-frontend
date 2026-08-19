@@ -85,7 +85,7 @@ const DEFAULT_CONFIG: AgentConfig = {
     message: "Sorry we missed you. Please call us back when you can.",
     response_delay: 2,
   },
-  auto_cut: { enabled: false },
+  auto_cut: { enabled: false, mode: "warm" },
   call_transfer: { enabled: false, destinations: [] },
   variables: [],
 };
@@ -1085,7 +1085,10 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                       checked={form.config.auto_cut.enabled}
                       onCheckedChange={(v) =>
                         patchConfig({
-                          auto_cut: { enabled: v === true },
+                          auto_cut: {
+                            ...form.config.auto_cut,
+                            enabled: v === true,
+                          },
                         })
                       }
                     />
