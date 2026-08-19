@@ -121,12 +121,12 @@ function sseHeaders(): Promise<HeadersInit> {
   }));
 }
 
-async function ensureSession(orgId: string): Promise<string> {
+async function ensureSession(orgId: string, headers?: HeadersInit): Promise<string> {
   if (state.sessionId) return state.sessionId;
-  const headers = await authHeaders();
+  const h = headers ?? (await authHeaders());
   const resp = await fetch(`${HARNESS_URL}/v1/sessions`, {
     method: "POST",
-    headers,
+    headers: h,
     body: JSON.stringify({ org_id: orgId }),
   });
   if (!resp.ok) throw new Error(`Could not start Kupe: ${resp.status}`);
@@ -305,17 +305,27 @@ async function runTurn(orgId: string, displayText: string, framedText: string): 
   };
 
   try {
-    const sid = await ensureSession(orgId);
     const headers = await sseHeaders();
+    let sid = await ensureSession(orgId, headers);
     abortController?.abort();
     const controller = new AbortController();
     abortController = controller;
-    const resp = await fetch(`${HARNESS_URL}/v1/sessions/${sid}/messages`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ message: framedText, attachment_ids: attachmentIds }),
-      signal: controller.signal,
-    });
+    const postTurn = () =>
+      fetch(`${HARNESS_URL}/v1/sessions/${sid}/messages`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ message: framedText, attachment_ids: attachmentIds }),
+        signal: controller.signal,
+      });
+    let resp = await postTurn();
+    // JWT refresh between session create and this POST used to 403 because
+    // the harness compared Bearer strings. Recreate once with the current
+    // token so a stale session id does not stick.
+    if (resp.status === 403) {
+      setState({ sessionId: null });
+      sid = await ensureSession(orgId, headers);
+      resp = await postTurn();
+    }
     if (!resp.ok || !resp.body) throw new Error(`Kupe turn failed: ${resp.status}`);
 
     for await (const event of readSse(resp)) {

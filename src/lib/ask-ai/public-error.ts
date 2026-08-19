@@ -17,5 +17,6 @@ export function sanitizeChatError(raw: unknown, fallback = GENERIC_CHAT_ERROR): 
     return fallback;
   }
   if (text.length > 180) return fallback;
+  if (/failed:\s*\d{3}\b/i.test(text) || /:\s*403\b/.test(text)) return fallback;
   return text;
 }
