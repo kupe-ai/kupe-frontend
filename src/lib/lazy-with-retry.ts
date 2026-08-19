@@ -54,12 +54,17 @@ export function lazyWithRetry<T extends { default: ComponentType }>(
   return lazy(async () => {
     try {
       const mod = await factory();
+      // React.lazy does `payload._result.default`. A resolved-but-undefined
+      // module throws TypeError: can't access property "default", _result is undefined.
+      if (!mod?.default) {
+        throw new TypeError("Lazy route module is missing a default export");
+      }
       clearStaleChunkReloadFlag();
       return mod;
     } catch (error) {
       if (!isChunkLoadError(error)) throw error;
       if (reloadOnceForStaleChunk()) {
-        return new Promise<T>(() => {});
+        await new Promise<never>(() => {});
       }
       throw error;
     }
