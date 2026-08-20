@@ -277,9 +277,9 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
     tone: "coral",
     headline: "Hand off to a human — with a fallback dial order if the first line doesn't pick up.",
     about:
-      "Configure call_transfer on an agent's config with one or more named destinations. Each destination holds an ordered list of numbers — the agent tries them in sequence (ring_strategy: \"sequential\") for ring_timeout_seconds each, so the second number acts as a fallback if the first doesn't answer, and so on down the list. If every number in the destination is exhausted, no_answer_message plays and the call ends gracefully instead of hanging up abruptly. During a live call the agent's transfer_call tool triggers the same flow server-side via the internal transfer endpoint — you don't call that endpoint directly, you just configure destinations on the agent.",
+      "Configure call_transfer on an agent's config with one or more named destinations. Each destination has a name and a when-to-transfer description (used by the transfer_call tool), plus an ordered list of numbers. Sequential ring tries numbers in order for ring_timeout_seconds each; simultaneous rings them all. The agent speaks transfer_message then leaves; the caller stays on the original call until someone answers. Do not set no_answer_message — the agent is gone after transfer.",
     endpoints: [
-      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Set config.call_transfer.destinations (numbers, ring order, fallback message)." },
+      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Set config.call_transfer.destinations (name, when to transfer, numbers, ring order)." },
       { method: "GET", path: "/v1/agents/{agent_id}", summary: "Read an agent's current transfer configuration." },
     ],
     curlTabs: [
@@ -297,14 +297,14 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
           {
             "id": "sales",
             "name": "Sales team",
+            "description": "Caller asks for sales, pricing, or a human closer",
             "ring_strategy": "sequential",
             "ring_timeout_seconds": 20,
             "numbers": [
               { "number": "+9198XXXXXXX1", "label": "Primary" },
               { "number": "+9198XXXXXXX2", "label": "Fallback" }
             ],
-            "transfer_message": "One moment, I am transferring you now.",
-            "no_answer_message": "Sorry, no one is available right now. Goodbye."
+            "transfer_message": "One moment, I am transferring you now."
           }
         ]
       }

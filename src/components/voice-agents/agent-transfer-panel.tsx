@@ -32,7 +32,6 @@ function newDestination(): TransferDestination {
     ring_timeout_seconds: 20,
     numbers: [{ number: "", label: "Primary" }],
     transfer_message: "One moment, I'm transferring you now.",
-    no_answer_message: "Sorry, no one is available right now. Goodbye.",
   };
 }
 
@@ -222,20 +221,30 @@ function DestinationCard({
 
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <Label>Destination name</Label>
-          <Input
-            value={destination.name}
-            onChange={(e) => onChange({ name: e.target.value })}
-            placeholder="Sales team"
-          />
+      <div className="flex items-start gap-3">
+        <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+          <div className="min-w-0 space-y-1.5">
+            <Label>Destination name</Label>
+            <Input
+              value={destination.name}
+              onChange={(e) => onChange({ name: e.target.value })}
+              placeholder="Sales team"
+            />
+          </div>
+          <div className="min-w-0 space-y-1.5">
+            <Label>When to transfer</Label>
+            <Input
+              value={destination.description}
+              onChange={(e) => onChange({ description: e.target.value })}
+              placeholder="Caller asks for a human, or needs billing help"
+            />
+          </div>
         </div>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="mt-6 text-muted-foreground hover:text-destructive"
+          className="mt-6 shrink-0 text-muted-foreground hover:text-destructive"
           onClick={onRemove}
           aria-label="Remove destination"
         >
@@ -342,25 +351,17 @@ function DestinationCard({
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label>Transfer message</Label>
-          <Textarea
-            value={destination.transfer_message}
-            onChange={(e) => onChange({ transfer_message: e.target.value })}
-            rows={2}
-            placeholder="One moment, I'm transferring you now."
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>No-answer message</Label>
-          <Textarea
-            value={destination.no_answer_message}
-            onChange={(e) => onChange({ no_answer_message: e.target.value })}
-            rows={2}
-            placeholder="Sorry, no one is available right now. Goodbye."
-          />
-        </div>
+      <div className="space-y-1.5">
+        <Label>Transfer message</Label>
+        <Textarea
+          value={destination.transfer_message}
+          onChange={(e) => onChange({ transfer_message: e.target.value })}
+          rows={2}
+          placeholder="One moment, I'm transferring you now."
+        />
+        <p className="text-xs text-muted-foreground">
+          Spoken before the agent leaves. After that the caller stays on the line until someone answers.
+        </p>
       </div>
     </div>
   );

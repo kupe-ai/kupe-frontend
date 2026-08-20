@@ -456,12 +456,12 @@ export type TransferNumber = { number: string; label: string };
 export type TransferDestination = {
   id: string;
   name: string;
+  /** When the agent should transfer to this destination. */
   description: string;
   ring_strategy: TransferRingStrategy;
   ring_timeout_seconds: number;
   numbers: TransferNumber[];
   transfer_message: string;
-  no_answer_message: string;
 };
 
 export type CallTransferConfig = {

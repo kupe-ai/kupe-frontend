@@ -21,7 +21,6 @@ function emptyDestination(): TransferDestination {
     ring_timeout_seconds: 20,
     numbers: [{ number: "", label: "" }],
     transfer_message: "One moment, I'm transferring you now.",
-    no_answer_message: "Sorry, no one is available right now. Goodbye.",
   };
 }
 
@@ -56,7 +55,7 @@ export function CallTransferCard({ config, onChange }: Props) {
           onCheckedChange={(v) => onChange({ ...config, enabled: v === true })}
         />
         <span>
-          <span className="font-medium">Allow agent to warm-transfer callers</span>
+          <span className="font-medium">Allow agent to transfer callers</span>
           <span className="mt-0.5 block text-xs text-muted-foreground">
             Registers a <code className="text-xs">transfer_call</code> tool the agent can use to hand
             telephony callers off to a named destination after finishing its turn.
@@ -68,36 +67,34 @@ export function CallTransferCard({ config, onChange }: Props) {
         <div className="space-y-4">
           {config.destinations.map((dest, i) => (
             <div key={dest.id} className="space-y-3 rounded-md border border-border p-3">
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                <div className="space-y-2">
-                  <Label>Name</Label>
-                  <Input
-                    placeholder="Billing"
-                    value={dest.name}
-                    onChange={(e) => updateDest(i, { name: e.target.value })}
-                  />
+              <div className="flex items-start gap-3">
+                <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Destination name</Label>
+                    <Input
+                      placeholder="Billing"
+                      value={dest.name}
+                      onChange={(e) => updateDest(i, { name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>When to transfer</Label>
+                    <Input
+                      placeholder="Caller asks for billing, or wants a human"
+                      value={dest.description}
+                      onChange={(e) => updateDest(i, { description: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="cursor-pointer"
-                    onClick={() => removeDest(i)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  rows={2}
-                  placeholder="When should the agent pick this destination?"
-                  value={dest.description}
-                  onChange={(e) => updateDest(i, { description: e.target.value })}
-                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-6 cursor-pointer"
+                  onClick={() => removeDest(i)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -173,14 +170,6 @@ export function CallTransferCard({ config, onChange }: Props) {
                   rows={2}
                   value={dest.transfer_message}
                   onChange={(e) => updateDest(i, { transfer_message: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>No-answer message</Label>
-                <Textarea
-                  rows={2}
-                  value={dest.no_answer_message}
-                  onChange={(e) => updateDest(i, { no_answer_message: e.target.value })}
                 />
               </div>
             </div>
