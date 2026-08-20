@@ -378,6 +378,8 @@ export default function UsagePage() {
             <th className="text-caption px-5 py-2.5 text-left font-medium">Source</th>
             <th className="text-caption px-5 py-2.5 text-left font-medium">Metric</th>
             <th className="text-caption px-5 py-2.5 text-left font-medium">Provider / Model</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Purchased</th>
+            <th className="text-caption px-5 py-2.5 text-left font-medium">Next renewal</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Quantity</th>
             <th className="text-caption px-5 py-2.5 text-right font-medium">Cost</th>
           </tr>
@@ -397,6 +399,12 @@ export default function UsagePage() {
               </td>
               <td className="px-5 py-2.5 text-left text-muted-foreground">
                 <ProviderModelCell row={row} />
+              </td>
+              <td className="px-5 py-2.5 text-left whitespace-nowrap text-muted-foreground">
+                {row.source === "phone_number" ? row.purchase_date || "—" : "—"}
+              </td>
+              <td className="px-5 py-2.5 text-left whitespace-nowrap text-muted-foreground">
+                {row.source === "phone_number" ? row.next_renewal_date || "—" : "—"}
               </td>
               <td className="px-5 py-2.5 text-right font-mono tabular-nums">
                 {row.total_quantity.toLocaleString()}
