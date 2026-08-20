@@ -444,7 +444,7 @@ export default function UsagePage() {
                         {formatProviderModel(m.provider_name, m.model_name)}
                       </td>
                       <td className="py-2 text-right font-mono tabular-nums">
-                        {m.metric_type === "infra_cost" ? "—" : m.total_quantity.toLocaleString()}
+                        {m.total_quantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-2 text-right font-mono tabular-nums">
                         {formatMoney(m.cost ?? 0, m.currency || currency)}
