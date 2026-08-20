@@ -601,9 +601,9 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
   return data;
 }
 
-/** The greeting's own on/off switch, read and written straight off the agent
- * config so the First message field can own it without going through the
- * flattened AgentSettings shape the Settings panel uses. */
+/** The greeting card's own on/off switch, read and written straight off the
+ * agent config so it can own `config.dynamic_greeting` without going through
+ * the flattened AgentSettings shape the Settings panel uses. */
 export async function getDynamicGreetingConfig(agentId: string): Promise<DynamicGreetingConfig> {
   const agent = await api.getAgent(agentId);
   return {

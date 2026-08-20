@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -15,32 +14,40 @@ import {
 } from "@/lib/api/voice/agent-builder";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { captureEvent } from "@/lib/posthog";
+import { cn } from "@/lib/utils";
 import type { DynamicGreetingConfig } from "@/types";
 
 const SAVE_DEBOUNCE_MS = 600;
 
 export type DynamicGreetingState = {
-  config: DynamicGreetingConfig | null;
+  config: DynamicGreetingConfig;
+  hydrated: boolean;
   setEnabled: (enabled: boolean) => void;
   setInstructions: (instructions: string) => void;
 };
 
+const DEFAULT_CONFIG: DynamicGreetingConfig = { enabled: false, instructions: "" };
+
 /**
- * The First message field's own on/off switch. Off, the agent speaks that
- * field verbatim; on, it writes the opening line per call from the same
- * prompt and recalled caller memory, using the field as the style reference
- * and the fallback.
+ * The greeting card's own on/off switch. Off, the card is the first message
+ * spoken verbatim. On, the same card is greeting guidance — the first prompt
+ * the agent gets when it joins (or "start the conversation" if empty).
  *
  * Lives outside the editor page's prompt autosave because it writes
  * `config.dynamic_greeting`, not `greeting` — flipping the switch must not
  * push a prompt revision, and typing in the prompt must not push a config
  * one. Toggles save immediately (a switch should feel committed); guidance
  * text is debounced like every other free-text field in the builder.
+ *
+ * Until the agent config is fetched the switch is shown off. If the saved
+ * value is on, it then flips — so the control is on screen immediately.
  */
 export function useDynamicGreeting(agentId: string): DynamicGreetingState {
-  const [config, setConfig] = useState<DynamicGreetingConfig | null>(null);
-  const configRef = useRef<DynamicGreetingConfig | null>(null);
+  const [config, setConfig] = useState<DynamicGreetingConfig>(DEFAULT_CONFIG);
+  const [hydrated, setHydrated] = useState(false);
+  const configRef = useRef<DynamicGreetingConfig>(config);
   configRef.current = config;
+  const hydratedRef = useRef(false);
   const savedRef = useRef("");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,11 +68,16 @@ export function useDynamicGreeting(agentId: string): DynamicGreetingState {
 
   useEffect(() => {
     let active = true;
+    setHydrated(false);
+    hydratedRef.current = false;
+    setConfig(DEFAULT_CONFIG);
     void getDynamicGreetingConfig(agentId)
       .then((loaded) => {
         if (!active) return;
         savedRef.current = JSON.stringify(loaded);
         setConfig(loaded);
+        hydratedRef.current = true;
+        setHydrated(true);
       })
       .catch((err) => {
         if (active) toast.error(friendlyVoiceError(err, "Couldn't load greeting settings"));
@@ -81,6 +93,7 @@ export function useDynamicGreeting(agentId: string): DynamicGreetingState {
     return () => {
       if (!timerRef.current) return;
       clearTimeout(timerRef.current);
+      if (!hydratedRef.current) return;
       const latest = configRef.current;
       if (latest) void persist(latest);
     };
@@ -88,7 +101,8 @@ export function useDynamicGreeting(agentId: string): DynamicGreetingState {
 
   const setEnabled = useCallback(
     (enabled: boolean) => {
-      const next = { ...(configRef.current ?? { instructions: "" }), enabled };
+      if (!hydratedRef.current) return;
+      const next = { ...configRef.current, enabled };
       setConfig(next);
       captureEvent("dynamic_greeting_toggled", { agent_id: agentId, enabled });
       void persist(next);
@@ -98,7 +112,8 @@ export function useDynamicGreeting(agentId: string): DynamicGreetingState {
 
   const setInstructions = useCallback(
     (instructions: string) => {
-      const next = { ...(configRef.current ?? { enabled: true }), instructions };
+      if (!hydratedRef.current) return;
+      const next = { ...configRef.current, instructions };
       setConfig(next);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
@@ -109,18 +124,22 @@ export function useDynamicGreeting(agentId: string): DynamicGreetingState {
     [persist],
   );
 
-  return { config, setEnabled, setInstructions };
+  return { config, hydrated, setEnabled, setInstructions };
 }
 
-/** Renders into the First message card footer, opposite the `{{` hint. */
-export function DynamicGreetingSwitch({ config, setEnabled }: DynamicGreetingState) {
-  if (!config) return null;
+/** Renders into the greeting card footer, opposite the `{{` hint. */
+export function DynamicGreetingSwitch({ config, hydrated, setEnabled }: DynamicGreetingState) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         {/* Deliberately not a <label>: Radix renders the Switch as a button,
             which a wrapping label would toggle a second time. */}
-        <span className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span
+          className={cn(
+            "flex items-center gap-2 text-xs text-muted-foreground",
+            !hydrated && "pointer-events-none",
+          )}
+        >
           <img
             src="/brand/kupe-mark.png"
             alt=""
@@ -130,47 +149,28 @@ export function DynamicGreetingSwitch({ config, setEnabled }: DynamicGreetingSta
             draggable={false}
             aria-hidden
           />
-          <span className="whitespace-nowrap">Dynamic</span>
+          <span
+            className={cn(
+              "whitespace-nowrap transition-colors duration-300",
+              config.enabled && "text-foreground",
+            )}
+          >
+            Dynamic
+          </span>
           <Switch
             size="sm"
             checked={config.enabled}
             onCheckedChange={setEnabled}
-            aria-label="Generate the first message from context on every call"
+            aria-busy={!hydrated}
+            aria-label="Write the opening line from context on every call"
           />
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[280px]">
         {config.enabled
-          ? "The agent writes its opening line each call from this field's tone plus what it remembers about the caller. This text is the fallback if generation is too slow."
-          : "The agent says this message word for word. Turn on to have it write the opening line per call from the caller's context instead."}
+          ? "When the agent joins it is prompted with this guidance and speaks the reply. The first message is ignored."
+          : "The agent says the first message word for word as soon as it joins. Turn on to prompt it instead — empty guidance means “start the conversation.”"}
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-/** Optional author steering, revealed under the field once the switch is on. */
-export function DynamicGreetingInstructions({ config, setInstructions }: DynamicGreetingState) {
-  if (!config?.enabled) return null;
-  return (
-    <div className="space-y-1.5 rounded-lg border border-border bg-muted/30 p-3">
-      <label
-        htmlFor="dynamic-greeting-instructions"
-        className="text-xs font-medium text-foreground"
-      >
-        Greeting guidance <span className="font-normal text-muted-foreground">(optional)</span>
-      </label>
-      <Textarea
-        id="dynamic-greeting-instructions"
-        value={config.instructions}
-        onChange={(e) => setInstructions(e.target.value)}
-        rows={2}
-        maxLength={600}
-        placeholder="e.g. If they have an unpaid invoice, mention the due date before anything else."
-        className="resize-y bg-background text-sm"
-      />
-      <p className="text-xs text-muted-foreground">
-        Steers only the opening line. Everything after it follows the system prompt.
-      </p>
-    </div>
   );
 }

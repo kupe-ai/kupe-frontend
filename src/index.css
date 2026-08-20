@@ -358,6 +358,12 @@
   .animate-slide-up {
     animation: kori-slide-up 0.5s var(--ease-pop) both;
   }
+  .animate-greeting-swap {
+    animation: greeting-swap 380ms var(--ease-pop) both;
+  }
+  .animate-greeting-shell {
+    animation: greeting-shell 520ms var(--ease-pop);
+  }
   .animate-icon-distort {
     animation: kupe-icon-distort 0.55s var(--ease-pop);
     filter: url(#kupe-icon-warp);
@@ -1256,6 +1262,15 @@
   0% { opacity: 0; transform: translateY(8px); }
   100% { opacity: 1; transform: translateY(0); }
 }
+@keyframes greeting-swap {
+  0% { opacity: 0; transform: translateY(12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes greeting-shell {
+  0% { box-shadow: 0 0 0 1px transparent; }
+  30% { box-shadow: 0 0 0 1px var(--ring); }
+  100% { box-shadow: 0 0 0 1px transparent; }
+}
 .animate-kori-wordmark {
   animation: kori-wordmark 0.55s ease-out 0.25s both;
 }
@@ -1270,6 +1285,8 @@
   .animate-prompt-cycle,
   .stagger > *,
   .animate-kori-wordmark,
+  .animate-greeting-swap,
+  .animate-greeting-shell,
   .animate-in,
   .animate-out,
   .animate-collapsible-down,

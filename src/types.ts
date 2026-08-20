@@ -481,9 +481,9 @@ export type AgentMemoryConfig = {
   scope: MemoryScope;
 };
 
-/** Writes the opening line per call (from the prompt plus recalled memory)
- * instead of speaking `greeting` verbatim. `greeting` stays on as the style
- * reference and as the fallback spoken if generation fails. */
+/** The session LLM speaks first when the agent joins. `instructions` is
+ * that first prompt; empty means "start the conversation". `greeting` is
+ * ignored while enabled. */
 export type DynamicGreetingConfig = {
   enabled: boolean;
   instructions: string;

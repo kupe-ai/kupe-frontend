@@ -40,6 +40,7 @@ export function PromptFieldCard({
   minHeight = "150px",
   maxHeight,
   footerTrailing,
+  swapKey,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -50,6 +51,9 @@ export function PromptFieldCard({
   /** Right-hand side of the footer, opposite the `{{` hint — for a control
    * that belongs to this field rather than to the page. */
   footerTrailing?: ReactNode;
+  /** Remounts the editor with the greeting-swap motion when this changes.
+   * The card chrome (footer, expand) stays put so the toggle does not jump. */
+  swapKey?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const editorClassName = "w-full rounded-none border-0 bg-transparent shadow-none";
@@ -57,15 +61,17 @@ export function PromptFieldCard({
   function renderEditor(fullScreen: boolean) {
     return (
       <div className="min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overscroll-contain px-2 pt-3 pb-2">
-        <PromptEditor
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          className={cn(editorClassName, fullScreen && "field-focus-container-static h-full")}
-          minHeight={fullScreen ? "100%" : minHeight}
-          maxHeight={fullScreen ? "100%" : maxHeight}
-          contentPadding="10px 40px 14px 14px"
-        />
+        <div key={swapKey} className={swapKey !== undefined ? "animate-greeting-swap" : undefined}>
+          <PromptEditor
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            className={cn(editorClassName, fullScreen && "field-focus-container-static h-full")}
+            minHeight={fullScreen ? "100%" : minHeight}
+            maxHeight={fullScreen ? "100%" : maxHeight}
+            contentPadding="10px 40px 14px 14px"
+          />
+        </div>
       </div>
     );
   }
