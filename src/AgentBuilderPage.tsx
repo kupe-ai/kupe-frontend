@@ -892,7 +892,7 @@ export function AgentBuilderPage({ orgId, projectId, agentId, onBack, onSaved }:
                                 ))
                               : uploadedAssets.map((a) => (
                                   <SelectItem key={a.id} value={a.id}>
-                                    {a.name}
+                                    {a.name.replace(/\.(wav|mp3|ogg|m4a)$/i, "")}
                                   </SelectItem>
                                 ))}
                           </SelectContent>

@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
 import { readStore, scopedKey, writeStore } from "@/lib/api/local-store";
 import { extractVariableNames } from "@/lib/prompt-variables";
+import { normalizeAmbientId } from "@/lib/voice/ambient-preview";
 import type {
   AgentConfig,
   AgentTest,
@@ -465,7 +466,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     text: m.text,
     after_seconds: m.after_seconds,
   }));
-  const bgId = bg?.enabled ? bg.id : "none";
+  const bgId = normalizeAmbientId(bg?.enabled ? bg.id : "none");
   return {
     speaking_speed: config?.tts?.speaking_speed ?? 1.0,
     pitch: config?.tts?.pitch ?? 0,
@@ -473,7 +474,7 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     allow_interruptions: config?.session.allow_interruptions,
     eagerness: config?.turn.eagerness ?? 5,
     volume_threshold_db: config?.turn.volume_threshold_db ?? -30,
-    background_sound: bgId === "office" ? "quiet-office" : bgId,
+    background_sound: bgId,
     background_volume: Math.round((bg?.volume ?? 0) * 100),
     voicemail_enabled: config?.voicemail_detection.enabled,
     voicemail_message: config?.voicemail_detection.message,
@@ -512,8 +513,8 @@ export async function getAgentSettings(agentId: string): Promise<AgentSettings> 
 }
 
 function backgroundFromSettings(data: AgentSettings, fallback: AgentConfig["audio"]["background_noise"]) {
-  const raw = data.background_sound ?? (fallback.enabled ? fallback.id : "none");
-  const id = raw === "quiet-office" ? "office" : raw;
+  const raw = normalizeAmbientId(data.background_sound ?? (fallback.enabled ? fallback.id : "none"));
+  const id = raw;
   const enabled = Boolean(id && id !== "none");
   const volumePct = data.background_volume;
   const volume =

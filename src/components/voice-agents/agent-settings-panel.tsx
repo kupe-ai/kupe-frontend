@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { GripVertical, Loader2, Play, Trash2 } from "lucide-react";
+import { GripVertical, Loader2, Pause, Play, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,16 @@ import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
 import { DEFAULT_TIMEZONE, timezoneFlag, timezoneLabel } from "@/lib/timezone-options";
+import {
+  AMBIENT_PRESETS,
+  AmbientPreviewPlayer,
+  bandpassHz,
+  isAmbientPresetId,
+  normalizeAmbientId,
+  percentToSlider,
+  sliderToGain,
+  sliderToPercent,
+} from "@/lib/voice/ambient-preview";
 
 function SettingRow({
   title,
@@ -240,6 +250,11 @@ export function AgentSettingsPanel({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | null>(null);
   const [kbOptions, setKbOptions] = useState<SearchableOption[]>([]);
+  const [previewing, setPreviewing] = useState(false);
+  const [bandpassEnabled, setBandpassEnabled] = useState(false);
+  const [bandpassTightness, setBandpassTightness] = useState(70);
+  const previewRef = useRef<AmbientPreviewPlayer | null>(null);
+  const previewParamsRef = useRef({ volume: 0, bandpass: false, tightness: 70 });
 
   // Read inside the load effect without making it a dependency -- see below.
   const agentRef = useRef(agent);
@@ -366,6 +381,77 @@ export function AgentSettingsPanel({
     voiceId,
     onAgentUpdated,
   ]);
+
+  previewParamsRef.current = {
+    volume: settings.background_volume,
+    bandpass: bandpassEnabled,
+    tightness: bandpassTightness,
+  };
+
+  useEffect(() => {
+    const player = new AmbientPreviewPlayer();
+    previewRef.current = player;
+    return () => {
+      player.dispose();
+      previewRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const player = previewRef.current;
+    if (!player?.playing) return;
+    player.setGain(sliderToGain(percentToSlider(settings.background_volume)));
+  }, [settings.background_volume]);
+
+  useEffect(() => {
+    const player = previewRef.current;
+    if (!player?.playing) return;
+    player.setBandpass(bandpassEnabled, bandpassTightness);
+  }, [bandpassEnabled, bandpassTightness]);
+
+  useEffect(() => {
+    const player = previewRef.current;
+    if (!player?.playing) return;
+    const id = normalizeAmbientId(settings.background_sound);
+    if (!isAmbientPresetId(id)) {
+      player.stop();
+      setPreviewing(false);
+      return;
+    }
+    const p = previewParamsRef.current;
+    void player.switchTrack(
+      id,
+      sliderToGain(percentToSlider(p.volume)),
+      p.bandpass,
+      p.tightness,
+    );
+  }, [settings.background_sound]);
+
+  async function toggleAmbientPreview() {
+    const player = previewRef.current;
+    if (!player) return;
+    if (previewing) {
+      player.stop();
+      setPreviewing(false);
+      return;
+    }
+    const id = normalizeAmbientId(settings.background_sound);
+    if (!isAmbientPresetId(id)) {
+      toast.message("Pick an ambient loop first");
+      return;
+    }
+    try {
+      await player.play(
+        id,
+        sliderToGain(percentToSlider(settings.background_volume)),
+        bandpassEnabled,
+        bandpassTightness,
+      );
+      setPreviewing(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't play ambient preview");
+    }
+  }
 
   function snapshotOf(
     nextSettings = settings,
@@ -657,14 +743,20 @@ export function AgentSettingsPanel({
 
       <SectionTitle>Environment</SectionTitle>
       <SettingRow title="Background sound" description="Ambient noise behind the agent.">
-        <Select value={settings.background_sound} onValueChange={(v) => set("background_sound", v)}>
+        <Select
+          value={normalizeAmbientId(settings.background_sound)}
+          onValueChange={(v) => set("background_sound", v)}
+        >
           <SelectTrigger className="h-9 w-44 rounded-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="quiet-office">Quiet office</SelectItem>
-            <SelectItem value="cafe">Cafe</SelectItem>
-            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="none">none</SelectItem>
+            {AMBIENT_PRESETS.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Button
@@ -672,21 +764,44 @@ export function AgentSettingsPanel({
           variant="outline"
           size="icon-sm"
           className="rounded-full"
-          aria-label="Preview sound"
-          onClick={() => toast.message("Playing ambient preview…")}
+          aria-label={previewing ? "Stop preview" : "Preview sound"}
+          disabled={normalizeAmbientId(settings.background_sound) === "none"}
+          onClick={() => void toggleAmbientPreview()}
         >
-          <Play className="size-3.5" />
+          {previewing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
         </Button>
       </SettingRow>
-      <SettingRow title="Background volume" description="How loud the ambient noise plays.">
+      <SettingRow
+        title="Background volume"
+        description="Logarithmic mix so quiet levels stay usable."
+      >
         <RangeControl
-          value={settings.background_volume}
+          value={percentToSlider(settings.background_volume)}
           min={0}
-          max={100}
-          onChange={(v) => set("background_volume", v)}
-          format={(v) => `${v}%`}
+          max={1000}
+          onChange={(pos) => set("background_volume", sliderToPercent(pos))}
+          format={() => `${settings.background_volume}%`}
+          className="w-48"
         />
       </SettingRow>
+      <SettingRow title="Bandpass filter" description="Preview a phone-narrow frequency band on the loop.">
+        <Switch checked={bandpassEnabled} onCheckedChange={setBandpassEnabled} />
+      </SettingRow>
+      {bandpassEnabled && (
+        <SettingRow
+          title="Bandpass tightness"
+          description={`${Math.round(bandpassHz(bandpassTightness).low)}–${Math.round(bandpassHz(bandpassTightness).high)} Hz`}
+        >
+          <RangeControl
+            value={bandpassTightness}
+            min={0}
+            max={100}
+            onChange={setBandpassTightness}
+            format={(v) => `${v}`}
+            className="w-48"
+          />
+        </SettingRow>
+      )}
 
       <SectionTitle>Language personalisation</SectionTitle>
       {showLanguageSwitch && (
