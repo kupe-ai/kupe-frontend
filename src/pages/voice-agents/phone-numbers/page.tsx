@@ -33,13 +33,24 @@ import { flagForNumber } from "@/lib/country-flag";
 import { requireScope } from "@/lib/api/workspace-scope";
 import type { TelephonyAccount } from "@/types";
 
-const NUMBER_COLS = "grid-cols-[minmax(0,1.1fr)_minmax(9rem,1.2fr)_6.5rem_9rem_7.5rem_2.5rem]";
+const NUMBER_COLS =
+  "grid-cols-[minmax(0,1fr)_minmax(9rem,1.1fr)_5.5rem_8.5rem_7rem_7rem_7rem_2.5rem]";
 
 function numberName(n: Pick<TelephonyAccount, "label" | "from_number"> | null | undefined): string {
   if (!n) return "";
   const label = (n.label || "").trim();
   if (!label || label === n.from_number || label === `Plivo ${n.from_number}`) return "";
   return label;
+}
+
+function formatDay(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return iso.length >= 10 ? iso.slice(0, 10) : "—";
+  }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export default function VoiceAgentsPhoneNumbersPage() {
@@ -116,6 +127,8 @@ export default function VoiceAgentsPhoneNumbersPage() {
             <span className="text-left">Number</span>
             <span className="text-left">Provider</span>
             <span className="text-left">Source</span>
+            <span className="text-left">Purchased</span>
+            <span className="text-left">Next renewal</span>
             <span className="text-left">Monthly rent</span>
             <span className="w-full" />
           </div>
@@ -158,6 +171,12 @@ export default function VoiceAgentsPhoneNumbersPage() {
                       <StatusChip status={n.managed_by_kupe ? "active" : "info"}>
                         {n.managed_by_kupe ? "Kupe managed" : "Your own"}
                       </StatusChip>
+                    </span>
+                    <span className="text-left text-sm tabular-nums text-muted-foreground">
+                      {n.managed_by_kupe ? formatDay(n.created_at) : "—"}
+                    </span>
+                    <span className="text-left text-sm tabular-nums text-muted-foreground">
+                      {n.managed_by_kupe ? formatDay(n.next_rent_charge_at) : "—"}
                     </span>
                     <span className="text-left text-sm text-muted-foreground">
                       {n.managed_by_kupe && n.monthly_rent_minor_units
@@ -309,6 +328,18 @@ function ManageNumberDialog({
                     : "—"}
                 </dd>
               </div>
+              {account.managed_by_kupe ? (
+                <>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Purchased</dt>
+                    <dd className="font-medium tabular-nums">{formatDay(account.created_at)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Next renewal</dt>
+                    <dd className="font-medium tabular-nums">{formatDay(account.next_rent_charge_at)}</dd>
+                  </div>
+                </>
+              ) : null}
             </dl>
           ) : null}
         </div>

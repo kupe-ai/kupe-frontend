@@ -173,6 +173,9 @@ export type StandaloneUsageRow = {
   total_quantity: number;
   cost: number;
   currency: string | null;
+  /** Kupe-managed (non-BYOK) phone numbers only */
+  purchase_date?: string | null;
+  next_renewal_date?: string | null;
 };
 
 export type Wallet = {
