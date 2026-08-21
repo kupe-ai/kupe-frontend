@@ -87,7 +87,18 @@ export function CallLogDetailDialog({
         { key: "Cause", value: detail.failure_reason ?? "—", chip: true },
         { key: "Ended by", value: detail.ended_by ?? "—", chip: true },
         { key: "Started at", value: new Date(detail.started_at).toLocaleString() },
-        { key: "Duration", value: detail.duration_seconds != null ? `${detail.duration_seconds}s` : "—" },
+        ...(detail.transfer_duration_seconds && detail.transfer_duration_seconds > 0
+          ? [
+              {
+                key: "With agent",
+                value: `${detail.agent_duration_seconds ?? "—"}s`,
+              },
+              { key: "After transfer", value: `${detail.transfer_duration_seconds}s` },
+              { key: "Total", value: detail.duration_seconds != null ? `${detail.duration_seconds}s` : "—" },
+            ]
+          : [
+              { key: "Duration", value: detail.duration_seconds != null ? `${detail.duration_seconds}s` : "—" },
+            ]),
         { key: "Language", value: detail.language ?? "—", chip: true },
         { key: "Messages", value: String(detail.message_count) },
         { key: "User identifier", value: detail.user_identifier ?? "—", copy: Boolean(detail.user_identifier), truncate: true },

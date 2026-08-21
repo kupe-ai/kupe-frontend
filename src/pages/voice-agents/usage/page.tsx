@@ -432,9 +432,33 @@ export default function UsagePage() {
                   <Skeleton key={i} className="h-10 w-full rounded-lg" />
                 ))}
               </div>
-            ) : !breakdown || breakdown.metrics.length === 0 ? (
+            ) : !breakdown ? (
               <p className="text-caption">No line items for this call.</p>
             ) : (
+              <>
+                <dl className="mb-4 grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <dt className="text-caption text-muted-foreground">With agent</dt>
+                    <dd className="font-mono tabular-nums">
+                      {breakdown.transfer_duration_seconds && breakdown.transfer_duration_seconds > 0
+                        ? formatDuration(breakdown.agent_duration_seconds)
+                        : formatDuration(breakdown.duration_seconds)}
+                    </dd>
+                  </div>
+                  {breakdown.transfer_duration_seconds != null && breakdown.transfer_duration_seconds > 0 ? (
+                    <div>
+                      <dt className="text-caption text-muted-foreground">After transfer</dt>
+                      <dd className="font-mono tabular-nums">{formatDuration(breakdown.transfer_duration_seconds)}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt className="text-caption text-muted-foreground">Total</dt>
+                    <dd className="font-mono tabular-nums">{formatDuration(breakdown.duration_seconds)}</dd>
+                  </div>
+                </dl>
+                {breakdown.metrics.length === 0 ? (
+                  <p className="text-caption">No line items for this call.</p>
+                ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-left">
@@ -461,6 +485,8 @@ export default function UsagePage() {
                   ))}
                 </tbody>
               </table>
+                )}
+              </>
             )}
           </div>
         </SheetContent>

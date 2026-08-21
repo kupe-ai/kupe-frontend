@@ -707,7 +707,14 @@ function CallLogsTab({
                     <td className="whitespace-nowrap px-3 py-3">
                       <StatusChip status={call.ended_by} />
                     </td>
-                    <td className="px-3 py-3 tabular-nums">{call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}</td>
+                    <td className="px-3 py-3 tabular-nums">
+                      {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
+                      {call.transfer_duration_seconds != null && call.transfer_duration_seconds > 0 ? (
+                        <div className="text-[11px] text-muted-foreground">
+                          agent {call.agent_duration_seconds ?? "—"}s · after {call.transfer_duration_seconds}s
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="px-3 py-3 whitespace-nowrap">{new Date(call.started_at).toLocaleString()}</td>
                     <td className="whitespace-nowrap px-3 py-3">
                       {call.language ? (

@@ -116,6 +116,8 @@ export type SessionInfo = {
   language?: string | null;
   message_count?: number;
   duration_seconds?: number | null;
+  agent_duration_seconds?: number | null;
+  transfer_duration_seconds?: number | null;
   avg_agent_latency_ms?: number | null;
   avg_user_latency_ms?: number | null;
   attempt_number?: number;
@@ -156,6 +158,8 @@ export type SessionUsage = {
   /** "web" | "outbound" | "incoming" -- never the raw transport id. */
   channel: string | null;
   duration_seconds: number | null;
+  agent_duration_seconds?: number | null;
+  transfer_duration_seconds?: number | null;
   metrics: SessionUsageMetric[];
   prompt_tokens: number;
   completion_tokens: number;

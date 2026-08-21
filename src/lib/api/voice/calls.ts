@@ -54,6 +54,8 @@ function toVoiceCall(s: {
   language?: string | null;
   message_count?: number;
   duration_seconds?: number | null;
+  agent_duration_seconds?: number | null;
+  transfer_duration_seconds?: number | null;
   avg_agent_latency_ms?: number | null;
   avg_user_latency_ms?: number | null;
   attempt_number?: number;
@@ -77,6 +79,10 @@ function toVoiceCall(s: {
     started_at: s.started_at || s.created_at,
     ended_at: s.ended_at,
     duration_seconds: duration,
+    agent_duration_seconds:
+      s.agent_duration_seconds != null ? Math.max(0, Math.round(s.agent_duration_seconds)) : null,
+    transfer_duration_seconds:
+      s.transfer_duration_seconds != null ? Math.max(0, Math.round(s.transfer_duration_seconds)) : null,
     language: s.language ?? null,
     message_count: s.message_count ?? 0,
     avg_agent_latency_ms: s.avg_agent_latency_ms != null ? Math.round(s.avg_agent_latency_ms) : null,

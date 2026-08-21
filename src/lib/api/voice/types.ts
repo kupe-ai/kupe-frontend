@@ -55,6 +55,8 @@ export interface VoiceCall {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
+  agent_duration_seconds: number | null;
+  transfer_duration_seconds: number | null;
   language: string | null;
   message_count: number;
   avg_agent_latency_ms: number | null;
