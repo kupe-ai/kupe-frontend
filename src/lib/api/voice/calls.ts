@@ -39,8 +39,7 @@ function directionOf(s: { channel: string; direction?: string | null }): VoiceCa
   if (s.direction === "inbound" || s.direction === "outbound" || s.direction === "web") {
     return s.direction;
   }
-  if (s.channel === "telephony") return "outbound";
-  return "web";
+  return s.channel === "telephony" ? "outbound" : "web";
 }
 
 function toVoiceCall(s: {

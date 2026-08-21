@@ -105,7 +105,8 @@ function shortId(id: string) {
 const CHANNEL_META: Record<string, { label: string; variant: "info" | "violet" | "secondary" }> = {
   web: { label: "Web", variant: "info" },
   outbound: { label: "Outbound", variant: "violet" },
-  incoming: { label: "Incoming", variant: "secondary" },
+  inbound: { label: "Inbound", variant: "info" },
+  incoming: { label: "Inbound", variant: "info" },
 };
 
 function ChannelBadge({ channel }: { channel: string | null | undefined }) {
