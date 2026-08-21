@@ -396,46 +396,89 @@ export async function deleteAgentTool(agentId: string, id: string) {
   await api.detachAgentTool(agentId, id);
 }
 
-// System tools (end_call, transfer_call, voicemail) are NOT rows in the
-// custom-tools table -- they're toggles on the agent's own config
-// (auto_cut / call_transfer / voicemail_detection, see
-// app/schemas/agent_config.py). Read/write real per-agent state here
-// instead of the old hardcoded stub that made "Enable" silently create a
-// fake custom_webhook tool (the bug: system tools showing up under
-// "Custom tools").
-const SYSTEM_TOOL_DESCRIPTIONS: Record<SystemToolName, string> = {
+// System tools are toggles on the agent's config (auto_cut / voicemail /
+// silence_breaker / call_transfer), not rows in the custom-tools table.
+// transfer_call is configured on the Transfer tab — listing it here duplicated
+// that UI. Leftover custom_webhook rows with these names must not appear
+// under Custom tools.
+export const RESERVED_SYSTEM_TOOL_NAMES = [
+  "end_call",
+  "transfer_call",
+  "voicemail",
+  "nudge",
+  "thinking_sounds",
+] as const;
+
+export type ListedSystemToolName = Exclude<(typeof RESERVED_SYSTEM_TOOL_NAMES)[number], "transfer_call">;
+
+const SYSTEM_TOOL_DESCRIPTIONS: Record<ListedSystemToolName, string> = {
   end_call: "Hang up when the conversation is complete.",
-  transfer_call: "Transfer the caller to a destination configured below.",
   voicemail: "Leave a voicemail if the callee doesn't pick up (outbound telephony only).",
+  nudge: "Speak up if the caller goes silent, and optionally hang up if they never reply.",
+  thinking_sounds: "Fill the pause while a reply is generated — a hesitation sound or a short acknowledgement.",
 };
 
-export type SystemToolName = "end_call" | "transfer_call" | "voicemail";
+export type SystemToolName = (typeof RESERVED_SYSTEM_TOOL_NAMES)[number];
+
+export type SystemNudge = { text: string; after_seconds: number };
 
 export interface SystemTool {
-  name: SystemToolName;
+  name: ListedSystemToolName;
   description: string;
   enabled: boolean;
 }
 
+export interface SystemToolsState {
+  tools: SystemTool[];
+  auto_cut_mode: AutoCutMode;
+  voicemail_message: string;
+  nudges: SystemNudge[];
+  hangup_after_unanswered_nudges: boolean;
+  thinking_sounds_mode: Exclude<ThinkingSoundMode, "off">;
+}
+
 export async function listSystemTools(agentId: string): Promise<SystemTool[]> {
+  const state = await getSystemToolsState(agentId);
+  return state.tools;
+}
+
+export async function getSystemToolsState(agentId: string): Promise<SystemToolsState> {
   const agent = await api.getAgent(agentId);
-  const transferOk = await orgSupportsCallTransfer();
-  const tools: SystemTool[] = [
-    { name: "end_call", description: SYSTEM_TOOL_DESCRIPTIONS.end_call, enabled: agent.config.auto_cut.enabled },
-    {
-      name: "voicemail",
-      description: SYSTEM_TOOL_DESCRIPTIONS.voicemail,
-      enabled: agent.config.voicemail_detection.enabled,
-    },
-  ];
-  if (transferOk) {
-    tools.splice(1, 0, {
-      name: "transfer_call",
-      description: SYSTEM_TOOL_DESCRIPTIONS.transfer_call,
-      enabled: agent.config.call_transfer.enabled,
-    });
-  }
-  return tools;
+  const nudges = (agent.config.silence_breaker.messages ?? []).map((m) => ({
+    text: m.text,
+    after_seconds: m.after_seconds,
+  }));
+  const nudgeOn = Boolean(agent.config.silence_breaker.enabled && nudges.length > 0);
+  const thinking = thinkingModeFromConfig(agent.config.thinking_sounds);
+  return {
+    tools: [
+      {
+        name: "end_call",
+        description: SYSTEM_TOOL_DESCRIPTIONS.end_call,
+        enabled: agent.config.auto_cut.enabled,
+      },
+      {
+        name: "voicemail",
+        description: SYSTEM_TOOL_DESCRIPTIONS.voicemail,
+        enabled: agent.config.voicemail_detection.enabled,
+      },
+      {
+        name: "nudge",
+        description: SYSTEM_TOOL_DESCRIPTIONS.nudge,
+        enabled: nudgeOn,
+      },
+      {
+        name: "thinking_sounds",
+        description: SYSTEM_TOOL_DESCRIPTIONS.thinking_sounds,
+        enabled: thinking !== "off",
+      },
+    ],
+    auto_cut_mode: agent.config.auto_cut.mode ?? "warm",
+    voicemail_message: agent.config.voicemail_detection.message ?? "",
+    nudges: nudgeOn ? nudges : [],
+    hangup_after_unanswered_nudges: agent.config.silence_breaker.hangup_after_unanswered ?? false,
+    thinking_sounds_mode: thinking === "words" ? "words" : "sounds",
+  };
 }
 
 export async function setSystemToolEnabled(agentId: string, name: SystemToolName, enabled: boolean): Promise<void> {
@@ -444,14 +487,27 @@ export async function setSystemToolEnabled(agentId: string, name: SystemToolName
     config.auto_cut = { enabled };
   } else if (name === "voicemail") {
     config.voicemail_detection = { enabled };
+  } else if (name === "nudge") {
+    config.silence_breaker = enabled
+      ? {
+          enabled: true,
+          messages: [{ text: "Are you still there?", after_seconds: 10 }],
+        }
+      : { enabled: false, messages: [], hangup_after_unanswered: false };
+  } else if (name === "thinking_sounds") {
+    config.thinking_sounds = { mode: enabled ? "sounds" : "off" };
   } else {
     const agent = await api.getAgent(agentId);
     if (enabled && agent.config.call_transfer.destinations.length === 0) {
-      throw new Error("Add a transfer destination in Call Transfer settings before enabling this.");
+      throw new Error("Add a transfer destination on the Transfer tab before enabling this.");
     }
     config.call_transfer = { enabled };
   }
   await api.updateAgent(agentId, { config });
+}
+
+export async function patchSystemToolsConfig(agentId: string, patch: DeepPartial<AgentConfig>): Promise<void> {
+  await api.updateAgent(agentId, { config: patch });
 }
 
 /** Agents saved before the three-way control only carry the old boolean. */
@@ -531,7 +587,9 @@ function backgroundFromSettings(data: AgentSettings, fallback: AgentConfig["audi
  * Writes only the config sections this panel owns. PATCH /v1/agents deep-merges
  * config, so anything omitted here is preserved server-side.
  *
- * It used to send `{...agent.config, ...changes}` off a read that could already
+ * In-call system tools (auto_cut, voicemail, nudges, thinking sounds) are
+ * owned by the Tools panel. Call transfer is owned by the Transfer tab.
+ * This used to send `{...agent.config, ...changes}` off a read that could already
  * be stale — every other panel (prompt, transfer, dynamic greeting, variables,
  * tools) saves independently, so the last writer put the others back to
  * whatever it had read. That is what made Memory settings snap back to
@@ -539,7 +597,6 @@ function backgroundFromSettings(data: AgentSettings, fallback: AgentConfig["audi
  */
 export async function updateAgentSettings(agentId: string, data: AgentSettings) {
   const agent = await api.getAgent(agentId);
-  const nudges = data.nudges ?? [];
   const config: DeepPartial<AgentConfig> = {
     llm: {
       temperature: data.temperature_override ?? agent.config.llm.temperature,
@@ -572,24 +629,7 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
     audio: {
       background_noise: backgroundFromSettings(data, agent.config.audio.background_noise),
     },
-    silence_breaker: {
-      enabled: nudges.length > 0,
-      idle_seconds: nudges[0]?.after_seconds || agent.config.silence_breaker.idle_seconds || 8,
-      messages: nudges.map((n) => ({ text: n.text, after_seconds: n.after_seconds })),
-      hangup_after_unanswered: data.hangup_after_unanswered_nudges ?? false,
-    },
-    thinking_sounds: {
-      mode: data.thinking_sounds ?? thinkingModeFromConfig(agent.config.thinking_sounds),
-    },
     knowledge_base_ids: data.knowledge_base_ids ?? agent.config.knowledge_base_ids ?? [],
-    auto_cut: {
-      enabled: data.auto_cut_enabled ?? agent.config.auto_cut.enabled,
-      mode: data.auto_cut_mode ?? agent.config.auto_cut.mode ?? "warm",
-    },
-    voicemail_detection: {
-      enabled: data.voicemail_enabled ?? agent.config.voicemail_detection.enabled,
-      message: data.voicemail_message ?? agent.config.voicemail_detection.message,
-    },
     memory: {
       enabled: data.memory_enabled ?? agent.config.memory?.enabled ?? true,
       retention_days: data.memory_retention_days ?? agent.config.memory?.retention_days ?? 30,

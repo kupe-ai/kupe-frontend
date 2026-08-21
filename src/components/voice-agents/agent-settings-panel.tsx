@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { GripVertical, Loader2, Pause, Play, Trash2 } from "lucide-react";
+import { Loader2, Pause, Play } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Select,
   SelectContent,
@@ -38,7 +37,7 @@ import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import { listKnowledgeBases } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { captureEvent } from "@/lib/posthog";
-import type { MemoryScope, ThinkingSoundMode } from "@/types";
+import type { MemoryScope } from "@/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
@@ -128,21 +127,10 @@ function providerOptions(
   });
 }
 
-/** Keeps a half-typed or emptied number field from sending nonsense; the
- * backend clamps to the same bounds. */
 function clamp(value: number, min: number, max: number, fallback: number): number {
   if (!Number.isFinite(value) || value === 0) return fallback;
   return Math.max(min, Math.min(max, Math.round(value)));
 }
-
-/** The filler vocabularies live in kupe-agents/agents/runtime/thinking_sounds.py. */
-const THINKING_SOUND_HELP: Record<ThinkingSoundMode, string> = {
-  off: "Say nothing while the reply is generated — the caller hears silence until the agent speaks.",
-  sounds:
-    "Play a short hesitation in the agent's language (hmm, अं, ம்ம்) the moment the caller stops speaking.",
-  words:
-    "Acknowledge the caller in the agent's language (अच्छा, ठीक है, બરાબર, சரி, “got it”) instead of a hesitation sound.",
-};
 
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
@@ -537,7 +525,6 @@ export function AgentSettingsPanel({
     setSettings((prev) => ({ ...prev, [key]: value }));
   }
 
-  const nudges = settings.nudges ?? [];
   const selectedTts = ttsProviders.find((p) => p.id === ttsId);
   const selectedStt = sttProviders.find((p) => p.id === sttId);
   const selectedLlm = llmProviders.find((p) => p.id === llmId);
@@ -662,34 +649,7 @@ export function AgentSettingsPanel({
         </SettingRow>
       )}
 
-      <SectionTitle>Thinking & knowledge</SectionTitle>
-      <SettingRow
-        title="Thinking sounds"
-        description={THINKING_SOUND_HELP[settings.thinking_sounds]}
-      >
-        <ToggleGroup
-          type="single"
-          value={settings.thinking_sounds}
-          spacing={0}
-          variant="outline"
-          size="sm"
-          onValueChange={(v) => {
-            // Radix clears the value when the active item is re-clicked.
-            if (v === "off" || v === "sounds" || v === "words") set("thinking_sounds", v);
-          }}
-          className="shrink-0"
-        >
-          <ToggleGroupItem value="off" aria-label="No thinking sound" className="px-2.5">
-            Off
-          </ToggleGroupItem>
-          <ToggleGroupItem value="sounds" aria-label="Play a hesitation sound" className="px-2.5">
-            Sounds
-          </ToggleGroupItem>
-          <ToggleGroupItem value="words" aria-label="Play an acknowledgement word" className="px-2.5">
-            Words
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </SettingRow>
+      <SectionTitle>Knowledge</SectionTitle>
       <SettingRow
         title="Knowledge bases"
         description="Retrieved on each caller turn and passed to the model. Processing stays on the RAG server."
@@ -868,124 +828,7 @@ export function AgentSettingsPanel({
         </SettingRow>
       )}
 
-      <SectionTitle>In call actions</SectionTitle>
-      <SettingRow title="Nudge quiet callers" description="Speak up if the caller goes silent" className="items-center">
-        <Switch
-          checked={nudges.length > 0}
-          onCheckedChange={(v) => set("nudges", v ? [{ text: "Are you still there?", after_seconds: 10 }] : [])}
-        />
-      </SettingRow>
-      {nudges.length > 0 && (
-        <div className="mb-2 rounded-xl border border-border bg-muted/30 p-3">
-          <ul className="space-y-3">
-            {nudges.map((n, i) => (
-              <li key={i} className="flex flex-wrap items-end gap-2">
-                <GripVertical className="mb-2 size-4 text-muted-foreground" />
-                <div className="min-w-0 flex-1 space-y-1">
-                  <label className="text-xs text-muted-foreground">Message {i + 1}</label>
-                  <Input
-                    value={n.text}
-                    onChange={(e) =>
-                      set(
-                        "nudges",
-                        nudges.map((x, idx) => (idx === i ? { ...x, text: e.target.value } : x)),
-                      )
-                    }
-                    className="rounded-lg"
-                  />
-                </div>
-                <div className="flex items-center gap-1.5 pb-0.5 text-sm text-muted-foreground">
-                  <span>after</span>
-                  <Input
-                    type="number"
-                    value={n.after_seconds}
-                    onChange={(e) =>
-                      set(
-                        "nudges",
-                        nudges.map((x, idx) =>
-                          idx === i ? { ...x, after_seconds: Number(e.target.value) || 0 } : x,
-                        ),
-                      )
-                    }
-                    className="h-9 w-16 rounded-lg text-center"
-                  />
-                  <span>seconds</span>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Remove nudge"
-                  onClick={() => set("nudges", nudges.filter((_, idx) => idx !== i))}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <div className="mt-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="rounded-full"
-              onClick={() => set("nudges", [...nudges, { text: "Are you still there?", after_seconds: 10 }])}
-            >
-              + Add More
-            </Button>
-          </div>
-        </div>
-      )}
-
-      <SettingRow title="Hang up after unanswered nudges" description="End the call if still no response">
-        <Switch
-          checked={settings.hangup_after_unanswered_nudges}
-          onCheckedChange={(v) => set("hangup_after_unanswered_nudges", v)}
-        />
-      </SettingRow>
-      <SettingRow
-        title="Allow agent to hang up"
-        description="Lets the agent end the call when the conversation is done"
-      >
-        <Switch checked={!!settings.auto_cut_enabled} onCheckedChange={(v) => set("auto_cut_enabled", v)} />
-      </SettingRow>
-      {settings.auto_cut_enabled && (
-        <SettingRow
-          title="Hang up style"
-          description={
-            settings.auto_cut_mode === "instant"
-              ? "Cuts the line the moment the agent decides to end — no goodbye."
-              : "Lets the agent finish its closing line before hanging up."
-          }
-        >
-          <Select
-            value={settings.auto_cut_mode ?? "warm"}
-            onValueChange={(v) => set("auto_cut_mode", v as "warm" | "instant")}
-          >
-            <SelectTrigger className="h-9 w-36 rounded-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="warm">Warm cut</SelectItem>
-              <SelectItem value="instant">Instant cut</SelectItem>
-            </SelectContent>
-          </Select>
-        </SettingRow>
-      )}
-      <SettingRow
-        title="Voicemail"
-        description="On outbound calls, detect an answering machine and leave a message instead of talking to it. Inbound calls skip the check — someone already picked up."
-      >
-        <Switch checked={settings.voicemail_enabled} onCheckedChange={(v) => set("voicemail_enabled", v)} />
-      </SettingRow>
-      <SettingRow title="Voicemail message" description="What the agent says on voicemail" className="items-start">
-        <textarea
-          value={settings.voicemail_message ?? ""}
-          onChange={(e) => set("voicemail_message", e.target.value)}
-          rows={4}
-          className="min-h-[96px] w-full max-w-md resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
-        />
-      </SettingRow>
+      <SectionTitle>Call limits</SectionTitle>
       <SettingRow title="Max call length" description="Ends the call after this many minutes">
         <Input
           type="number"
