@@ -7,7 +7,6 @@ with the short-lived token CRUD returns. Session/usage/recording history is
 read directly from Supabase (RLS-protected by the signed-in user's own JWT).
 
 
-
 ```bash
 cp .env.example .env
 # VITE_MODE=dev  (or prod)
