@@ -35,8 +35,11 @@ function connectivityOf(status: string): string {
   return status || "starting";
 }
 
-function directionOf(channel: string): VoiceCall["direction"] {
-  if (channel === "telephony") return "outbound";
+function directionOf(s: { channel: string; direction?: string | null }): VoiceCall["direction"] {
+  if (s.direction === "inbound" || s.direction === "outbound" || s.direction === "web") {
+    return s.direction;
+  }
+  if (s.channel === "telephony") return "outbound";
   return "web";
 }
 
@@ -60,6 +63,7 @@ function toVoiceCall(s: {
   avg_user_latency_ms?: number | null;
   attempt_number?: number;
   goal_status?: string | null;
+  direction?: string | null;
 }): VoiceCall {
   const duration =
     s.duration_seconds != null
@@ -70,7 +74,7 @@ function toVoiceCall(s: {
   return {
     id: s.session_id,
     agent_id: s.agent_id ?? "",
-    direction: directionOf(s.channel),
+    direction: directionOf(s),
     channel: s.channel === "telephony" ? "pstn" : "web",
     status: s.status,
     connectivity: connectivityOf(s.status),

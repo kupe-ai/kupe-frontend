@@ -123,6 +123,7 @@ export type SessionInfo = {
   attempt_number?: number;
   goal_status?: string | null;
   agent_id?: string | null;
+  direction?: "web" | "inbound" | "outbound" | null;
 };
 
 export type UsageSummaryRow = {
