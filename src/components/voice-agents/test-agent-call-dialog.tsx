@@ -230,7 +230,10 @@ export function TestAgentCallDialog({
               latencyMs: pending,
             };
             if (liveIdx >= 0) next[liveIdx] = turn;
-            else next.push(turn);
+            else if (role === "user" && next[next.length - 1]?.role === "user") {
+              const last = next[next.length - 1];
+              next[next.length - 1] = { ...last, text: `${last.text} ${spoken}`.trim() };
+            } else next.push(turn);
             return next;
           });
         } catch {

@@ -183,7 +183,15 @@ async function loadInteraction(callId: string, seed?: VoiceCall): Promise<Intera
 export function prefetchInteraction(callId: string, seed?: VoiceCall): Promise<InteractionDetail> {
   let pending = _interactionCache.get(callId);
   if (!pending) {
-    pending = loadInteraction(callId, seed);
+    pending = loadInteraction(callId, seed).then((detail) => {
+      // Teardown reports the transcript after hangup. Caching an empty
+      // result from a hover/open that raced that POST would hide the real
+      // conversation until a full reload.
+      if (detail.transcript.length === 0) {
+        _interactionCache.delete(callId);
+      }
+      return detail;
+    });
     _interactionCache.set(callId, pending);
     pending.catch(() => _interactionCache.delete(callId));
   }

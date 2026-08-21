@@ -68,6 +68,14 @@ export interface AgentTool {
 export interface AgentSettings {
   speaking_speed?: number;
   pitch?: number;
+  loudness?: number;
+  volume?: number;
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  speaker_boost?: boolean;
+  tts_temperature?: number;
+  emotion?: string | null;
   temperature_override?: number | null;
   knowledge_base_ids?: string[];
   allow_interruptions?: boolean;
@@ -470,6 +478,14 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
   return {
     speaking_speed: config?.tts?.speaking_speed ?? 1.0,
     pitch: config?.tts?.pitch ?? 0,
+    loudness: config?.tts?.loudness ?? 1.0,
+    volume: config?.tts?.volume ?? 1.0,
+    stability: config?.tts?.stability ?? 0.5,
+    similarity_boost: config?.tts?.similarity_boost ?? 0.75,
+    style: config?.tts?.style ?? 0,
+    speaker_boost: config?.tts?.speaker_boost ?? true,
+    tts_temperature: config?.tts?.temperature ?? 0.6,
+    emotion: config?.tts?.emotion ?? "neutral",
     temperature_override: config?.llm.temperature,
     allow_interruptions: config?.session.allow_interruptions,
     eagerness: config?.turn.eagerness ?? 5,
@@ -558,6 +574,14 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
     tts: {
       speaking_speed: data.speaking_speed ?? agent.config.tts?.speaking_speed ?? 1.0,
       pitch: data.pitch ?? agent.config.tts?.pitch ?? 0,
+      loudness: data.loudness ?? agent.config.tts?.loudness ?? 1.0,
+      volume: data.volume ?? agent.config.tts?.volume ?? 1.0,
+      stability: data.stability ?? agent.config.tts?.stability ?? 0.5,
+      similarity_boost: data.similarity_boost ?? agent.config.tts?.similarity_boost ?? 0.75,
+      style: data.style ?? agent.config.tts?.style ?? 0,
+      speaker_boost: data.speaker_boost ?? agent.config.tts?.speaker_boost ?? true,
+      temperature: data.tts_temperature ?? agent.config.tts?.temperature ?? 0.6,
+      emotion: data.emotion ?? agent.config.tts?.emotion ?? null,
     },
     session: {
       allow_interruptions: data.allow_interruptions ?? agent.config.session.allow_interruptions,

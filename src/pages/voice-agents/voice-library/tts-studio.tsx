@@ -5,6 +5,14 @@ import { toast } from "sonner";
 import { AudioPlayer } from "@/components/ui/audio-player";
 import { Button } from "@/components/ui/button";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { KupeVoicePicker } from "@/components/voice-agents/kupe-voice-picker";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
@@ -13,6 +21,7 @@ import { speakVoicePreview, type VoiceTtsProvider } from "@/lib/api/voice/provid
 import { cn } from "@/lib/utils";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
+import { resolveSpeakingControls } from "@/lib/voice/speaking-controls";
 import type { CatalogVoice } from "@/types";
 
 type RecentClip = {
@@ -86,6 +95,7 @@ export function TtsStudio({
   );
   const [speed, setSpeed] = useState(1);
   const [pitch, setPitch] = useState(0);
+  const [speakingValues, setSpeakingValues] = useState<Record<string, number | boolean | string>>({});
   const [generating, setGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [recents, setRecents] = useState<RecentClip[]>([]);
@@ -109,9 +119,19 @@ export function TtsStudio({
     }
   }, [providerVoices, voiceId]);
 
-  const showSpeed = Boolean(provider?.capabilities?.speaking_speed);
-  const showPitch = Boolean(provider?.capabilities?.pitch);
+  const speakingControls = resolveSpeakingControls(
+    provider?.provider_name,
+    provider?.model_name,
+    provider?.capabilities?.speaking,
+  );
+  const showSpeed = speakingControls.some((c) => c.key === "speaking_speed");
+  const showPitch = speakingControls.some((c) => c.key === "pitch");
   const selectedVoice = providerVoices.find((v) => v.voice_id === voiceId);
+
+  function speakingNumber(key: string, fallback: number) {
+    const value = speakingValues[key];
+    return typeof value === "number" ? value : fallback;
+  }
 
   async function generate() {
     if (!selectedVoice || !text.trim()) return;
@@ -126,8 +146,8 @@ export function TtsStudio({
     try {
       const blob = await speakVoicePreview(selectedVoice.id, text.trim(), "en", {
         orgId,
-        speed: showSpeed ? speed : undefined,
-        pitch: showPitch ? pitch : undefined,
+        speed: showSpeed ? speakingNumber("speaking_speed", speed) : undefined,
+        pitch: showPitch ? speakingNumber("pitch", pitch) : undefined,
       });
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
@@ -222,32 +242,96 @@ export function TtsStudio({
             className="w-full"
           />
         </div>
-        {showSpeed ? (
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Speaking speed</p>
-            <RangeControl
-              value={speed}
-              min={0.7}
-              max={1.4}
-              step={0.05}
-              onChange={setSpeed}
-              format={(v) => `${v.toFixed(2)} x`}
-            />
-          </div>
-        ) : null}
-        {showPitch ? (
-          <div className="space-y-1.5">
-            <p className="text-xs font-medium text-muted-foreground">Pitch</p>
-            <RangeControl
-              value={pitch}
-              min={-5}
-              max={5}
-              step={0.5}
-              onChange={setPitch}
-              format={(v) => v.toFixed(1)}
-            />
-          </div>
-        ) : null}
+        {speakingControls.length ? (
+          speakingControls.map((control) => {
+            if (control.kind === "toggle") {
+              const value = Boolean(speakingValues[control.key] ?? control.default ?? false);
+              return (
+                <div key={control.key} className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-medium text-muted-foreground">{control.label}</p>
+                  <Switch
+                    checked={value}
+                    onCheckedChange={(v) => setSpeakingValues((prev) => ({ ...prev, [control.key]: v }))}
+                  />
+                </div>
+              );
+            }
+            if (control.kind === "select") {
+              const value = String(speakingValues[control.key] ?? control.default ?? "");
+              return (
+                <div key={control.key} className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">{control.label}</p>
+                  <Select
+                    value={value}
+                    onValueChange={(v) => setSpeakingValues((prev) => ({ ...prev, [control.key]: v }))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(control.options ?? []).map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            }
+            const min = control.min ?? 0;
+            const max = control.max ?? 1;
+            const value = speakingNumber(control.key, Number(control.default ?? (control.key === "pitch" ? pitch : speed)));
+            return (
+              <div key={control.key} className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">{control.label}</p>
+                <RangeControl
+                  value={value}
+                  min={min}
+                  max={max}
+                  step={control.step ?? 0.05}
+                  onChange={(v) => {
+                    setSpeakingValues((prev) => ({ ...prev, [control.key]: v }));
+                    if (control.key === "speaking_speed") setSpeed(v);
+                    if (control.key === "pitch") setPitch(v);
+                  }}
+                  format={(v) =>
+                    control.format === "multiplier" ? `${v.toFixed(2)} x` : v.toFixed(v % 1 === 0 ? 0 : 2)
+                  }
+                />
+              </div>
+            );
+          })
+        ) : (
+          <>
+            {showSpeed ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Speaking speed</p>
+                <RangeControl
+                  value={speed}
+                  min={0.7}
+                  max={1.4}
+                  step={0.05}
+                  onChange={setSpeed}
+                  format={(v) => `${v.toFixed(2)} x`}
+                />
+              </div>
+            ) : null}
+            {showPitch ? (
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground">Pitch</p>
+                <RangeControl
+                  value={pitch}
+                  min={-5}
+                  max={5}
+                  step={0.5}
+                  onChange={setPitch}
+                  format={(v) => v.toFixed(1)}
+                />
+              </div>
+            ) : null}
+          </>
+        )}
         <p className={cn("text-xs text-muted-foreground", !showSpeed && !showPitch && "pt-1")}>
           This generation is billed to the workspace wallet. Catalog voice samples stay cached and free to replay.
         </p>

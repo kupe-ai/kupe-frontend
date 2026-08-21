@@ -30,7 +30,7 @@ export type ProviderOption = {
   default_voice?: string;
   supported_languages?: string[];
   voices?: ProviderVoice[];
-  capabilities?: { speaking_speed?: boolean; pitch?: boolean };
+  capabilities?: TtsCapabilities;
 };
 
 export type CallLanguage = {
@@ -375,9 +375,49 @@ export type AgentLlmConfig = {
   switch_after_seconds?: number | null;
 };
 
+export type SpeakingControlOption = {
+  value: string;
+  label: string;
+};
+
+export type SpeakingControl = {
+  key: string;
+  label: string;
+  description?: string;
+  kind: "range" | "toggle" | "select";
+  min?: number;
+  max?: number;
+  step?: number;
+  default?: number | boolean | string;
+  format?: "multiplier" | "decimal";
+  options?: SpeakingControlOption[];
+};
+
+export type TtsCapabilities = {
+  speaking_speed?: boolean;
+  pitch?: boolean;
+  loudness?: boolean;
+  volume?: boolean;
+  stability?: boolean;
+  similarity_boost?: boolean;
+  style?: boolean;
+  speaker_boost?: boolean;
+  emotion?: boolean;
+  temperature?: boolean;
+  speaking?: SpeakingControl[];
+};
+
 export type AgentTtsConfig = {
   speaking_speed: number;
   pitch: number;
+  loudness?: number;
+  volume?: number;
+  stability?: number;
+  similarity_boost?: number;
+  style?: number;
+  speaker_boost?: boolean;
+  temperature?: number;
+  emotion?: string | null;
 };
 
 export type AgentSessionConfig = {

@@ -187,6 +187,19 @@ function applyTranscriptMessage(prev: TranscriptEntry[], parsed: TranscriptMessa
     return next;
   }
 
+  if (parsed.role === "user") {
+    const lastIdx = prev.length - 1;
+    if (lastIdx >= 0 && prev[lastIdx].role === "user") {
+      const next = [...prev];
+      next[lastIdx] = {
+        ...next[lastIdx],
+        text: `${next[lastIdx].text} ${parsed.text}`.trim(),
+        final: true,
+      };
+      return next;
+    }
+  }
+
   return [
     ...prev,
     {

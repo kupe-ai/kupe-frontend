@@ -38,11 +38,12 @@ import { updateVoiceAgent } from "@/lib/api/voice/agents";
 import { listKnowledgeBases } from "@/lib/api/voice/knowledge-bases";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 import { captureEvent } from "@/lib/posthog";
-import type { MemoryScope, ThinkingSoundMode } from "@/types";
+import type { MemoryScope, SpeakingControl, ThinkingSoundMode } from "@/types";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { CALL_LANGUAGES, languageLabel, type CallLanguage } from "@/lib/voice/languages";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
 import { DEFAULT_TIMEZONE, timezoneFlag, timezoneLabel } from "@/lib/timezone-options";
+import { resolveSpeakingControls } from "@/lib/voice/speaking-controls";
 import {
   AMBIENT_PRESETS,
   AmbientPreviewPlayer,
@@ -144,6 +145,67 @@ const THINKING_SOUND_HELP: Record<ThinkingSoundMode, string> = {
     "Acknowledge the caller in the agent's language (अच्छा, ठीक है, બરાબર, சரி, “got it”) instead of a hesitation sound.",
 };
 
+function settingKey(controlKey: string): keyof AgentSettings {
+  if (controlKey === "temperature") return "tts_temperature";
+  return controlKey as keyof AgentSettings;
+}
+
+function SpeakingControlRow({
+  control,
+  settings,
+  onChange,
+}: {
+  control: SpeakingControl;
+  settings: AgentSettings;
+  onChange: (key: keyof AgentSettings, value: AgentSettings[keyof AgentSettings]) => void;
+}) {
+  const key = settingKey(control.key);
+  if (control.kind === "toggle") {
+    const value = Boolean(settings[key] ?? control.default ?? false);
+    return (
+      <SettingRow title={control.label} description={control.description}>
+        <Switch checked={value} onCheckedChange={(v) => onChange(key, v)} />
+      </SettingRow>
+    );
+  }
+  if (control.kind === "select") {
+    const value = String(settings[key] ?? control.default ?? "");
+    return (
+      <SettingRow title={control.label} description={control.description}>
+        <Select value={value} onValueChange={(v) => onChange(key, v)}>
+          <SelectTrigger className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {(control.options ?? []).map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+    );
+  }
+  const min = control.min ?? 0;
+  const max = control.max ?? 1;
+  const value = Number(settings[key] ?? control.default ?? min);
+  return (
+    <SettingRow title={control.label} description={control.description}>
+      <RangeControl
+        value={value}
+        min={min}
+        max={max}
+        step={control.step ?? 0.05}
+        onChange={(v) => onChange(key, v)}
+        format={(v) =>
+          control.format === "multiplier" ? `${v.toFixed(2)} x` : v.toFixed(v % 1 === 0 ? 0 : 2)
+        }
+      />
+    </SettingRow>
+  );
+}
+
 function SectionTitle({ children }: { children: ReactNode }) {
   return (
     <h3 className="border-t border-border pt-5 text-sm font-semibold tracking-tight first:border-t-0 first:pt-0">
@@ -161,6 +223,14 @@ const DEFAULTS: Required<
 } = {
   speaking_speed: 1.0,
   pitch: 0,
+  loudness: 1.0,
+  volume: 1.0,
+  stability: 0.5,
+  similarity_boost: 0.75,
+  style: 0,
+  speaker_boost: true,
+  tts_temperature: 0.6,
+  emotion: "neutral",
   temperature_override: null,
   knowledge_base_ids: [],
   allow_interruptions: true,
@@ -541,14 +611,11 @@ export function AgentSettingsPanel({
   const selectedTts = ttsProviders.find((p) => p.id === ttsId);
   const selectedStt = sttProviders.find((p) => p.id === sttId);
   const selectedLlm = llmProviders.find((p) => p.id === llmId);
-  const ttsCaps = selectedTts?.capabilities;
-  const ttsName = (selectedTts?.provider_name || "").toLowerCase();
-  const showSpeed =
-    ttsCaps?.speaking_speed ??
-    ["openai", "deepgram", "eleven_labs", "sarvam", "smallest_ai", "soniox", "kupe"].includes(ttsName);
-  const showPitch =
-    ttsCaps?.pitch ??
-    (ttsName === "deepgram" || (ttsName === "sarvam" && !(selectedTts?.model_name || "").toLowerCase().startsWith("bulbul:v3")));
+  const speakingControls = resolveSpeakingControls(
+    selectedTts?.provider_name,
+    selectedTts?.model_name,
+    selectedTts?.capabilities?.speaking,
+  );
   const overlap = languageOverlap(selectedStt?.supported_languages, selectedTts?.supported_languages);
   const showLanguageSwitch = overlap.length > 1;
   const showIndic =
@@ -637,29 +704,17 @@ export function AgentSettingsPanel({
       </SettingRow>
 
       <SectionTitle>Speaking</SectionTitle>
-      {showSpeed && (
-        <SettingRow title="Speaking speed" description="How fast the agent talks.">
-          <RangeControl
-            value={settings.speaking_speed}
-            min={0.7}
-            max={1.4}
-            step={0.05}
-            onChange={(v) => set("speaking_speed", v)}
-            format={(v) => `${v.toFixed(2)} x`}
+      {speakingControls.length === 0 ? (
+        <p className="py-3 text-sm text-muted-foreground">This voice model has no extra speaking controls.</p>
+      ) : (
+        speakingControls.map((control) => (
+          <SpeakingControlRow
+            key={control.key}
+            control={control}
+            settings={settings}
+            onChange={(key, value) => set(key, value as (typeof settings)[typeof key])}
           />
-        </SettingRow>
-      )}
-      {showPitch && (
-        <SettingRow title="Pitch" description="Voice pitch offset.">
-          <RangeControl
-            value={settings.pitch}
-            min={-5}
-            max={5}
-            step={0.25}
-            onChange={(v) => set("pitch", v)}
-            format={(v) => v.toFixed(2)}
-          />
-        </SettingRow>
+        ))
       )}
 
       <SectionTitle>Thinking & knowledge</SectionTitle>

@@ -1,6 +1,6 @@
 import { BACKEND_URL } from "@/config";
 import { api } from "@/lib/api";
-import type { CallLanguage, CatalogVoice, ProvidersResponse } from "@/types";
+import type { CallLanguage, CatalogVoice, ProvidersResponse, TtsCapabilities } from "@/types";
 import { CALL_LANGUAGES } from "@/lib/voice/languages";
 
 export interface VoiceLlmProvider {
@@ -18,7 +18,7 @@ export interface VoiceTtsProvider {
   is_default: boolean;
   default_voice: string | null;
   supported_languages: string[];
-  capabilities?: { speaking_speed?: boolean; pitch?: boolean };
+  capabilities?: TtsCapabilities;
 }
 
 export type VoiceTtsVoice = CatalogVoice;
