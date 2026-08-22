@@ -116,11 +116,11 @@ export function CallLogDetailDialog({
         <DialogTitle className="sr-only">Unified View Details</DialogTitle>
 
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-5 py-4">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold">Unified View Details</h2>
             <div className="mt-1 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="min-w-0 truncate font-mono" title={callId}>{callId}</span>
-              <button type="button" onClick={() => copy(callId)}>
+              <span className="min-w-0 flex-1 truncate font-mono" title={callId}>{callId}</span>
+              <button type="button" className="shrink-0" aria-label="Copy call ID" onClick={() => copy(callId)}>
                 <Copy className="size-3.5" />
               </button>
             </div>
@@ -194,10 +194,10 @@ export function CallLogDetailDialog({
                           <button
                             type="button"
                             title={v.value}
-                            className="inline-flex w-full max-w-[14rem] min-w-0 items-center gap-1"
+                            className="flex w-full min-w-0 items-center gap-1 overflow-hidden"
                             onClick={() => copy(v.value)}
                           >
-                            <span className={cn("min-w-0 font-mono text-xs", v.truncate && "truncate")}>{v.value}</span>
+                            <span className={cn("min-w-0 flex-1 font-mono text-xs", v.truncate && "truncate")}>{v.value}</span>
                             <Copy className="size-3 shrink-0 text-muted-foreground" />
                           </button>
                         ) : (

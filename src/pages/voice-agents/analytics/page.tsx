@@ -692,10 +692,10 @@ function CallLogsTab({
                         }
                       }}
                     >
-                    <td className="max-w-[12rem] px-3 py-3">
+                    <td className="max-w-[12rem] overflow-hidden px-3 py-3">
                       <CopyCell text={call.id} truncate />
                     </td>
-                    <td className="max-w-[12rem] px-3 py-3">
+                    <td className="max-w-[12rem] overflow-hidden px-3 py-3">
                       <CopyCell text={call.user_identifier ?? "—"} truncate />
                     </td>
                     <td className="whitespace-nowrap px-3 py-3">
@@ -756,8 +756,11 @@ function CallLogsTab({
 function CopyCell({ text, truncate }: { text: string; truncate?: boolean }) {
   const empty = !text || text === "—";
   return (
-    <span className="inline-flex min-w-0 max-w-[14rem] items-center gap-1">
-      <span className={cn("min-w-0 font-mono text-xs", truncate && "truncate")} title={empty ? undefined : text}>
+    <span className="flex w-full min-w-0 items-center gap-1 overflow-hidden">
+      <span
+        className={cn("min-w-0 flex-1 font-mono text-xs", truncate && "truncate")}
+        title={empty ? undefined : text}
+      >
         {text}
       </span>
       {!empty ? (
