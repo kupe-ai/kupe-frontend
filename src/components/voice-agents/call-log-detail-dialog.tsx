@@ -194,11 +194,11 @@ export function CallLogDetailDialog({
                           <button
                             type="button"
                             title={v.value}
-                            className="flex w-full min-w-0 items-center gap-1 overflow-hidden"
+                            className="flex w-full min-w-0 items-start gap-1.5 text-left"
                             onClick={() => copy(v.value)}
                           >
-                            <span className={cn("min-w-0 flex-1 font-mono text-xs", v.truncate && "truncate")}>{v.value}</span>
-                            <Copy className="size-3 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 flex-1 break-all font-mono text-xs">{v.value}</span>
+                            <Copy className="mt-0.5 size-3 shrink-0 text-muted-foreground" />
                           </button>
                         ) : (
                           <span className="break-all">{v.value}</span>

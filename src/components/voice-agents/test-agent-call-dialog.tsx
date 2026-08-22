@@ -171,6 +171,66 @@ export function TestAgentCallDialog({
           if (cancelled) return;
           setErrorMsg(friendlyVoiceError(err, webCallErrorMessage(err)));
         },
+        onData: (payload) => {
+          if (cancelled) return;
+          try {
+            const parsed = JSON.parse(new TextDecoder().decode(payload)) as {
+              kind?: string;
+              role?: string;
+              text?: string;
+              final?: boolean;
+              type?: string;
+              value_ms?: number;
+            };
+            if (parsed.kind === "latency") {
+              if (parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
+                setTurns((prev) => {
+                  const { turns, attached } = applyPerceivedLatency(prev, parsed.value_ms!, "agent", {
+                    skipFirst: true,
+                  });
+                  pendingLatencyRef.current = attached ? null : parsed.value_ms!;
+                  return turns;
+                });
+              }
+              return;
+            }
+            if (parsed.kind !== "transcript" || !parsed.text) return;
+            const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
+            const spoken = role === "agent" ? stripToolCallMarkup(parsed.text) : parsed.text;
+            if (role === "agent" && (isThinkingPhone(parsed.text) || isToolCallMarkup(parsed.text) || !spoken)) return;
+            const id = `${role}-live`;
+            setTurns((prev) => {
+              const next = [...prev];
+              if (parsed.final === false) {
+                const idx = next.findIndex((t) => t.id === id);
+                if (idx >= 0) next[idx] = { ...next[idx], text: spoken };
+                else next.push({ id, role, text: spoken });
+                return next;
+              }
+              const liveIdx = next.findIndex((t) => t.id === id);
+              const greeting = role === "agent" && !next.some((t) => t.role === "agent" && t.id !== id);
+              const pending =
+                role === "agent" && !greeting
+                  ? (pendingLatencyRef.current ?? (liveIdx >= 0 ? next[liveIdx].latencyMs : undefined))
+                  : undefined;
+              if (pending !== undefined) pendingLatencyRef.current = null;
+              const turn = {
+                id: `${role}-${next.length}-${spoken.slice(0, 12)}`,
+                role,
+                text: spoken,
+                latencyMs: pending,
+              };
+              if (liveIdx >= 0) next[liveIdx] = turn;
+              else if (role === "user" && next[next.length - 1]?.role === "user") {
+                const last = next[next.length - 1];
+                next[next.length - 1] = { ...last, text: `${last.text} ${spoken}`.trim() };
+              } else next.push(turn);
+              return next;
+            });
+          } catch {
+            // ignore non-transcript data messages
+          }
+        },
       }, demoValuesRef.current);
     }).then((handle) => {
       if (!handle) return;
@@ -180,66 +240,6 @@ export function TestAgentCallDialog({
       }
       handleRef.current = handle;
 
-      handle.room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
-        if (cancelled) return;
-        try {
-          const parsed = JSON.parse(new TextDecoder().decode(payload)) as {
-            kind?: string;
-            role?: string;
-            text?: string;
-            final?: boolean;
-            type?: string;
-            value_ms?: number;
-          };
-          if (parsed.kind === "latency") {
-            if (parsed.type === "perceived_response" && typeof parsed.value_ms === "number") {
-              setTurns((prev) => {
-                const { turns, attached } = applyPerceivedLatency(prev, parsed.value_ms!, "agent", {
-                  skipFirst: true,
-                });
-                pendingLatencyRef.current = attached ? null : parsed.value_ms!;
-                return turns;
-              });
-            }
-            return;
-          }
-          if (parsed.kind !== "transcript" || !parsed.text) return;
-          const role: LiveTurn["role"] = parsed.role === "user" ? "user" : "agent";
-          const spoken = role === "agent" ? stripToolCallMarkup(parsed.text) : parsed.text;
-          if (role === "agent" && (isThinkingPhone(parsed.text) || isToolCallMarkup(parsed.text) || !spoken)) return;
-          const id = `${role}-live`;
-          setTurns((prev) => {
-            const next = [...prev];
-            if (parsed.final === false) {
-              const idx = next.findIndex((t) => t.id === id);
-              if (idx >= 0) next[idx] = { ...next[idx], text: spoken };
-              else next.push({ id, role, text: spoken });
-              return next;
-            }
-            const liveIdx = next.findIndex((t) => t.id === id);
-            const greeting = role === "agent" && !next.some((t) => t.role === "agent" && t.id !== id);
-            const pending =
-              role === "agent" && !greeting
-                ? (pendingLatencyRef.current ?? (liveIdx >= 0 ? next[liveIdx].latencyMs : undefined))
-                : undefined;
-            if (pending !== undefined) pendingLatencyRef.current = null;
-            const turn = {
-              id: `${role}-${next.length}-${spoken.slice(0, 12)}`,
-              role,
-              text: spoken,
-              latencyMs: pending,
-            };
-            if (liveIdx >= 0) next[liveIdx] = turn;
-            else if (role === "user" && next[next.length - 1]?.role === "user") {
-              const last = next[next.length - 1];
-              next[next.length - 1] = { ...last, text: `${last.text} ${spoken}`.trim() };
-            } else next.push(turn);
-            return next;
-          });
-        } catch {
-          // ignore non-transcript data messages
-        }
-      });
       handle.room.on(
         RoomEvent.TranscriptionReceived,
         (segments: TranscriptionSegment[], participant) => {

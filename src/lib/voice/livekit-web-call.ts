@@ -32,6 +32,10 @@ export interface WebCallCallbacks {
   onAgentTrack?: (track: MediaStreamTrack) => void;
   /** Clone of the local microphone track for the listening visualizer. */
   onLocalTrack?: (track: MediaStreamTrack) => void;
+  /** Data-channel packets. Must be wired before `room.connect()` — the
+   * greeting is published as soon as the participant joins, and LiveKit
+   * does not replay missed data messages. */
+  onData?: (payload: Uint8Array) => void;
   onError?: (error: unknown) => void;
 }
 
@@ -120,6 +124,12 @@ export async function startWebCall(
     });
 
     room.on(RoomEvent.Disconnected, () => callbacks.onStatusChange?.("ended"));
+
+    if (callbacks.onData) {
+      room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+        callbacks.onData?.(payload);
+      });
+    }
 
     await room.connect(livekit_url, access_token);
     await room.localParticipant.setMicrophoneEnabled(true);
