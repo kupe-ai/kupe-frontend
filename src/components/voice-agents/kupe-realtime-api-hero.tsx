@@ -285,36 +285,32 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
       const gy = g.cy + Math.cos(phase * g.drift * 0.85 + gi * 1.4) * (rows * 0.035);
 
       // Bright core
-      stampSoft(frame, gy, gx, 2.65, 0.95);
+      stampSoft(frame, gy, gx, 3.2, 0.98);
       stampSoft(
         frame,
         gy + Math.sin(phase * g.spin * 1.2) * 0.35,
         gx + Math.cos(phase * g.spin * 1.2) * 0.35,
-        1.75,
+        2.1,
         1,
       );
 
-      // Spiral arms per galaxy
+      // Spiral arms per galaxy — thicker ribbons
       for (let arm = 0; arm < g.arms; arm++) {
         const armOffset = (arm / g.arms) * Math.PI * 2 + gi * 0.9;
-        for (let i = 0; i < 36; i++) {
-          const t = i / 35;
+        for (let i = 0; i < 40; i++) {
+          const t = i / 39;
           const angle = t * Math.PI * 3.2 + armOffset + phase * g.spin;
           const radius = t * maxR;
           const wobble = Math.sin(t * 8 + phase * 1.3 + arm + gi) * (0.5 + t * 0.9);
           const r = gy + Math.sin(angle) * radius + Math.cos(angle * 2.1) * wobble * 0.3;
           const c = gx + Math.cos(angle) * radius + Math.sin(angle * 2.1) * wobble * 0.3;
-          const peak = 0.32 + (1 - t) * 0.58;
-          const armRadius = 1.35 + (1 - t) * 0.62;
+          const peak = 0.38 + (1 - t) * 0.55;
+          const armRadius = 1.85 + (1 - t) * 0.85;
           stampSoft(frame, r, c, armRadius, peak);
-          // Slight ribbon width — second stamp offset along the arm
-          stampSoft(
-            frame,
-            r + Math.cos(angle + Math.PI / 2) * 0.35,
-            c + Math.sin(angle + Math.PI / 2) * 0.35,
-            armRadius * 0.82,
-            peak * 0.72,
-          );
+          const nx = Math.cos(angle + Math.PI / 2);
+          const ny = Math.sin(angle + Math.PI / 2);
+          stampSoft(frame, r + ny * 0.55, c + nx * 0.55, armRadius * 0.9, peak * 0.82);
+          stampSoft(frame, r - ny * 0.55, c - nx * 0.55, armRadius * 0.9, peak * 0.82);
         }
       }
 
@@ -326,8 +322,8 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
           frame,
           gy + Math.sin(a) * rad,
           gx + Math.cos(a * 1.08) * rad,
-          0.9,
-          0.38 + (d % 2) * 0.14,
+          1.05,
+          0.4 + (d % 2) * 0.14,
         );
       }
     }
@@ -634,10 +630,10 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             size={matrixGrid.size}
             gap={MATRIX_GAP}
             showOffDots
-            offOpacity={0.16}
+            offOpacity={0.09}
             palette={{
               on: "var(--primary)",
-              off: "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
+              off: "color-mix(in oklab, var(--muted-foreground) 28%, transparent)",
             }}
             className="absolute inset-0"
             ariaLabel="Animated triple galaxy matrix"
