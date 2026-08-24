@@ -25,24 +25,36 @@ export type TranscriptionSegment = {
   lastReceivedTime: number;
 };
 
-type Handler = (...args: unknown[]) => void;
+export type TranscriptionParticipant = {
+  isLocal: boolean;
+  identity: string;
+};
+
+type RoomEventPayloads = {
+  [RoomEvent.DataReceived]: [payload: Uint8Array];
+  [RoomEvent.TranscriptionReceived]: [segments: TranscriptionSegment[], participant: TranscriptionParticipant];
+  [RoomEvent.Disconnected]: [];
+};
+
+type RoomEventName = keyof RoomEventPayloads;
+type RoomEventHandler<E extends RoomEventName> = (...args: RoomEventPayloads[E]) => void;
 
 class Emitter {
-  private listeners = new Map<string, Set<Handler>>();
-  on(event: string, handler: Handler) {
+  private listeners = new Map<string, Set<RoomEventHandler<RoomEventName>>>();
+  on<E extends RoomEventName>(event: E, handler: RoomEventHandler<E>) {
     let set = this.listeners.get(event);
     if (!set) {
       set = new Set();
       this.listeners.set(event, set);
     }
-    set.add(handler);
+    set.add(handler as RoomEventHandler<RoomEventName>);
     return this;
   }
-  off(event: string, handler: Handler) {
-    this.listeners.get(event)?.delete(handler);
+  off<E extends RoomEventName>(event: E, handler: RoomEventHandler<E>) {
+    this.listeners.get(event)?.delete(handler as RoomEventHandler<RoomEventName>);
     return this;
   }
-  emit(event: string, ...args: unknown[]) {
+  emit<E extends RoomEventName>(event: E, ...args: RoomEventPayloads[E]) {
     for (const handler of this.listeners.get(event) ?? []) handler(...args);
   }
 }
