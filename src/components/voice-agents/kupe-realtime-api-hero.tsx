@@ -14,42 +14,230 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Matrix } from "@/components/ui/matrix";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_BASE_URL } from "@/lib/voice-deploy-data";
 import { createVoiceApiKey, listVoiceApiKeys } from "@/lib/api/voice/api-keys";
 import type { VoiceApiKey } from "@/lib/api/voice/types";
 import { cn } from "@/lib/utils";
 
-const SDK_SNIPPET = `import OpenAI from "openai";
+type SdkLang = "typescript" | "python" | "curl";
+
+const WS_HOST = API_BASE_URL.replace(/^https?:\/\//, "");
+const SAMPLE_AGENT = "agt_collections_demo";
+const SAMPLE_VOICE = "priya";
+
+/**
+ * Snippets hit the real Kupe contract verified against
+ * POST /v1/realtime/sessions (agent_id required, voice optional name)
+ * and wss://…/v1/realtime?model=kupe-realtime&client_secret=…
+ * OpenAI SDK `client.post("/realtime/sessions", …)` is used so custom
+ * fields (agent_id) are not stripped by typed sessions.create params.
+ */
+function buildSnippet(lang: SdkLang, apiKey: string): string {
+  switch (lang) {
+    case "typescript":
+      return `import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.KUPE_API_KEY,
+  apiKey: "${apiKey}",
   baseURL: "${API_BASE_URL}/v1",
 });
 
-const session = await client.beta.realtime.sessions.create({
-  model: "kupe-realtime",
-  agent_id: "agt_...",
-  voice: "priya",
-});
+// Mint ephemeral session — agent_id is required by Kupe
+type KupeSession = {
+  client_secret: { value: string };
+  websocket_url: string;
+};
 
-// session.client_secret.value → connect wss://${API_BASE_URL.replace("https://", "")}/v1/realtime`;
+const session = (await client.post("/realtime/sessions", {
+  body: {
+    agent_id: "${SAMPLE_AGENT}",
+    voice: "${SAMPLE_VOICE}",
+  },
+})) as KupeSession;
+
+const secret = session.client_secret.value;
+const ws = new WebSocket(
+  \`\${session.websocket_url}?model=kupe-realtime&client_secret=\${secret}\`,
+);
+
+ws.onopen = () => {
+  // Text turn demo (mic uses PCM16 mono @ 24 kHz via input_audio_buffer.append)
+  ws.send(
+    JSON.stringify({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: "Hi Priya — remind this customer their EMI is due tomorrow.",
+          },
+        ],
+      },
+    }),
+  );
+  ws.send(JSON.stringify({ type: "response.create" }));
+};
+
+ws.onmessage = (ev) => {
+  const msg = JSON.parse(String(ev.data));
+  if (msg.type === "response.output_audio.delta") {
+    // msg.delta → base64 PCM16 — enqueue on your audio player
+  }
+  if (msg.type === "response.output_audio_transcript.done") {
+    console.log("agent:", msg.transcript);
+  }
+};`;
+    case "python":
+      return `import json
+
+from openai import OpenAI
+from pydantic import BaseModel, ConfigDict
+import websocket  # pip install websocket-client
+
+class KupeSession(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    client_secret: dict
+    websocket_url: str
+
+
+client = OpenAI(
+    api_key="${apiKey}",
+    base_url="${API_BASE_URL}/v1",
+)
+
+# Mint ephemeral session — agent_id is required by Kupe
+session = client.post(
+    "/realtime/sessions",
+    body={
+        "agent_id": "${SAMPLE_AGENT}",
+        "voice": "${SAMPLE_VOICE}",
+    },
+    cast_to=KupeSession,
+)
+
+secret = session.client_secret["value"]
+ws_url = f"{session.websocket_url}?model=kupe-realtime&client_secret={secret}"
+
+
+def on_open(ws):
+    # Text turn demo (mic uses PCM16 mono @ 24 kHz via input_audio_buffer.append)
+    ws.send(
+        json.dumps(
+            {
+                "type": "conversation.item.create",
+                "item": {
+                    "type": "message",
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": "Hi Priya — remind this customer their EMI is due tomorrow.",
+                        }
+                    ],
+                },
+            }
+        )
+    )
+    ws.send(json.dumps({"type": "response.create"}))
+
+
+def on_message(_ws, message):
+    msg = json.loads(message)
+    if msg.get("type") == "response.output_audio.delta":
+        # msg["delta"] → base64 PCM16 — enqueue on your audio player
+        return
+    if msg.get("type") == "response.output_audio_transcript.done":
+        print("agent:", msg.get("transcript"))
+
+
+ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message)
+ws.run_forever()`;
+    case "curl":
+      return `# 1) Mint a session (returns client_secret + websocket_url)
+curl -sS -X POST "${API_BASE_URL}/v1/realtime/sessions" \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "agent_id": "${SAMPLE_AGENT}",
+    "voice": "${SAMPLE_VOICE}"
+  }'
+
+# 2) Connect WebSocket (replace SECRET from step 1):
+# wss://${WS_HOST}/v1/realtime?model=kupe-realtime&client_secret=SECRET
+
+# 3) After connect, send a text turn then ask for a response:
+# {"type":"conversation.item.create","item":{"type":"message","role":"user","content":[{"type":"input_text","text":"Remind them their EMI is due tomorrow."}]}}
+# {"type":"response.create"}`;
+  }
+}
 
 function maskApiKey(prefix: string, fullKey?: string | null, revealed?: boolean): string {
   if (revealed && fullKey) return fullKey;
-  const base = fullKey ? fullKey.slice(0, 12) : prefix;
+  const base = (fullKey ?? prefix).slice(0, Math.max(prefix.length, 12));
   return `${base}${"•".repeat(Math.max(16, 28 - base.length))}`;
 }
 
-function OpenAiMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={cn("size-3.5 shrink-0 opacity-70", className)} aria-hidden>
-      <path
-        fill="currentColor"
-        d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.739-7.073ZM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494ZM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646ZM2.453 8.033a4.476 4.476 0 0 1 2.365-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0L4.19 13.617a4.5 4.5 0 0 1-1.737-5.584Zm16.073 3.855-5.835-3.387 2.02-1.163a.075.075 0 0 1 .071 0l4.83 2.786a4.494 4.494 0 0 1-.672 8.08v-5.678a.79.79 0 0 0-.414-.638Zm2.028-3.031-.141-.085-4.78-2.792a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.287 4.808ZM8.32 12.864l-2.02-1.164a.08.08 0 0 1-.038-.056V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681Zm1.098-2.273L12 8.88l2.583 1.711v3.42L12 15.53l-2.583-1.711Z"
-      />
-    </svg>
-  );
+/** Key string embedded in snippets: full when copyable, else prefix (still copyable). */
+function snippetApiKey(prefix: string | null | undefined, fullKey: string | null): string {
+  if (fullKey) return fullKey;
+  if (prefix) return prefix;
+  return "sk-kupe-YOUR_KEY";
 }
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function highlightCode(code: string, lang: SdkLang): string {
+  const esc = escapeHtml(code);
+
+  if (lang === "curl") {
+    return esc
+      .replace(/(^|\n)(#.*)/g, '$1<span class="tok-comment">$2</span>')
+      .replace(/\b(curl)\b/g, '<span class="tok-fn">$1</span>')
+      .replace(/(-[A-Za-z]+)/g, '<span class="tok-attr">$1</span>')
+      .replace(/(&quot;[^&]*&quot;)/g, '<span class="tok-string">$1</span>')
+      .replace(/\b(Authorization|Content-Type|Bearer)\b/g, '<span class="tok-type">$1</span>')
+      .replace(/(https?:\/\/[^\s\\]+|wss?:\/\/[^\s\\]+)/g, '<span class="tok-string">$1</span>');
+  }
+
+  if (lang === "python") {
+    return esc
+      .replace(/(#.*)$/gm, '<span class="tok-comment">$1</span>')
+      .replace(
+        /\b(import|from|as|def|return|if|elif|else|pass|True|False|None|f)\b/g,
+        '<span class="tok-keyword">$1</span>',
+      )
+      .replace(/\b(print|json|OpenAI|WebSocketApp|dumps|loads|get)\b/g, '<span class="tok-fn">$1</span>')
+      .replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="tok-string">$1</span>')
+      .replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>');
+  }
+
+  // typescript / javascript
+  return esc
+    .replace(/(\/\/.*)$/gm, '<span class="tok-comment">$1</span>')
+    .replace(
+      /\b(import|from|const|let|var|await|async|new|return|if|else|typeof|export|default)\b/g,
+      '<span class="tok-keyword">$1</span>',
+    )
+    .replace(/\b(OpenAI|WebSocket|JSON|console|String)\b/g, '<span class="tok-type">$1</span>')
+    .replace(/\b(post|send|stringify|parse|log|onopen|onmessage)\b/g, '<span class="tok-fn">$1</span>')
+    .replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;|`[^`]*`)/g, '<span class="tok-string">$1</span>')
+    .replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>');
+}
+
+const LANG_LABEL: Record<SdkLang, string> = {
+  typescript: "TypeScript",
+  python: "Python",
+  curl: "cURL",
+};
 
 export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [activeKey, setActiveKey] = useState<VoiceApiKey | null>(null);
@@ -59,21 +247,22 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [generating, setGenerating] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+  const [lang, setLang] = useState<SdkLang>("typescript");
   const [wavePhase, setWavePhase] = useState(0);
   const bootstrappedRef = useRef(false);
 
   const waveLevels = useMemo(() => {
-    const cols = 28;
+    const cols = 10;
     return Array.from({ length: cols }, (_, i) => {
       const colPhase = (i / cols) * Math.PI * 2;
       const primary = (Math.sin(wavePhase + colPhase) + 1) / 2;
-      const secondary = (Math.sin(wavePhase * 1.4 + colPhase * 0.7 + 1.2) + 1) / 2;
-      return 0.12 + primary * 0.55 + secondary * 0.25;
+      const secondary = (Math.sin(wavePhase * 1.35 + colPhase * 0.8 + 0.9) + 1) / 2;
+      return 0.1 + primary * 0.58 + secondary * 0.28;
     });
   }, [wavePhase]);
 
   useEffect(() => {
-    const id = window.setInterval(() => setWavePhase((p) => p + 0.22), 80);
+    const id = window.setInterval(() => setWavePhase((p) => p + 0.2), 80);
     return () => window.clearInterval(id);
   }, []);
 
@@ -130,17 +319,36 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
     }
   }
 
+  const displayKeyLiteral = snippetApiKey(
+    activeKey ? maskApiKey(activeKey.key_prefix, fullKey, false) : null,
+    null,
+  );
+  const copyKeyLiteral = snippetApiKey(activeKey?.key_prefix, fullKey);
+
+  const displaySnippet = useMemo(
+    () => buildSnippet(lang, displayKeyLiteral),
+    [lang, displayKeyLiteral],
+  );
+  const copySnippet = useMemo(() => buildSnippet(lang, copyKeyLiteral), [lang, copyKeyLiteral]);
+  const highlighted = useMemo(() => highlightCode(displaySnippet, lang), [displaySnippet, lang]);
+
   async function copyCode() {
-    await navigator.clipboard.writeText(SDK_SNIPPET);
+    await navigator.clipboard.writeText(copySnippet);
     setCopiedCode(true);
-    toast.message("Copied SDK snippet");
+    toast.message("Copied SDK snippet", {
+      description: fullKey
+        ? "Includes your full API key — keep it private."
+        : activeKey
+          ? "Uses your key prefix — generate a key to embed the full secret."
+          : undefined,
+    });
     window.setTimeout(() => setCopiedCode(false), 1600);
   }
 
   async function copyKey() {
     const value = fullKey ?? activeKey?.key_prefix ?? "";
     if (!value) return;
-    await navigator.clipboard.writeText(fullKey ?? value);
+    await navigator.clipboard.writeText(value);
     setCopiedKey(true);
     if (!fullKey) {
       toast.message("Copied key prefix", {
@@ -165,20 +373,9 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
         className,
       )}
     >
-      {/* Right-side theme gradient wash */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-[min(52%,28rem)]"
-      >
-        <div className="absolute inset-0 kupe-theme-gradient opacity-[0.14] dark:opacity-[0.22]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_22%,color-mix(in_oklab,var(--kupe-hero)_28%,transparent),transparent_58%)] dark:bg-[radial-gradient(ellipse_at_100%_22%,color-mix(in_oklab,var(--kupe-hero)_42%,transparent),transparent_64%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_88%_92%,color-mix(in_oklab,var(--kupe-hero-soft)_18%,transparent),transparent_72%)]" />
-        <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/30 to-transparent" />
-      </div>
-
-      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        {/* Left column — content + matrix waves in lower half */}
-        <div className="flex min-h-0 flex-col p-6 md:p-8 lg:pr-6">
+      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1.15fr)_minmax(11rem,0.55fr)]">
+        {/* Left — content */}
+        <div className="flex min-h-0 flex-col p-6 md:p-8 lg:pr-4">
           <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -225,7 +422,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             </div>
           </div>
 
-          {/* API key row */}
+          {/* API key */}
           <div className="mt-6 w-full max-w-xl text-left">
             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               API key
@@ -269,29 +466,40 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
 
           {/* Code snippet */}
           <div className="mt-5 w-full max-w-xl text-left">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <OpenAiMark />
+                <BrandMark size={16} className="rounded-sm" />
                 <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                  OpenAI SDK
+                  {LANG_LABEL[lang]} · OpenAI SDK
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 gap-1.5 rounded-full px-2.5 text-xs"
-                onClick={() => void copyCode()}
-              >
-                {copiedCode ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-                <OpenAiMark className="size-3 opacity-80" />
-                Copy
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Tabs value={lang} onValueChange={(v) => setLang(v as SdkLang)}>
+                  <TabsList variant="line" className="h-7">
+                    {(Object.keys(LANG_LABEL) as SdkLang[]).map((id) => (
+                      <TabsTrigger key={id} value={id} className="px-2 text-[11px]">
+                        {LANG_LABEL[id]}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1.5 rounded-full px-2.5 text-xs"
+                  onClick={() => void copyCode()}
+                >
+                  {copiedCode ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  Copy
+                </Button>
+              </div>
             </div>
-            <div className="mt-2 max-h-44 overflow-auto rounded-xl border border-border bg-muted/25 shadow-inner">
-              <pre className="p-4 font-mono text-[11px] leading-relaxed text-foreground/90">
-                {SDK_SNIPPET}
-              </pre>
+            <div className="sdk-code mt-2 max-h-56 overflow-auto rounded-xl border border-border bg-muted/25 shadow-inner">
+              <pre
+                className="p-4 font-mono text-[11px] leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: highlighted }}
+              />
             </div>
           </div>
 
@@ -302,38 +510,46 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             View full API docs
             <Sparkles className="size-3.5 opacity-70" />
           </Link>
-
-          {/* Matrix voice waves — left second half */}
-          <div className="relative mt-auto flex min-h-[9rem] items-end pt-8">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-primary/8 via-primary/3 to-transparent dark:from-primary/14"
-            />
-            <Matrix
-              rows={9}
-              cols={28}
-              mode="vu"
-              levels={waveLevels}
-              size={3.2}
-              gap={1.1}
-              showOffDots
-              palette={{ on: "var(--primary)", off: "color-mix(in oklab, var(--muted-foreground) 28%, transparent)" }}
-              className="relative w-full opacity-90"
-              ariaLabel="Animated voice waveform"
-            />
-          </div>
         </div>
 
-        {/* Right column — decorative gradient panel (visible on large screens) */}
+        {/* Right — transparent vertical matrix (dots only) */}
         <div
           aria-hidden
-          className="relative hidden min-h-[18rem] overflow-hidden lg:block"
+          className="relative hidden min-h-[22rem] items-center justify-center bg-transparent lg:flex"
         >
-          <div className="absolute inset-6 rounded-[1.75rem] kupe-theme-gradient opacity-[0.18] blur-2xl dark:opacity-[0.28]" />
-          <div className="absolute inset-10 rounded-[1.5rem] border border-primary/15 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
-          <div className="absolute bottom-10 left-10 right-10 top-16 rounded-2xl kupe-hero-fill opacity-[0.12] dark:opacity-[0.18]" />
+          <Matrix
+            rows={28}
+            cols={10}
+            mode="vu"
+            levels={waveLevels}
+            size={4.2}
+            gap={1.4}
+            showOffDots
+            palette={{
+              on: "var(--primary)",
+              off: "color-mix(in oklab, var(--muted-foreground) 32%, transparent)",
+            }}
+            className="opacity-95"
+            ariaLabel="Animated vertical voice matrix"
+          />
         </div>
       </div>
+
+      <style>{`
+        .sdk-code .tok-keyword { color: #7c6af5; }
+        .sdk-code .tok-string { color: #2f9e74; }
+        .sdk-code .tok-fn { color: #3b82f6; }
+        .sdk-code .tok-type { color: #db7c3d; }
+        .sdk-code .tok-number { color: #c26d2b; }
+        .sdk-code .tok-comment { color: var(--muted-foreground); opacity: 0.85; }
+        .sdk-code .tok-attr { color: #7c6af5; }
+        .dark .sdk-code .tok-keyword { color: #a5b4fc; }
+        .dark .sdk-code .tok-string { color: #6ee7b7; }
+        .dark .sdk-code .tok-fn { color: #93c5fd; }
+        .dark .sdk-code .tok-type { color: #fdba74; }
+        .dark .sdk-code .tok-number { color: #fbbf24; }
+        .dark .sdk-code .tok-attr { color: #c4b5fd; }
+      `}</style>
     </section>
   );
 }
