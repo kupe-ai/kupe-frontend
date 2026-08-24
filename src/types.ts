@@ -470,8 +470,9 @@ export type SilenceBreakerConfig = {
 };
 
 /** "sounds" plays a non-lexical hesitation (hmm / अं); "words" plays a short
- * acknowledgement in the agent's language (अच्छा / ठीक है / બરાબર / சரி). */
-export type ThinkingSoundMode = "off" | "sounds" | "words";
+ * acknowledgement in the agent's language (अच्छा / ठीक है / બરાબર / சரி);
+ * "auto" lets the ThinkSpark model pick a context-aware spark on CPU. */
+export type ThinkingSoundMode = "off" | "sounds" | "words" | "auto";
 
 export type ThinkingSoundsConfig = {
   mode: ThinkingSoundMode;

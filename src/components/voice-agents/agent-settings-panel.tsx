@@ -143,6 +143,8 @@ const THINKING_SOUND_HELP: Record<ThinkingSoundMode, string> = {
     "Play a short hesitation in the agent's language (hmm, अं, ம்ம்) the moment the caller stops speaking.",
   words:
     "Acknowledge the caller in the agent's language (अच्छा, ठीक है, બરાબર, சரி, “got it”) instead of a hesitation sound.",
+  auto:
+    "Let the ThinkSpark model choose the reaction on the fly from the caller's last turn and the conversation — the right language, script and tone (and silence when nothing fits). The agent's own reply skips the acknowledgement.",
 };
 
 function settingKey(controlKey: string): keyof AgentSettings {
@@ -730,7 +732,8 @@ export function AgentSettingsPanel({
           size="sm"
           onValueChange={(v) => {
             // Radix clears the value when the active item is re-clicked.
-            if (v === "off" || v === "sounds" || v === "words") set("thinking_sounds", v);
+            if (v === "off" || v === "sounds" || v === "words" || v === "auto")
+              set("thinking_sounds", v);
           }}
           className="shrink-0"
         >
@@ -742,6 +745,13 @@ export function AgentSettingsPanel({
           </ToggleGroupItem>
           <ToggleGroupItem value="words" aria-label="Play an acknowledgement word" className="px-2.5">
             Words
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="auto"
+            aria-label="Let the ThinkSpark model choose the reaction"
+            className="px-2.5"
+          >
+            Auto
           </ToggleGroupItem>
         </ToggleGroup>
       </SettingRow>

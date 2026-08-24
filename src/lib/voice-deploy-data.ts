@@ -387,12 +387,12 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
     tone: "violet",
     headline: "Manage agents as code — every save is a new version.",
     about:
-      "Agents are versioned: every PATCH creates a new version and you can list or revert to any prior one. An agent's config carries its provider selection (llm_id, stt_id, tts_id, tts_voice_id), system prompt, tools, call-transfer destinations, and call-behavior knobs such as thinking_sounds and config.tts speaking controls — everything the voice-agents UI edits is available here too. GET /v1/providers returns tts_providers[].capabilities.speaking: the sliders that model actually honors (speaking_speed on most TTS; pitch on Deepgram and Sarvam v2; loudness on Sarvam v2; temperature on Sarvam v3; volume and emotion on Cartesia; stability, similarity_boost, style, speaker_boost on ElevenLabs). PATCH config.tts with only those keys. Set config.thinking_sounds.mode to say something through the agent's TTS the instant the caller finishes speaking, before the real reply audio starts: \"sounds\" for a hesitation (hmm / अं / ம்ம்), \"words\" for a short acknowledgement in the agent's language (अच्छा / ठीक है / બરાબર / சரி / \"got it\"), or \"off\" for silence. The wording follows config.llm.language, so there is no text to author. config is deep-merged on PATCH, so send only the keys you are changing. See Workspace timezone for config.timezone and org defaults; see Caller memory & dynamic greetings for config.memory and config.dynamic_greeting.",
+      "Agents are versioned: every PATCH creates a new version and you can list or revert to any prior one. An agent's config carries its provider selection (llm_id, stt_id, tts_id, tts_voice_id), system prompt, tools, call-transfer destinations, and call-behavior knobs such as thinking_sounds and config.tts speaking controls — everything the voice-agents UI edits is available here too. GET /v1/providers returns tts_providers[].capabilities.speaking: the sliders that model actually honors (speaking_speed on most TTS; pitch on Deepgram and Sarvam v2; loudness on Sarvam v2; temperature on Sarvam v3; volume and emotion on Cartesia; stability, similarity_boost, style, speaker_boost on ElevenLabs). PATCH config.tts with only those keys. Set config.thinking_sounds.mode to say something through the agent's TTS the instant the caller finishes speaking, before the real reply audio starts. Four modes: \"off\" (silence), \"sounds\" (a hesitation — hmm / अं / ம்ம்), \"words\" (a short acknowledgement in the agent's language — अच्छा / ठीक है / બરાબર / சரி / \"got it\"), or \"auto\" (ThinkSpark — an ultra-light on-device model that picks a context-aware spark from the caller's last turn + the conversation, in the right language/script/tone, and stays silent when nothing fits; the agent's own LLM reply then skips the acknowledgement). The wording follows config.llm.language, so there is no text to author. config is deep-merged on PATCH, so send only the keys you are changing. See Workspace timezone for config.timezone and org defaults; see Caller memory & dynamic greetings for config.memory and config.dynamic_greeting.",
     endpoints: [
       { method: "POST", path: "/v1/orgs/{org_id}/projects/{project_id}/agents", summary: "Create an agent." },
       { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/agents", summary: "List agents, paginated." },
       { method: "GET", path: "/v1/agents/{agent_id}", summary: "Get an agent's current config." },
-      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Update an agent — creates a new version. Pass config.tts for speaking knobs (speed, pitch, Cartesia volume/emotion, ElevenLabs stability, …); only fields in GET /v1/providers tts_providers[].capabilities.speaking apply to that model." },
+      { method: "PATCH", path: "/v1/agents/{agent_id}", summary: "Update an agent — creates a new version. Pass config.thinking_sounds.mode: off | sounds | words | auto (ThinkSpark). Pass config.tts for speaking knobs (speed, pitch, Cartesia volume/emotion, ElevenLabs stability, …); only fields in GET /v1/providers tts_providers[].capabilities.speaking apply to that model." },
       { method: "POST", path: "/v1/agents/{agent_id}/commit", summary: "Commit the current draft as a new version. Optional JSON body: { \"message\": \"what changed\" }." },
       { method: "GET", path: "/v1/agents/{agent_id}/versions", summary: "List committed versions. Each item includes version, message, created_at, and snapshot." },
       { method: "POST", path: "/v1/agents/{agent_id}/revert/{version}", summary: "Roll back to a prior version." },
@@ -428,12 +428,14 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       {
         id: "thinking-sounds",
         label: "thinking-sounds",
-        code: `curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
+        code: `# thinking_sounds.mode: "off" | "sounds" | "words" | "auto"
+# "auto" = ThinkSpark picks a context-aware spark on-device (CPU)
+curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer $KUPE_API_KEY" \\
   -d '{
     "config": {
-      "thinking_sounds": { "mode": "words" }
+      "thinking_sounds": { "mode": "auto" }
     }
   }'`,
       },
