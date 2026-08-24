@@ -38,6 +38,10 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   showOffDots?: boolean
   /** Opacity for inactive grid dots when showOffDots is true (default 0.22). */
   offOpacity?: number
+  /** Scale rendered radius for lit pixels (dilate / thicken active dots). */
+  activeRadiusScale?: number
+  /** Brightness values above this count as lit (default 0.05). */
+  onThreshold?: number
   /** When set, scramble on this becoming true instead of the matrix's own hover. */
   hovered?: boolean
   /** Stretch SVG to fill the container (no letterboxing). */
@@ -514,6 +518,8 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       scrambleOnHover = false,
       showOffDots = false,
       offOpacity = 0.22,
+      activeRadiusScale = 1,
+      onThreshold = 0.05,
       hovered,
       fill = false,
       className,
@@ -718,7 +724,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
 
               const opacity = clamp(brightness * value)
               const isActive = opacity > 0.5
-              const isOn = opacity > 0.05
+              const isOn = opacity > onThreshold
               const offHidden =
                 palette.off === "transparent" || palette.off === "none"
               if (!isOn && !showOffDots && offHidden && !scrambling) {
@@ -729,8 +735,8 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
                   ? `url(#${onFillId})`
                   : `url(#${offFillId})`
 
-              const scale = isActive ? 1.1 : 1
-              const radius = (size / 2) * 0.9
+              const scale = isActive ? 1.1 * activeRadiusScale : isOn ? activeRadiusScale : 1
+              const radius = (size / 2) * 0.9 * (isOn ? activeRadiusScale : 1)
               const offDotOpacity = showOffDots ? offOpacity : scrambleOnHover ? 0 : 0.1
 
               return (

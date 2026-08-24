@@ -259,10 +259,35 @@ function stampSoft(frame: Frame, row: number, col: number, radius: number, peak:
       const d = Math.hypot(r - row, c - col);
       if (d > radius) continue;
       const falloff = 1 - d / radius;
-      const value = peak * falloff * falloff;
+      const value = peak * (0.35 * falloff + 0.65 * falloff * falloff);
       frame[r]![c] = Math.max(frame[r]![c]!, value);
     }
   }
+}
+
+/** Morphological dilation — thickens lit pixels for a bolder galaxy trail. */
+function dilateFrame(frame: Frame, passes = 2): Frame {
+  let current = frame.map((row) => [...row]);
+  for (let p = 0; p < passes; p++) {
+    const next = current.map((row) => [...row]);
+    for (let r = 0; r < current.length; r++) {
+      for (let c = 0; c < current[r]!.length; c++) {
+        let max = current[r]![c]!;
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < current.length && nc >= 0 && nc < current[r]!.length) {
+              max = Math.max(max, current[nr]![nc]! * 0.94);
+            }
+          }
+        }
+        next[r]![c] = max;
+      }
+    }
+    current = next;
+  }
+  return current;
 }
 
 /** Continuous galaxy arms + ant-colony trails — sparse, organic, animated. */
@@ -293,20 +318,20 @@ function buildColonyFrames(rows: number, cols: number, count = 36): Frame[] {
         const r = cy + Math.sin(angle) * radius + Math.cos(angle * 2) * wobble * 0.35;
         const c = cx + Math.cos(angle) * radius + Math.sin(angle * 2) * wobble * 0.35;
         const peak = 0.35 + (1 - t) * 0.55;
-        stampSoft(frame, r, c, 1.15 + (1 - t) * 0.55, peak);
+        stampSoft(frame, r, c, 1.55 + (1 - t) * 0.75, peak);
       }
     }
 
     // Soft galactic core
-    stampSoft(frame, cy, cx, 2.8, 0.85);
-    stampSoft(frame, cy + Math.sin(phase) * 0.4, cx + Math.cos(phase) * 0.4, 1.6, 1);
+    stampSoft(frame, cy, cx, 3.4, 0.95);
+    stampSoft(frame, cy + Math.sin(phase) * 0.4, cx + Math.cos(phase) * 0.4, 2.1, 1);
 
     // Ant-colony clusters with continuous trails
     for (let ci = 0; ci < colonies.length; ci++) {
       const colony = colonies[ci]!;
       const ox = colony.x + Math.sin(phase * colony.drift + ci * 1.7) * (cols * 0.08);
       const oy = colony.y + Math.cos(phase * colony.drift * 0.85 + ci) * (rows * 0.07);
-      stampSoft(frame, oy, ox, 2.2, 0.9);
+      stampSoft(frame, oy, ox, 2.8, 0.95);
 
       // Trail of ants walking in a loop from colony toward core
       for (let s = 0; s < 18; s++) {
@@ -314,7 +339,7 @@ function buildColonyFrames(rows: number, cols: number, count = 36): Frame[] {
         const bend = Math.sin(u * Math.PI * 2 + phase + ci) * 1.8;
         const r = oy * (1 - u) + cy * u + bend * 0.45;
         const c = ox * (1 - u) + cx * u + Math.cos(u * Math.PI * 3 + phase) * bend * 0.35;
-        stampSoft(frame, r, c, 0.95, 0.35 + (1 - u) * 0.4);
+        stampSoft(frame, r, c, 1.35, 0.35 + (1 - u) * 0.45);
       }
     }
 
@@ -326,12 +351,12 @@ function buildColonyFrames(rows: number, cols: number, count = 36): Frame[] {
         frame,
         cy + Math.sin(a) * rad,
         cx + Math.cos(a * 1.1) * rad,
-        0.85,
-        0.45 + (d % 3) * 0.12,
+        1.15,
+        0.5 + (d % 3) * 0.14,
       );
     }
 
-    frames.push(frame);
+    frames.push(dilateFrame(frame, 2));
   }
   return frames;
 }
@@ -634,6 +659,9 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             gap={MATRIX_GAP}
             showOffDots
             offOpacity={0.38}
+            activeRadiusScale={1.32}
+            onThreshold={0.04}
+            brightness={1.08}
             palette={{
               on: "var(--primary)",
               off: "color-mix(in oklab, var(--muted-foreground) 55%, transparent)",
