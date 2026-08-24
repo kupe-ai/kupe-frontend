@@ -632,10 +632,11 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             loop
             size={matrixGrid.size}
             gap={MATRIX_GAP}
-            showOffDots={false}
+            showOffDots
+            offOpacity={0.38}
             palette={{
               on: "var(--primary)",
-              off: "transparent",
+              off: "color-mix(in oklab, var(--muted-foreground) 55%, transparent)",
             }}
             className="absolute inset-0"
             ariaLabel="Animated galaxy matrix"

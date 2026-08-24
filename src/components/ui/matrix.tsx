@@ -36,6 +36,8 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   scrambleOnHover?: boolean
   /** Keep off cells visible as a muted grid, including during scramble. */
   showOffDots?: boolean
+  /** Opacity for inactive grid dots when showOffDots is true (default 0.22). */
+  offOpacity?: number
   /** When set, scramble on this becoming true instead of the matrix's own hover. */
   hovered?: boolean
   /** Stretch SVG to fill the container (no letterboxing). */
@@ -511,6 +513,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       levels,
       scrambleOnHover = false,
       showOffDots = false,
+      offOpacity = 0.22,
       hovered,
       fill = false,
       className,
@@ -728,7 +731,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
 
               const scale = isActive ? 1.1 : 1
               const radius = (size / 2) * 0.9
-              const offOpacity = showOffDots ? 0.22 : scrambleOnHover ? 0 : 0.1
+              const offDotOpacity = showOffDots ? offOpacity : scrambleOnHover ? 0 : 0.1
 
               return (
                 <circle
@@ -745,7 +748,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
                   cy={pos.y + size / 2}
                   r={radius}
                   fill={fill}
-                  opacity={isOn ? opacity : offOpacity}
+                  opacity={isOn ? opacity : offDotOpacity}
                   style={{
                     transform: `scale(${scale})`,
                   }}
