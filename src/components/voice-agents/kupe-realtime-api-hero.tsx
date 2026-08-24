@@ -251,14 +251,13 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const bootstrappedRef = useRef(false);
 
   const waveLevels = useMemo(() => {
-    const cols = 26;
+    const cols = 12;
     return Array.from({ length: cols }, (_, i) => {
-      const colPhase = (i / cols) * Math.PI * 2.4;
+      const colPhase = (i / cols) * Math.PI * 2.2;
       const primary = (Math.sin(wavePhase + colPhase) + 1) / 2;
-      const secondary = (Math.sin(wavePhase * 1.45 + colPhase * 0.75 + 1.1) + 1) / 2;
-      // Pair columns into thicker bars (like image 2 voice waves)
-      const barBoost = i % 2 === 0 ? 0.08 : 0;
-      return 0.08 + primary * 0.62 + secondary * 0.22 + barBoost;
+      const secondary = (Math.sin(wavePhase * 1.4 + colPhase * 0.8 + 1.0) + 1) / 2;
+      const barBoost = i % 2 === 0 ? 0.06 : 0;
+      return 0.08 + primary * 0.62 + secondary * 0.24 + barBoost;
     });
   }, [wavePhase]);
 
@@ -374,9 +373,9 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.72fr)]">
+      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.58fr)]">
         {/* Left — content */}
-        <div className="flex min-h-0 flex-col p-6 md:p-8 lg:pr-4">
+        <div className="flex min-h-0 flex-col p-6 md:p-8 lg:pr-6 lg:border-r lg:border-border/60">
           <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -508,25 +507,26 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           </Link>
         </div>
 
-        {/* Right — big transparent voice-wave matrix (dots only) */}
+        {/* Right — full-bleed vertical matrix (edge to edge, no padding) */}
         <div
           aria-hidden
-          className="relative hidden min-h-[22rem] items-center justify-center bg-transparent px-4 py-8 lg:flex"
+          className="relative hidden self-stretch overflow-hidden bg-transparent lg:block"
         >
           <Matrix
-            rows={14}
-            cols={26}
+            rows={40}
+            cols={12}
             mode="vu"
             levels={waveLevels}
-            size={5.5}
-            gap={1.8}
+            size={8}
+            gap={2.5}
+            fill
             showOffDots
             palette={{
               on: "var(--primary)",
               off: "color-mix(in oklab, var(--muted-foreground) 34%, transparent)",
             }}
-            className="opacity-95"
-            ariaLabel="Animated voice wave matrix"
+            className="absolute inset-0 h-full w-full"
+            ariaLabel="Animated vertical voice matrix"
           />
         </div>
       </div>

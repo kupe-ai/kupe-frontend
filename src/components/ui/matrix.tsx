@@ -38,6 +38,8 @@ interface MatrixProps extends React.HTMLAttributes<HTMLDivElement> {
   showOffDots?: boolean
   /** When set, scramble on this becoming true instead of the matrix's own hover. */
   hovered?: boolean
+  /** Stretch SVG to fill the container (no letterboxing). */
+  fill?: boolean
 }
 
 function clamp(value: number): number {
@@ -510,6 +512,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
       scrambleOnHover = false,
       showOffDots = false,
       hovered,
+      fill = false,
       className,
       ...props
     },
@@ -624,7 +627,7 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
         role="img"
         aria-label={ariaLabel ?? "matrix display"}
         aria-live={isAnimating ? "polite" : undefined}
-        className={cn("relative inline-block", className)}
+        className={cn("relative inline-block", fill && "block h-full w-full", className)}
         data-scrambling={scrambling ? "" : undefined}
         style={
           {
@@ -642,11 +645,12 @@ export const Matrix = React.forwardRef<HTMLDivElement, MatrixProps>(
         onMouseLeave={props.onMouseLeave}
       >
         <svg
-          width={svgDimensions.width}
-          height={svgDimensions.height}
+          width={fill ? "100%" : svgDimensions.width}
+          height={fill ? "100%" : svgDimensions.height}
           viewBox={`0 0 ${svgDimensions.width} ${svgDimensions.height}`}
+          preserveAspectRatio={fill ? "none" : "xMidYMid meet"}
           xmlns="http://www.w3.org/2000/svg"
-          className="block"
+          className={cn("block", fill && "h-full w-full")}
           style={{ overflow: "visible" }}
         >
           <defs>
