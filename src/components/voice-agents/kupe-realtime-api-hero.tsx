@@ -238,23 +238,99 @@ const LANG_LABEL: Record<SdkLang, string> = {
   curl: "cURL",
 };
 
-const MATRIX_GAP = 1.35;
-const MATRIX_DOT = 3.2;
+const MATRIX_GAP = 2.4;
+const MATRIX_DOT = 4.6;
 
-function buildRandomFrames(rows: number, cols: number, count = 28): Frame[] {
-  const frames: Frame[] = [];
-  for (let f = 0; f < count; f++) {
-    const frame: Frame = [];
-    for (let r = 0; r < rows; r++) {
-      const row: number[] = [];
-      for (let c = 0; c < cols; c++) {
-        const n = Math.random();
-        if (n > 0.78) row.push(0.55 + Math.random() * 0.45);
-        else if (n > 0.62) row.push(0.2 + Math.random() * 0.25);
-        else row.push(0);
-      }
-      frame.push(row);
+function emptyFrame(rows: number, cols: number): Frame {
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
+}
+
+function stampSoft(frame: Frame, row: number, col: number, radius: number, peak: number) {
+  const rows = frame.length;
+  const cols = frame[0]?.length ?? 0;
+  const r0 = Math.floor(row - radius);
+  const r1 = Math.ceil(row + radius);
+  const c0 = Math.floor(col - radius);
+  const c1 = Math.ceil(col + radius);
+  for (let r = r0; r <= r1; r++) {
+    if (r < 0 || r >= rows) continue;
+    for (let c = c0; c <= c1; c++) {
+      if (c < 0 || c >= cols) continue;
+      const d = Math.hypot(r - row, c - col);
+      if (d > radius) continue;
+      const falloff = 1 - d / radius;
+      const value = peak * falloff * falloff;
+      frame[r]![c] = Math.max(frame[r]![c]!, value);
     }
+  }
+}
+
+/** Continuous galaxy arms + ant-colony trails — sparse, organic, animated. */
+function buildColonyFrames(rows: number, cols: number, count = 36): Frame[] {
+  const frames: Frame[] = [];
+  const cx = (cols - 1) / 2;
+  const cy = (rows - 1) / 2;
+  const maxR = Math.min(rows, cols) * 0.46;
+  const arms = 3;
+  const colonies = [
+    { x: cols * 0.22, y: rows * 0.28, drift: 0.9 },
+    { x: cols * 0.74, y: rows * 0.62, drift: 1.15 },
+    { x: cols * 0.38, y: rows * 0.78, drift: 0.75 },
+  ];
+
+  for (let f = 0; f < count; f++) {
+    const phase = (f / count) * Math.PI * 2;
+    const frame = emptyFrame(rows, cols);
+
+    // Spiral galaxy arms
+    for (let arm = 0; arm < arms; arm++) {
+      const armOffset = (arm / arms) * Math.PI * 2;
+      for (let i = 0; i < 42; i++) {
+        const t = i / 41;
+        const angle = t * Math.PI * 3.4 + armOffset + phase * 0.55;
+        const radius = t * maxR;
+        const wobble = Math.sin(t * 9 + phase * 1.4 + arm) * (0.6 + t * 1.1);
+        const r = cy + Math.sin(angle) * radius + Math.cos(angle * 2) * wobble * 0.35;
+        const c = cx + Math.cos(angle) * radius + Math.sin(angle * 2) * wobble * 0.35;
+        const peak = 0.35 + (1 - t) * 0.55;
+        stampSoft(frame, r, c, 1.15 + (1 - t) * 0.55, peak);
+      }
+    }
+
+    // Soft galactic core
+    stampSoft(frame, cy, cx, 2.8, 0.85);
+    stampSoft(frame, cy + Math.sin(phase) * 0.4, cx + Math.cos(phase) * 0.4, 1.6, 1);
+
+    // Ant-colony clusters with continuous trails
+    for (let ci = 0; ci < colonies.length; ci++) {
+      const colony = colonies[ci]!;
+      const ox = colony.x + Math.sin(phase * colony.drift + ci * 1.7) * (cols * 0.08);
+      const oy = colony.y + Math.cos(phase * colony.drift * 0.85 + ci) * (rows * 0.07);
+      stampSoft(frame, oy, ox, 2.2, 0.9);
+
+      // Trail of ants walking in a loop from colony toward core
+      for (let s = 0; s < 18; s++) {
+        const u = s / 17;
+        const bend = Math.sin(u * Math.PI * 2 + phase + ci) * 1.8;
+        const r = oy * (1 - u) + cy * u + bend * 0.45;
+        const c = ox * (1 - u) + cx * u + Math.cos(u * Math.PI * 3 + phase) * bend * 0.35;
+        stampSoft(frame, r, c, 0.95, 0.35 + (1 - u) * 0.4);
+      }
+    }
+
+    // Sparse dust — only a few extra spark dots near arms
+    for (let d = 0; d < 8; d++) {
+      const a = phase * 0.7 + d * 0.9;
+      const rad = maxR * (0.35 + ((d * 17) % 10) / 18);
+      stampSoft(
+        frame,
+        cy + Math.sin(a) * rad,
+        cx + Math.cos(a * 1.1) * rad,
+        0.85,
+        0.45 + (d % 3) * 0.12,
+      );
+    }
+
     frames.push(frame);
   }
   return frames;
@@ -269,10 +345,8 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [lang, setLang] = useState<SdkLang>("typescript");
-  const [matrixGrid, setMatrixGrid] = useState({ rows: 48, cols: 18, size: MATRIX_DOT });
-  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() =>
-    buildRandomFrames(48, 18),
-  );
+  const [matrixGrid, setMatrixGrid] = useState({ rows: 36, cols: 14, size: MATRIX_DOT });
+  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() => buildColonyFrames(36, 14));
   const matrixPanelRef = useRef<HTMLDivElement>(null);
   const bootstrappedRef = useRef(false);
 
@@ -282,13 +356,13 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
 
     const sync = (width: number, height: number) => {
       if (width < 8 || height < 8) return;
-      // Fixed square cells → true circles. Extra dots spill past edges and clip.
       const size = MATRIX_DOT;
-      const cols = Math.max(12, Math.ceil((width + MATRIX_GAP) / (size + MATRIX_GAP)));
-      const rows = Math.max(20, Math.ceil((height + MATRIX_GAP) / (size + MATRIX_GAP)));
+      // Slightly fewer cells than a full fill — roomier continuous patterns
+      const cols = Math.max(10, Math.ceil((width + MATRIX_GAP) / (size + MATRIX_GAP)));
+      const rows = Math.max(16, Math.ceil((height + MATRIX_GAP) / (size + MATRIX_GAP)));
       setMatrixGrid((prev) => {
         if (prev.rows === rows && prev.cols === cols && prev.size === size) return prev;
-        setMatrixFrames(buildRandomFrames(rows, cols));
+        setMatrixFrames(buildColonyFrames(rows, cols));
         return { rows, cols, size };
       });
     };
@@ -543,7 +617,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           </Link>
         </div>
 
-        {/* Right — full-bleed vertical matrix: small circular dots, random flicker */}
+        {/* Right — sparse galaxy / ant-colony pattern (dots only, transparent) */}
         <div
           ref={matrixPanelRef}
           aria-hidden
@@ -553,18 +627,18 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             rows={matrixGrid.rows}
             cols={matrixGrid.cols}
             frames={matrixFrames}
-            fps={7}
+            fps={6}
             autoplay
             loop
             size={matrixGrid.size}
             gap={MATRIX_GAP}
-            showOffDots
+            showOffDots={false}
             palette={{
               on: "var(--primary)",
-              off: "color-mix(in oklab, var(--muted-foreground) 34%, transparent)",
+              off: "transparent",
             }}
             className="absolute inset-0"
-            ariaLabel="Animated random matrix"
+            ariaLabel="Animated galaxy matrix"
           />
         </div>
       </div>
