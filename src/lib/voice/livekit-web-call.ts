@@ -1,20 +1,69 @@
 "use client";
 
-import {
-  ParticipantKind,
-  Room,
-  RoomEvent,
-  Track,
-  type LocalTrackPublication,
-  type Participant,
-  type RemoteTrack,
-} from "livekit-client";
 import { api } from "@/lib/api";
 import { captureEvent } from "@/lib/posthog";
 import { createWebCall } from "@/lib/api/voice/calls";
 import { KoriApiError } from "@/lib/api/kori-errors";
 
 export type WebCallStatus = "idle" | "connecting" | "connected" | "ended" | "error";
+
+/** Event names matching livekit-client so Test Agent / Ask Kai stay wired. */
+export const RoomEvent = {
+  DataReceived: "dataReceived",
+  TranscriptionReceived: "transcriptionReceived",
+  Disconnected: "disconnected",
+} as const;
+
+export type TranscriptionSegment = {
+  id: string;
+  text: string;
+  language: string;
+  startTime: number;
+  endTime: number;
+  final: boolean;
+  firstReceivedTime: number;
+  lastReceivedTime: number;
+};
+
+type Handler = (...args: unknown[]) => void;
+
+class Emitter {
+  private listeners = new Map<string, Set<Handler>>();
+  on(event: string, handler: Handler) {
+    let set = this.listeners.get(event);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(event, set);
+    }
+    set.add(handler);
+    return this;
+  }
+  off(event: string, handler: Handler) {
+    this.listeners.get(event)?.delete(handler);
+    return this;
+  }
+  emit(event: string, ...args: unknown[]) {
+    for (const handler of this.listeners.get(event) ?? []) handler(...args);
+  }
+}
+
+class LocalParticipant {
+  isLocal = true;
+  identity = "user";
+  constructor(private setMic: (enabled: boolean) => void) {}
+  async setMicrophoneEnabled(enabled: boolean) {
+    this.setMic(enabled);
+  }
+}
+
+export class Room extends Emitter {
+  state: "disconnected" | "connected" = "disconnected";
+  localParticipant: LocalParticipant;
+  constructor(setMic: (enabled: boolean) => void) {
+    super();
+    this.localParticipant = new LocalParticipant(setMic);
+  }
+}
 
 export interface WebCallHandle {
   room: Room;
@@ -24,19 +73,124 @@ export interface WebCallHandle {
 
 export interface WebCallCallbacks {
   onStatusChange?: (status: WebCallStatus) => void;
-  /** Live 0-1 amplitude of the agent's published track (from LiveKit RTP
-   * levels — no extra Web Audio graph on the playback track). */
   onAgentAudioLevel?: (level: number) => void;
-  /** Fired once with a clone of the agent's audio track for visualizers.
-   * Cloned so analysis cannot steal samples from playback. */
   onAgentTrack?: (track: MediaStreamTrack) => void;
-  /** Clone of the local microphone track for the listening visualizer. */
   onLocalTrack?: (track: MediaStreamTrack) => void;
-  /** Data-channel packets. Must be wired before `room.connect()` — the
-   * greeting is published as soon as the participant joins, and LiveKit
-   * does not replay missed data messages. */
   onData?: (payload: Uint8Array) => void;
   onError?: (error: unknown) => void;
+}
+
+const SAMPLE_RATE = 24000;
+const CAPTURE_PROCESSOR = `
+class CaptureProcessor extends AudioWorkletProcessor {
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (ch && ch.length) this.port.postMessage(ch);
+    return true;
+  }
+}
+registerProcessor("kupe-capture", CaptureProcessor);
+`;
+
+function floatToPcm16(input: Float32Array): ArrayBuffer {
+  const out = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    const s = Math.max(-1, Math.min(1, input[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out.buffer;
+}
+
+function resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
+  if (fromRate === toRate) return input;
+  const ratio = fromRate / toRate;
+  const outLen = Math.max(1, Math.floor(input.length / ratio));
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const src = i * ratio;
+    const i0 = Math.floor(src);
+    const i1 = Math.min(i0 + 1, input.length - 1);
+    const frac = src - i0;
+    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+  }
+  return out;
+}
+
+function pcm16ToFloat(bytes: ArrayBuffer): Float32Array {
+  const view = new Int16Array(bytes);
+  const out = new Float32Array(view.length);
+  for (let i = 0; i < view.length; i++) out[i] = view[i] / 0x8000;
+  return out;
+}
+
+function bytesToB64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+class PcmPlayer {
+  private ctx: AudioContext;
+  private next = 0;
+  private sources: AudioBufferSourceNode[] = [];
+  readonly stream: MediaStream;
+  private gain: GainNode;
+
+  constructor() {
+    this.ctx = new AudioContext({ sampleRate: SAMPLE_RATE });
+    const dest = this.ctx.createMediaStreamDestination();
+    this.stream = dest.stream;
+    this.gain = this.ctx.createGain();
+    this.gain.connect(this.ctx.destination);
+    this.gain.connect(dest);
+  }
+
+  async resume() {
+    if (this.ctx.state === "suspended") await this.ctx.resume();
+  }
+
+  enqueue(pcm: ArrayBuffer) {
+    const samples = pcm16ToFloat(pcm);
+    if (!samples.length) return;
+    const buffer = this.ctx.createBuffer(1, samples.length, SAMPLE_RATE);
+    const dest = buffer.getChannelData(0);
+    for (let i = 0; i < samples.length; i++) dest[i] = samples[i];
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(this.gain);
+    const startAt = Math.max(this.ctx.currentTime, this.next);
+    src.start(startAt);
+    this.next = startAt + buffer.duration;
+    this.sources.push(src);
+    src.onended = () => {
+      this.sources = this.sources.filter((s) => s !== src);
+    };
+  }
+
+  stop() {
+    for (const src of this.sources) {
+      try {
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+    }
+    this.sources = [];
+    this.next = this.ctx.currentTime;
+  }
+
+  rms(): number {
+    return this.sources.length ? 0.35 : 0;
+  }
+
+  async close() {
+    this.stop();
+    await this.ctx.close().catch(() => undefined);
+  }
 }
 
 async function hangUpSession(callId: string | undefined) {
@@ -44,159 +198,161 @@ async function hangUpSession(callId: string | undefined) {
   await api.endSession(callId).catch(() => undefined);
 }
 
-function attachRemoteAudio(track: RemoteTrack, attached: HTMLMediaElement[]) {
-  const el = track.attach();
-  el.autoplay = true;
-  el.setAttribute("playsinline", "true");
-  el.style.display = "none";
-  document.body.appendChild(el);
-  attached.push(el);
-  void el.play().catch(() => undefined);
+function wsUrl(base: string, secret: string): string {
+  const url = new URL(base, window.location.href);
+  if (url.protocol === "https:") url.protocol = "wss:";
+  if (url.protocol === "http:") url.protocol = "ws:";
+  url.searchParams.set("client_secret", secret);
+  url.searchParams.set("model", "kupe-realtime");
+  return url.toString();
 }
 
-function emitLocalMic(
-  pub: LocalTrackPublication,
-  callbacks: WebCallCallbacks,
-  clones: MediaStreamTrack[],
-  seen: Set<string>,
-) {
-  if (pub.source !== Track.Source.Microphone || !pub.track) return;
-  const id = pub.trackSid || pub.track.sid;
-  if (id && seen.has(id)) return;
-  if (id) seen.add(id);
-  const cloned = pub.track.mediaStreamTrack.clone();
-  clones.push(cloned);
-  callbacks.onLocalTrack?.(cloned);
-}
-
-function isAgentParticipant(participant: Participant) {
-  return participant.kind === ParticipantKind.AGENT || participant.identity.startsWith("agent-");
-}
-
-/** Connects the browser mic to a LiveKit room for a "Test Agent" call:
- * requests a room+token from the backend, joins over WebRTC, publishes the
- * mic, and plays back the agent's synthesized audio track. */
 export async function startWebCall(
   agentId: string,
   callbacks: WebCallCallbacks = {},
   variables?: Record<string, string>,
 ): Promise<WebCallHandle> {
   callbacks.onStatusChange?.("connecting");
-  const attached: HTMLMediaElement[] = [];
-  const clones: MediaStreamTrack[] = [];
-  let levelRaf = 0;
   let callId: string | undefined;
+  let hungUp = false;
+  let micEnabled = true;
+  let captureCtx: AudioContext | null = null;
+  let media: MediaStream | null = null;
+  let socket: WebSocket | null = null;
+  let player: PcmPlayer | null = null;
+  let levelRaf = 0;
+
+  const setMic = (enabled: boolean) => {
+    micEnabled = enabled;
+    for (const track of media?.getAudioTracks() ?? []) track.enabled = enabled;
+  };
+  const room = new Room(setMic);
+
+  const cleanup = async () => {
+    if (hungUp) return;
+    hungUp = true;
+    if (levelRaf) cancelAnimationFrame(levelRaf);
+    player?.stop();
+    await player?.close();
+    socket?.close();
+    captureCtx?.close().catch(() => undefined);
+    media?.getTracks().forEach((t) => t.stop());
+    room.state = "disconnected";
+    room.emit(RoomEvent.Disconnected);
+    await hangUpSession(callId);
+  };
 
   try {
-    const { call_id, access_token, livekit_url } = await createWebCall(agentId, variables);
+    const { call_id, client_secret, websocket_url } = await createWebCall(agentId, variables);
     callId = call_id;
-    if (!livekit_url) {
-      throw new Error("Server did not return a LiveKit URL — check voice.livekit_url in config.");
-    }
-    const room = new Room({
-      adaptiveStream: false,
-      dynacast: false,
-      publishDefaults: {
-        dtx: true,
-        red: true,
-        stopMicTrackOnMute: true,
-      },
-      audioCaptureDefaults: {
-        autoGainControl: true,
+    if (!websocket_url) throw new Error("Server did not return a realtime WebSocket URL.");
+
+    player = new PcmPlayer();
+    await player.resume();
+    const agentTrack = player.stream.getAudioTracks()[0];
+    if (agentTrack) callbacks.onAgentTrack?.(agentTrack);
+
+    media = await navigator.mediaDevices.getUserMedia({
+      audio: {
         echoCancellation: true,
         noiseSuppression: true,
+        autoGainControl: true,
         channelCount: 1,
       },
     });
+    const local = media.getAudioTracks()[0];
+    if (local) callbacks.onLocalTrack?.(local.clone());
 
-    const seenLocal = new Set<string>();
+    captureCtx = new AudioContext();
+    const workletUrl = URL.createObjectURL(new Blob([CAPTURE_PROCESSOR], { type: "text/javascript" }));
+    await captureCtx.audioWorklet.addModule(workletUrl);
+    URL.revokeObjectURL(workletUrl);
+    const source = captureCtx.createMediaStreamSource(media);
+    const node = new AudioWorkletNode(captureCtx, "kupe-capture");
+    source.connect(node);
 
-    room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack) => {
-      if (track.kind !== Track.Kind.Audio) return;
-      attachRemoteAudio(track, attached);
-      const cloned = track.mediaStreamTrack.clone();
-      clones.push(cloned);
-      callbacks.onAgentTrack?.(cloned);
+    socket = new WebSocket(wsUrl(websocket_url, client_secret));
+    await new Promise<void>((resolve, reject) => {
+      socket!.onopen = () => resolve();
+      socket!.onerror = () => reject(new Error("Realtime WebSocket failed to connect"));
     });
 
-    room.on(RoomEvent.LocalTrackPublished, (pub: LocalTrackPublication) => {
-      emitLocalMic(pub, callbacks, clones, seenLocal);
-    });
+    node.port.onmessage = (ev: MessageEvent<Float32Array>) => {
+      if (!micEnabled || socket?.readyState !== WebSocket.OPEN) return;
+      const resampled = resample(ev.data, captureCtx!.sampleRate, SAMPLE_RATE);
+      const pcm = floatToPcm16(resampled);
+      socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: bytesToB64(pcm) }));
+    };
 
-    room.on(RoomEvent.Disconnected, () => callbacks.onStatusChange?.("ended"));
+    const emitKind = (obj: unknown) => {
+      const bytes = new TextEncoder().encode(JSON.stringify(obj));
+      callbacks.onData?.(bytes);
+      room.emit(RoomEvent.DataReceived, bytes);
+    };
 
-    if (callbacks.onData) {
-      room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
-        callbacks.onData?.(payload);
-      });
-    }
+    const emitTranscript = (role: "user" | "agent", text: string, final: boolean, id?: string) => {
+      const now = Date.now();
+      const seg: TranscriptionSegment = {
+        id: id || `${role}-${now}`,
+        text,
+        language: "en",
+        startTime: 0,
+        endTime: 0,
+        final,
+        firstReceivedTime: now,
+        lastReceivedTime: now,
+      };
+      const participant = { isLocal: role === "user", identity: role };
+      room.emit(RoomEvent.TranscriptionReceived, [seg], participant);
+    };
 
-    await room.connect(livekit_url, access_token);
-    await room.localParticipant.setMicrophoneEnabled(true);
-
-    for (const pub of room.localParticipant.audioTrackPublications.values()) {
-      emitLocalMic(pub, callbacks, clones, seenLocal);
-    }
-
-    const pumpAgentLevel = () => {
-      let max = 0;
-      let speaking = false;
-      room.remoteParticipants.forEach((p) => {
-        if (p.audioLevel > max) max = p.audioLevel;
-        if (p.isSpeaking) speaking = true;
-      });
-      // LiveKit isSpeaking is the reliable switch; audioLevel alone can sit
-      // under the UI's 0.04 threshold and never flip the visualizer.
-      callbacks.onAgentAudioLevel?.(speaking ? Math.max(max, 0.2) : max);
-      if (room.state === "connected") {
-        levelRaf = requestAnimationFrame(pumpAgentLevel);
+    socket.onmessage = (ev) => {
+      let msg: Record<string, unknown>;
+      try {
+        msg = JSON.parse(String(ev.data));
+      } catch {
+        return;
+      }
+      const type = String(msg.type || "");
+      if (msg.kind) emitKind(msg);
+      if (type === "input_audio_buffer.speech_started") {
+        player?.stop();
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: "response.cancel" }));
+        }
+      }
+      if (type === "response.output_audio.delta" && typeof msg.delta === "string") {
+        const bin = Uint8Array.from(atob(msg.delta), (c) => c.charCodeAt(0));
+        player?.enqueue(bin.buffer);
+      }
+      if (type === "conversation.item.input_audio_transcription.completed" && typeof msg.transcript === "string") {
+        emitTranscript("user", msg.transcript, true);
+      }
+      if (type === "response.output_audio_transcript.done" && typeof msg.transcript === "string") {
+        emitTranscript("agent", msg.transcript, true, String(msg.item_id || ""));
+      }
+      if (type === "response.output_audio_transcript.delta" && typeof msg.delta === "string") {
+        emitTranscript("agent", msg.delta, false, String(msg.item_id || ""));
       }
     };
-    if (callbacks.onAgentAudioLevel) {
-      levelRaf = requestAnimationFrame(pumpAgentLevel);
-    }
+    socket.onclose = () => {
+      void cleanup();
+      callbacks.onStatusChange?.("ended");
+    };
 
+    const pump = () => {
+      callbacks.onAgentAudioLevel?.(player?.rms() ?? 0);
+      if (!hungUp) levelRaf = requestAnimationFrame(pump);
+    };
+    levelRaf = requestAnimationFrame(pump);
+
+    room.state = "connected";
     callbacks.onStatusChange?.("connected");
     captureEvent("call_started", { call_id: callId, agent_id: agentId, channel: "web" });
 
-    let hungUp = false;
-    const hangUp = async () => {
-      if (hungUp) return;
-      hungUp = true;
-      if (levelRaf) cancelAnimationFrame(levelRaf);
-      for (const el of attached) {
-        el.remove();
-      }
-      for (const track of clones) {
-        try {
-          track.stop();
-        } catch {
-          // already ended
-        }
-      }
-      await room.disconnect();
-      await hangUpSession(callId);
-    };
-
-    // end_call drops the agent out of the room; hang up here so the timer
-    // and WebRTC connection don't keep running after the bot said goodbye.
-    let seenAgent = [...room.remoteParticipants.values()].some(isAgentParticipant);
-    room.on(RoomEvent.ParticipantConnected, (participant: Participant) => {
-      if (isAgentParticipant(participant)) seenAgent = true;
-    });
-    room.on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
-      if (isAgentParticipant(participant) && seenAgent) {
-        void hangUp();
-      }
-    });
-
-    return {
-      room,
-      callId: call_id,
-      disconnect: hangUp,
-    };
+    return { room, callId: call_id, disconnect: cleanup };
   } catch (error) {
-    await hangUpSession(callId);
+    await cleanup();
     callbacks.onStatusChange?.("error");
     callbacks.onError?.(error);
     throw error;

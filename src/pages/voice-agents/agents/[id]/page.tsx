@@ -37,6 +37,7 @@ import { AgentTestsPanel } from "@/components/voice-agents/agent-tests-panel";
 import { AgentToolsPanel } from "@/components/voice-agents/agent-tools-panel";
 import { AgentTransferPanel } from "@/components/voice-agents/agent-transfer-panel";
 import { AgentVariablesPanel } from "@/components/voice-agents/agent-variables-panel";
+import { AgentDatabasesPanel } from "@/components/voice-agents/agent-databases-panel";
 import { TestAgentCallDialog } from "@/components/voice-agents/test-agent-call-dialog";
 import { StatusChip } from "@/components/ui/status-chip";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,10 @@ import {
   updateVoiceAgent,
 } from "@/lib/api/voice/agents";
 import { orgSupportsCallTransfer, syncDeclaredVariablesFromText } from "@/lib/api/voice/agent-builder";
+import {
+  dismissDatabaseCreatedBanner,
+  peekDatabaseCreatedBanner,
+} from "@/lib/database-created-banner";
 import type { VoiceAgent } from "@/lib/api/voice/types";
 
 const AUTO_SAVE_MS = 1000;
@@ -94,6 +99,7 @@ export default function VoiceAgentEditorPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPatchRef = useRef<Partial<VoiceAgent>>({});
   const savingRef = useRef(false);
+  const [dbBanner, setDbBanner] = useState(false);
 
   const agentQuery = useKoriQuery({
     queryKey: ["voice-agent", id],
@@ -116,6 +122,16 @@ export default function VoiceAgentEditorPage() {
     setSystemPrompt(data.system_prompt);
     setFirstMessage(data.first_message ?? "");
   }, [id, instructionsSeed, agentQuery.data?.id]);
+
+  useEffect(() => {
+    if (!id || !peekDatabaseCreatedBanner(id)) return;
+    setDbBanner(true);
+    const t = window.setTimeout(() => {
+      dismissDatabaseCreatedBanner(id);
+      setDbBanner(false);
+    }, 8000);
+    return () => window.clearTimeout(t);
+  }, [id]);
 
   const refresh = useCallback(async () => {
     await Promise.all([
@@ -245,7 +261,11 @@ export default function VoiceAgentEditorPage() {
 
   const sectionNav = (
     <nav className="flex h-full min-h-0 w-full flex-col gap-0.5 bg-pane px-2 py-3">
-      {AGENT_EDITOR_NAV.filter((item) => item.id !== "transfer" || (isEnabled("feature_transfer") && transferVisible)).map((item) => {
+      {AGENT_EDITOR_NAV.filter((item) => {
+        if (item.id === "transfer") return isEnabled("feature_transfer") && transferVisible;
+        if (item.id === "databases") return isEnabled("feature_databases");
+        return true;
+      }).map((item) => {
         return (
           <button
             key={item.id}
@@ -285,6 +305,7 @@ export default function VoiceAgentEditorPage() {
         />
       )}
       {section === "variables" && <AgentVariablesPanel agentId={id} />}
+      {section === "databases" && isEnabled("feature_databases") && <AgentDatabasesPanel agentId={id} />}
       {section === "tools" && <AgentToolsPanel agentId={id} />}
       {section === "transfer" && isEnabled("feature_transfer") && transferVisible && <AgentTransferPanel agentId={id} />}
       {section === "settings" && (
@@ -389,6 +410,22 @@ export default function VoiceAgentEditorPage() {
           </DropdownMenu>
         </div>
       </header>
+
+      {dbBanner && (
+        <div className="flex items-center justify-between gap-3 border-b bg-muted/60 px-4 py-2 text-sm">
+          <span>Database created and attached — you can connect a different one.</span>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => {
+              dismissDatabaseCreatedBanner(id);
+              setDbBanner(false);
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {isMdUp ? (
         <ResizablePanelGroup

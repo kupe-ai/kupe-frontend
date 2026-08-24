@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { VoiceAgentsPageShimmer } from "@/components/ui/shimmer";
 import { useKoriQuery } from "@/lib/hooks/use-kori-query";
 import { createVoiceAgent, listVoiceAgents } from "@/lib/api/voice/agents";
+import { markDatabaseCreatedBanner } from "@/lib/database-created-banner";
 import type { RecentVoiceAgent } from "@/lib/voice-agents-data";
 import { useWorkspace } from "@/context/workspace-context";
 import {
@@ -72,12 +73,15 @@ export default function VoiceAgentsAgentsPage() {
 
   useEffect(() => {
     if (kupeStore.createdAgent && creating === "prompt") {
-      const id = kupeStore.createdAgent.id;
+      const created = kupeStore.createdAgent;
+      if (created.auto_database_id) {
+        markDatabaseCreatedBanner(created.id);
+      }
       clearCreatedAgent();
       setCreating(null);
       setAskKupeOpen(false);
       refreshRecents();
-      navigate(`/agents/${id}`);
+      navigate(`/agents/${created.id}`);
     }
   }, [kupeStore.createdAgent, creating, navigate, refreshRecents, setAskKupeOpen]);
 

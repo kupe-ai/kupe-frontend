@@ -1,11 +1,13 @@
 import type { AsciiIconKind, AsciiIconTone } from "@/components/voice-agents/ascii-icons";
 
 export type DeployApiSlug =
+  | "kupe-realtime-api"
   | "instant-outbound"
   | "batch-outbound"
   | "recipient-lists"
   | "inbound-deployments"
   | "data-fetch"
+  | "databases"
   | "billing"
   | "agents-sdk"
   | "dnd-lists"
@@ -40,6 +42,7 @@ export interface DeployApiCard {
   /** Mintlify-style endpoint reference table — method chip + path + one-line summary. */
   endpoints: ApiEndpoint[];
   curlTabs: { id: string; label: string; code: string }[];
+  sections?: { title: string; body: string }[];
 }
 
 /** Base URL shown in generated snippets — never a real secret, just the API host. */
@@ -54,6 +57,78 @@ export interface DeployRecipe {
 }
 
 export const DEPLOY_API_CARDS: DeployApiCard[] = [
+  {
+    slug: "kupe-realtime-api",
+    title: "Kupe Realtime API",
+    description: "OpenAI-compatible WebSocket for browser and SDK voice: k-STT, k-TTS, and Kupe LLM.",
+    kind: "code",
+    tone: "violet",
+    headline: "Drop in the OpenAI Realtime SDK. Change the base URL.",
+    about:
+      "Kupe Realtime is an OpenAI-compatible voice WebSocket (model kupe-realtime). Mint a session with POST /v1/realtime/sessions, connect to wss://x.kupe.in/v1/realtime, and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name. Tools run server-side. This API is web-only and does not write telephony minutes.",
+    endpoints: [
+      { method: "POST", path: "/v1/realtime/sessions", summary: "Mint an ephemeral client secret and hydrate the agent." },
+      { method: "GET", path: "/v1/realtime", summary: "WebSocket (upgrade). Query model=kupe-realtime." },
+    ],
+    curlTabs: [
+      {
+        id: "openai-sdk",
+        label: "openai-sdk",
+        code: `import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.KUPE_API_KEY,
+  baseURL: "https://x.kupe.in/v1",
+});
+
+const session = await client.beta.realtime.sessions.create({
+  model: "kupe-realtime",
+  agent_id: "agt_...",
+  voice: "priya",
+});
+
+// session.client_secret.value → connect wss://x.kupe.in/v1/realtime
+`,
+      },
+      {
+        id: "mint-session",
+        label: "mint-session",
+        code: `curl -X POST ${API_BASE_URL}/v1/realtime/sessions \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "agent_id": "agt_...",
+    "voice": "priya"
+  }'`,
+      },
+    ],
+    sections: [
+      {
+        title: "Connect",
+        body: "wss://x.kupe.in/v1/realtime?model=kupe-realtime with Authorization: Bearer sk-kupe-... (server) or the ephemeral client_secret (browser). Optional agent_id query hydrates prompt, tools, greeting, and voice on session.created so you skip an extra round trip.",
+      },
+      {
+        title: "Audio",
+        body: "PCM16 mono at 24 kHz. Client event input_audio_buffer.append sends base64 frames. Server event response.output_audio.delta returns base64 frames. Stop scheduled playback on input_audio_buffer.speech_started.",
+      },
+      {
+        title: "VAD / interruptions",
+        body: "Server VAD emits input_audio_buffer.speech_started and speech_stopped. On speech_started the player must cancel queued audio and the client may send response.cancel. Greeting audio is flushed as soon as the socket attaches.",
+      },
+      {
+        title: "Tools",
+        body: "Function tools on the agent run server-side (webhooks, Composio, builtins such as end_call). The socket still emits response.function_call_arguments.delta/done so clients can observe calls. Do not expect a LiveKit data-channel tool bridge.",
+      },
+      {
+        title: "Voices",
+        body: "session.voice is a sanitized name: lowercase, spaces to _, strip ' \" ~ ` | / \\ ? > < . , ; : { [ } ] + = *, keep [a-z0-9_], collapse _. Lookup is among catalog voices, public clones, and the caller's private clones. Unknown or inaccessible names return an OpenAI-style error event.",
+      },
+      {
+        title: "Usage",
+        body: "response.done.usage is OpenAI-shaped (total_tokens, input_tokens, output_tokens, input_token_details, output_token_details). STT audio maps to input audio tokens, LLM prompt/completion to text tokens, TTS to output audio tokens. Channel is web. Telephony minutes are never written.",
+      },
+    ],
+  },
   {
     slug: "instant-outbound",
     title: "Instant outbound",
@@ -350,6 +425,43 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
     ],
   },
   {
+    slug: "databases",
+    title: "Databases",
+    description: "Tables of structured data extracted after every call.",
+    kind: "batch",
+    tone: "violet",
+    headline: "Every call writes a row. Destinations fire on write.",
+    about:
+      "A Database is a Notion-like table of post-call fields. Creating an agent auto-provisions one (summary, success, plus a few columns inferred from the prompt). Attach more agents, edit columns, and sync rows to a webhook, Composio action, or catalog HTTP tool. Rows paginate with a keyset cursor, not offset.",
+    endpoints: [
+      { method: "GET", path: "/v1/orgs/{org_id}/projects/{project_id}/databases", summary: "List databases in a project." },
+      { method: "POST", path: "/v1/orgs/{org_id}/projects/{project_id}/databases", summary: "Create a database and its extraction schema." },
+      { method: "GET", path: "/v1/databases/{database_id}", summary: "Get a database, including columns." },
+      { method: "PATCH", path: "/v1/databases/{database_id}", summary: "Rename or change columns and destinations." },
+      { method: "POST", path: "/v1/databases/{database_id}/archive", summary: "Archive a database." },
+      { method: "POST", path: "/v1/databases/{database_id}/agents", summary: "Attach an agent so its calls write rows." },
+      { method: "DELETE", path: "/v1/databases/{database_id}/agents/{agent_id}", summary: "Detach an agent." },
+      { method: "GET", path: "/v1/databases/{database_id}/rows", summary: "Keyset page of rows. Pass cursor= from next_cursor." },
+      { method: "GET", path: "/v1/databases/{database_id}/export", summary: "Stream csv, json, ndjson, or zip." },
+      { method: "GET", path: "/v1/agents/{agent_id}/databases", summary: "List databases attached to an agent (lazy-provisions a default)." },
+    ],
+    curlTabs: [
+      {
+        id: "list-rows",
+        label: "list-rows",
+        code: `curl "${API_BASE_URL}/v1/databases/<database_id>/rows?limit=50" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "export-csv",
+        label: "export-csv",
+        code: `curl "${API_BASE_URL}/v1/databases/<database_id>/export?format=csv" \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -o database.csv`,
+      },
+    ],
+  },
+  {
     slug: "billing",
     title: "Billing",
     description: "Wallet balance, credits, and invoices for an organization.",
@@ -602,7 +714,8 @@ curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
       { method: "GET", path: "/v1/voices", summary: "List voices for a TTS provider — pass provider=kupe (name) or provider_id (UUID)." },
       { method: "POST", path: "/v1/voices/clone", summary: "Clone a voice from an uploaded audio sample." },
       { method: "PATCH", path: "/v1/voices/{voice_id}", summary: "Rename a cloned voice or change public/private." },
-      { method: "DELETE", path: "/v1/voices/{voice_id}", summary: "Delete a cloned voice you own." },
+      { method: "DELETE", path: "/v1/voices/{voice_id}", summary: "Delete a cloned voice you own. Pass fallback_voice_id when agents still use it." },
+      { method: "GET", path: "/v1/voices/{voice_id}/usage", summary: "How many live agents still use this cloned voice." },
     ],
     curlTabs: [
       {

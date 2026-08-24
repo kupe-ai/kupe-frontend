@@ -90,6 +90,25 @@ export type CreateSessionBody = Partial<ProviderSelection> & {
   variables?: Record<string, string>;
 };
 
+export type CreateRealtimeSessionBody = {
+  org_id: string;
+  project_id: string;
+  agent_id: string;
+  voice?: string;
+  variables?: Record<string, string>;
+};
+
+export type RealtimeSessionInfo = {
+  id: string;
+  object: "realtime.session";
+  model: "kupe-realtime";
+  voice: string | null;
+  instructions: string;
+  tools: unknown[];
+  client_secret: { value: string; expires_at: number };
+  websocket_url: string;
+};
+
 export type SessionInfo = {
   session_id: string;
   org_id: string;
@@ -471,7 +490,7 @@ export type SilenceBreakerConfig = {
 
 /** "sounds" plays a non-lexical hesitation (hmm / अं); "words" plays a short
  * acknowledgement in the agent's language (अच्छा / ठीक है / બરાબર / சரி);
- * "auto" lets the ThinkSpark model pick a context-aware spark on CPU. */
+ * "auto" (default) lets the ThinkSpark model pick a context-aware spark on CPU. */
 export type ThinkingSoundMode = "off" | "sounds" | "words" | "auto";
 
 export type ThinkingSoundsConfig = {
@@ -623,6 +642,7 @@ export type Agent = {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  auto_database_id?: string | null;
 };
 
 /** Recursively optional. Arrays are replaced wholesale, matching the
@@ -1210,5 +1230,58 @@ export type KnowledgeFile = {
   error?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type DatabaseDestinationKind = "webhook" | "composio" | "tool";
+
+export type DatabaseDestination = {
+  kind: DatabaseDestinationKind;
+  url?: string | null;
+  tool_id?: string | null;
+  composio_slug?: string | null;
+  connected_account_id?: string | null;
+};
+
+export type CallDatabase = {
+  id: string;
+  org_id: string;
+  project_id: string;
+  name: string;
+  description: string;
+  post_call_analysis_id: string;
+  source: "manual" | "auto_agent";
+  auto_agent_id: string | null;
+  destinations: DatabaseDestination[];
+  fields: AnalysisField[];
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+};
+
+export type CallDatabaseAgent = {
+  agent_id: string;
+  enabled: boolean;
+  name?: string | null;
+};
+
+export type CallDatabaseRow = {
+  id: string;
+  database_id: string;
+  session_id: string;
+  agent_id: string | null;
+  who_called: string | null;
+  started_at: string | null;
+  duration_seconds: number | null;
+  values: Record<string, unknown>;
+  status: string;
+  sync_error: string | null;
+  created_at: string;
+};
+
+export type CallDatabaseRowsPage = {
+  items: CallDatabaseRow[];
+  next_cursor: string | null;
+  total: number;
+  limit: number;
 };
 

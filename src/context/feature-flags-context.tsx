@@ -24,6 +24,7 @@ export const FEATURE_FLAG_KEYS = [
   "feature_voice_library",
   "feature_transfer",
   "feature_batch_calls",
+  "feature_databases",
 ] as const;
 
 export type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[number];

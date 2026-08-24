@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
-import { RoomEvent, type TranscriptionSegment } from "livekit-client";
+import { startWebCall, webCallErrorMessage, RoomEvent, type TranscriptionSegment, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BarVisualizer, type AgentState } from "@/components/ui/bar-visualizer";
@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 import { useWorkspace } from "@/context/workspace-context";
 import { enterAgentScope, removeAttachment, sendForAgent, stopTurn, uploadAttachment } from "@/lib/ask-ai/kupe-agent-store";
 import { useKupeAgentStore } from "@/lib/ask-ai/use-kupe-agent-store";
-import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { isConcurrencyLimitError } from "@/lib/voice/concurrency-limit";
 import { applyPerceivedLatency } from "@/lib/voice/turn-latency";

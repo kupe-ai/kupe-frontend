@@ -197,10 +197,23 @@ const OUTPUT_VARS_MARKER = "__kupe_agent_output_variables__";
 const OUTPUT_VARS_PROMPT =
   "Extract the requested fields from this call's transcript and audio, for reporting and automation.";
 
+type OutputSchema = { id: string; fields: AnalysisField[]; via: "database" | "analysis" };
+
 function splitOutputVariableId(id: string): { analysisId: string; fieldName: string } {
   const sep = id.indexOf("::");
   if (sep < 0) throw new Error("Invalid output variable id");
   return { analysisId: id.slice(0, sep), fieldName: id.slice(sep + 2) };
+}
+
+async function findDatabaseSchema(agentId: string): Promise<OutputSchema | null> {
+  try {
+    const dbs = await api.listAgentDatabases(agentId);
+    if (!dbs.length) return null;
+    const db = dbs.find((d) => d.source === "auto_agent") ?? dbs[0];
+    return { id: db.id, fields: db.fields || [], via: "database" };
+  } catch {
+    return null;
+  }
 }
 
 async function findOutputVarsAnalysis(agentId: string) {
@@ -208,8 +221,24 @@ async function findOutputVarsAnalysis(agentId: string) {
   return page.items.find((a) => a.description === OUTPUT_VARS_MARKER) ?? null;
 }
 
-async function ensureOutputVarsAnalysis(agentId: string) {
-  const existing = await findOutputVarsAnalysis(agentId);
+async function findOutputSchema(agentId: string): Promise<OutputSchema | null> {
+  const db = await findDatabaseSchema(agentId);
+  if (db) return db;
+  const analysis = await findOutputVarsAnalysis(agentId);
+  if (!analysis) return null;
+  return { id: analysis.id, fields: analysis.fields, via: "analysis" };
+}
+
+async function persistOutputFields(schema: OutputSchema, fields: AnalysisField[]) {
+  if (schema.via === "database") {
+    await api.patchDatabase(schema.id, { fields });
+  } else {
+    await api.updateAnalysis(schema.id, { fields });
+  }
+}
+
+async function ensureOutputVarsAnalysis(agentId: string): Promise<OutputSchema> {
+  const existing = await findOutputSchema(agentId);
   if (existing) return existing;
   const { orgId } = requireScope();
   const agent = await api.getAgent(agentId);
@@ -221,7 +250,7 @@ async function ensureOutputVarsAnalysis(agentId: string) {
     fields: [],
   });
   await api.attachAnalysis(agentId, created.id, true);
-  return { ...created, enabled: true };
+  return { id: created.id, fields: [], via: "analysis" };
 }
 
 function toOutputVariable(agentId: string, analysisId: string, field: AnalysisField): OutputVariable {
@@ -235,22 +264,22 @@ function toOutputVariable(agentId: string, analysisId: string, field: AnalysisFi
 }
 
 export async function listOutputVariables(agentId: string): Promise<OutputVariable[]> {
-  const analysis = await findOutputVarsAnalysis(agentId);
-  if (!analysis) return [];
-  return analysis.fields.map((f) => toOutputVariable(agentId, analysis.id, f));
+  const schema = await findOutputSchema(agentId);
+  if (!schema) return [];
+  return schema.fields.map((f) => toOutputVariable(agentId, schema.id, f));
 }
 
 export async function createOutputVariable(agentId: string, data: Partial<OutputVariable>): Promise<OutputVariable> {
-  const analysis = await ensureOutputVarsAnalysis(agentId);
+  const schema = await ensureOutputVarsAnalysis(agentId);
   const name = data.name?.trim();
   if (!name) throw new Error("Name is required");
-  if (analysis.fields.some((f) => f.name === name)) {
+  if (schema.fields.some((f) => f.name === name)) {
     throw new Error(`Output variable "${name}" already exists`);
   }
   const field: AnalysisField = { name, type: data.data_type ?? "string", description: data.extraction_prompt ?? "" };
-  const fields = [...analysis.fields, field];
-  await api.updateAnalysis(analysis.id, { fields });
-  return toOutputVariable(agentId, analysis.id, field);
+  const fields = [...schema.fields, field];
+  await persistOutputFields(schema, fields);
+  return toOutputVariable(agentId, schema.id, field);
 }
 
 export async function updateOutputVariable(
@@ -259,14 +288,14 @@ export async function updateOutputVariable(
   data: Partial<OutputVariable>,
 ): Promise<OutputVariable> {
   const { analysisId, fieldName } = splitOutputVariableId(id);
-  const analysis = await findOutputVarsAnalysis(agentId);
-  if (!analysis || analysis.id !== analysisId) throw new Error("Output variable not found");
+  const schema = await findOutputSchema(agentId);
+  if (!schema || schema.id !== analysisId) throw new Error("Output variable not found");
   const newName = data.name?.trim() || fieldName;
-  if (newName !== fieldName && analysis.fields.some((f) => f.name === newName)) {
+  if (newName !== fieldName && schema.fields.some((f) => f.name === newName)) {
     throw new Error(`Output variable "${newName}" already exists`);
   }
   let updatedField: AnalysisField | null = null;
-  const fields = analysis.fields.map((f) => {
+  const fields = schema.fields.map((f) => {
     if (f.name !== fieldName) return f;
     updatedField = {
       ...f,
@@ -277,8 +306,7 @@ export async function updateOutputVariable(
     return updatedField;
   });
   if (!updatedField) throw new Error("Output variable not found");
-  await api.updateAnalysis(analysisId, { fields });
-  // Field renamed: keep the agent's call goal pointed at the right field.
+  await persistOutputFields(schema, fields);
   if (newName !== fieldName) {
     const agent = await api.getAgent(agentId);
     if (agent.config?.call_goal?.output_field === fieldName) {
@@ -287,15 +315,15 @@ export async function updateOutputVariable(
       });
     }
   }
-  return toOutputVariable(agentId, analysisId, updatedField);
+  return toOutputVariable(agentId, schema.id, updatedField);
 }
 
 export async function deleteOutputVariable(agentId: string, id: string): Promise<void> {
   const { analysisId, fieldName } = splitOutputVariableId(id);
-  const analysis = await findOutputVarsAnalysis(agentId);
-  if (!analysis || analysis.id !== analysisId) return;
-  const fields = analysis.fields.filter((f) => f.name !== fieldName);
-  await api.updateAnalysis(analysisId, { fields });
+  const schema = await findOutputSchema(agentId);
+  if (!schema || schema.id !== analysisId) return;
+  const fields = schema.fields.filter((f) => f.name !== fieldName);
+  await persistOutputFields(schema, fields);
   const agent = await api.getAgent(agentId);
   if (agent.config?.call_goal?.output_field === fieldName) {
     await api.updateAgent(agentId, { config: { call_goal: null } });
@@ -465,7 +493,10 @@ export async function setSystemToolEnabled(agentId: string, name: SystemToolName
 /** Agents saved before the three-way control only carry the old boolean. */
 function thinkingModeFromConfig(thinking: AgentConfig["thinking_sounds"] | undefined): ThinkingSoundMode {
   if (thinking?.mode) return thinking.mode;
-  return thinking?.enabled ? "sounds" : "off";
+  if (typeof thinking?.enabled === "boolean") {
+    return thinking.enabled ? "sounds" : "off";
+  }
+  return "auto";
 }
 
 function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {

@@ -130,8 +130,13 @@ export async function updateVoice(voiceId: string, data: { name?: string; isPubl
   return api.updateVoice(voiceId, data);
 }
 
-export async function deleteVoice(voiceId: string): Promise<void> {
-  return api.deleteVoice(voiceId);
+export async function deleteVoice(voiceId: string, opts?: { fallbackVoiceId?: string }): Promise<void> {
+  return api.deleteVoice(voiceId, opts);
+}
+
+export async function getVoiceUsage(voiceId: string): Promise<{ agentCount: number }> {
+  const { agent_count } = await api.voiceUsage(voiceId);
+  return { agentCount: agent_count };
 }
 
 export async function speakVoicePreview(

@@ -176,8 +176,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false);
   const isEditor = /^\/agents\/[^/]+\/?$/.test(pathname);
   const isKbDetail = /^\/knowledge-base\/[^/]+\/?$/.test(pathname);
+  const isDatabaseDetail = /^\/databases\/[^/]+\/?$/.test(pathname);
   const isAskKupe = pathname === "/ask-kupe" || pathname.startsWith("/ask-kupe/");
-  const lockOverflow = isEditor || isKbDetail || isAskKupe;
+  const lockOverflow = isEditor || isKbDetail || isDatabaseDetail || isAskKupe;
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");

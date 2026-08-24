@@ -1,5 +1,6 @@
 import { api } from "@/lib/api";
 import { requireScope } from "@/lib/api/workspace-scope";
+import { markDatabaseCreatedBanner } from "@/lib/database-created-banner";
 import { AGENT_TEMPLATES } from "@/lib/voice-agents-data";
 import type { Agent } from "@/types";
 import type { PageResponse, VoiceAgent, VoiceAgentTemplate } from "./types";
@@ -80,6 +81,9 @@ export async function createVoiceAgent(input: CreateVoiceAgentInput) {
         } as Agent["config"])
       : undefined,
   });
+  if (created.auto_database_id) {
+    markDatabaseCreatedBanner(created.id);
+  }
   return toVoiceAgent(created);
 }
 
@@ -113,6 +117,7 @@ export async function duplicateVoiceAgent(agentId: string) {
     tts_voice_id: src.tts_voice_id,
     config: src.config,
   });
+  if (copy.auto_database_id) markDatabaseCreatedBanner(copy.id);
   return toVoiceAgent(copy);
 }
 

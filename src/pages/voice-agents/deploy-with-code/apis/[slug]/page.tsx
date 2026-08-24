@@ -219,6 +219,12 @@ export default function DeployApiDetailPage() {
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-muted-foreground">
           {api.about}
         </p>
+        {api.sections?.map((section) => (
+          <div key={section.title} className="mt-6 max-w-3xl">
+            <h3 className="text-sm font-semibold">{section.title}</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{section.body}</p>
+          </div>
+        ))}
       </section>
     </div>
   );

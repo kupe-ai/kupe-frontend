@@ -110,6 +110,13 @@ export const VOICE_AGENTS_NAV: VoiceAgentsNavSection[] = [
         flag: "feature_analytics",
       },
       {
+        id: "databases",
+        label: "Databases",
+        href: "/databases",
+        icon: "layers",
+        flag: "feature_databases",
+      },
+      {
         id: "usage",
         label: "Usage",
         href: "/usage",

@@ -17,6 +17,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -31,6 +40,7 @@ import {
   cloneVoice,
   deleteVoice,
   fetchVoicePreview,
+  getVoiceUsage,
   listAllTtsVoices,
   listVoiceTtsProviders,
   updateVoice,
@@ -39,6 +49,7 @@ import {
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
+import { KupeVoicePicker } from "@/components/voice-agents/kupe-voice-picker";
 import type { CatalogVoice } from "@/types";
 import { AudioTrimSlider, sliceAudioFile } from "./audio-trim-slider";
 import { TtsStudio } from "./tts-studio";
@@ -155,6 +166,7 @@ function VoiceLibraryPageInner() {
             title="My voices"
             description="Voices you've cloned — private by default, or public for every user once saved in the database."
             voices={myVoices}
+            allVoices={voices}
             loading={loading}
             isOwner
             onClone={() => setCloneOpen(true)}
@@ -165,6 +177,7 @@ function VoiceLibraryPageInner() {
             title="All voices"
             description="Catalog voices for every provider, plus cloned voices anyone has marked public in the database."
             voices={otherVoices}
+            allVoices={voices}
             loading={loading}
             onChanged={() => void refresh()}
           />
@@ -196,6 +209,7 @@ function VoiceSection({
   title,
   description,
   voices,
+  allVoices,
   loading,
   isOwner,
   onClone,
@@ -205,6 +219,7 @@ function VoiceSection({
   title: string;
   description: string;
   voices: CatalogVoice[];
+  allVoices: CatalogVoice[];
   loading: boolean;
   isOwner?: boolean;
   onClone?: () => void;
@@ -241,7 +256,13 @@ function VoiceSection({
       ) : (
         <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {voices.map((v) => (
-            <VoiceCard key={v.id} voice={v} isOwner={isOwner} onChanged={onChanged} />
+            <VoiceCard
+              key={v.id}
+              voice={v}
+              allVoices={allVoices}
+              isOwner={isOwner}
+              onChanged={onChanged}
+            />
           ))}
         </div>
       )}
@@ -251,10 +272,12 @@ function VoiceSection({
 
 function VoiceCard({
   voice,
+  allVoices,
   isOwner,
   onChanged,
 }: {
   voice: CatalogVoice;
+  allVoices: CatalogVoice[];
   isOwner?: boolean;
   onChanged: () => void;
 }) {
@@ -356,16 +379,40 @@ function VoiceCard({
       </Button>
 
       {isOwner && voice.source === "cloned" && (
-        <VoiceCardMenu voice={voice} onChanged={onChanged} />
+        <VoiceCardMenu voice={voice} allVoices={allVoices} onChanged={onChanged} />
       )}
     </div>
   );
 }
 
-function VoiceCardMenu({ voice, onChanged }: { voice: CatalogVoice; onChanged: () => void }) {
+function defaultFallbackVoiceId(candidates: CatalogVoice[]): string {
+  const catalog = candidates.find((v) => v.source === "catalog");
+  if (catalog) return catalog.voice_id;
+  return candidates[0]?.voice_id ?? "";
+}
+
+function VoiceCardMenu({
+  voice,
+  allVoices,
+  onChanged,
+}: {
+  voice: CatalogVoice;
+  allVoices: CatalogVoice[];
+  onChanged: () => void;
+}) {
   const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [name, setName] = useState(voice.voice_name);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [agentCount, setAgentCount] = useState<number | null>(null);
+  const [fallbackVoiceId, setFallbackVoiceId] = useState("");
+
+  const fallbackCandidates = useMemo(
+    () => allVoices.filter((v) => v.provider_id === voice.provider_id && v.id !== voice.id),
+    [allVoices, voice.id, voice.provider_id],
+  );
 
   async function toggleVisibility() {
     try {
@@ -391,15 +438,46 @@ function VoiceCardMenu({ voice, onChanged }: { voice: CatalogVoice; onChanged: (
     }
   }
 
-  async function remove() {
+  async function openDelete() {
+    setDeleteOpen(true);
+    setAgentCount(null);
+    setFallbackVoiceId(defaultFallbackVoiceId(fallbackCandidates));
+    setUsageLoading(true);
     try {
-      await deleteVoice(voice.id);
-      toast.success("Voice deleted");
+      const { agentCount: count } = await getVoiceUsage(voice.id);
+      setAgentCount(count);
+    } catch (err) {
+      toast.error(friendlyVoiceError(err, "Couldn't check where this voice is used"));
+      setDeleteOpen(false);
+    } finally {
+      setUsageLoading(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (deleting) return;
+    const inUse = (agentCount ?? 0) > 0;
+    const fallbackRow = fallbackCandidates.find((v) => v.voice_id === fallbackVoiceId);
+    if (inUse && !fallbackRow) {
+      toast.error("Pick a fallback voice for agents that use this one");
+      return;
+    }
+    setDeleting(true);
+    try {
+      await deleteVoice(voice.id, inUse ? { fallbackVoiceId: fallbackRow!.id } : undefined);
+      toast.success(inUse ? "Voice deleted — agents moved to fallback" : "Voice deleted");
+      setDeleteOpen(false);
       onChanged();
     } catch (err) {
       toast.error(friendlyVoiceError(err, "Couldn't delete this voice"));
+    } finally {
+      setDeleting(false);
     }
   }
+
+  const inUse = (agentCount ?? 0) > 0;
+  const canConfirm =
+    !usageLoading && agentCount !== null && (!inUse || Boolean(fallbackVoiceId));
 
   return (
     <>
@@ -414,7 +492,7 @@ function VoiceCardMenu({ voice, onChanged }: { voice: CatalogVoice; onChanged: (
           <DropdownMenuItem onClick={() => void toggleVisibility()}>
             {voice.is_public ? "Make private" : "Make public"}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void remove()} className="text-destructive">
+          <DropdownMenuItem onClick={() => void openDelete()} className="text-destructive">
             Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -436,6 +514,68 @@ function VoiceCardMenu({ voice, onChanged }: { voice: CatalogVoice; onChanged: (
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteOpen(false);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete “{voice.voice_name}”?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {usageLoading || agentCount === null ? (
+                  <p className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin" />
+                    Checking which agents use this voice…
+                  </p>
+                ) : inUse ? (
+                  <>
+                    <p>
+                      {agentCount === 1
+                        ? "1 agent still uses this voice."
+                        : `${agentCount} agents still use this voice.`}{" "}
+                      Choose a fallback — those agents will switch to it before this voice is removed.
+                    </p>
+                    {fallbackCandidates.length === 0 ? (
+                      <p className="text-destructive">
+                        No other voices on this provider to fall back to. Add or pick another voice first.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 pt-1">
+                        <Label htmlFor={`fallback-${voice.id}`}>Fallback voice</Label>
+                        <KupeVoicePicker
+                          voices={fallbackCandidates}
+                          value={fallbackVoiceId}
+                          onValueChange={setFallbackVoiceId}
+                          placeholder="Select a fallback…"
+                          className="w-full"
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p>This can’t be undone. Agents are not using this voice.</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              className="rounded-full"
+              disabled={deleting || !canConfirm || (inUse && fallbackCandidates.length === 0)}
+              onClick={() => void confirmDelete()}
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -248,7 +248,7 @@ const DEFAULTS: Required<
   output_numbers_indic: false,
   nudges: [],
   hangup_after_unanswered_nudges: false,
-  thinking_sounds: "off",
+  thinking_sounds: "auto",
   auto_cut_enabled: false,
   auto_cut_mode: "warm",
   voicemail_enabled: false,

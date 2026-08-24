@@ -345,6 +345,7 @@ const ACCESS_LABELS: Record<string, string> = {
   feature_voice_library: "Voice library",
   feature_transfer: "Call transfer",
   feature_batch_calls: "Batch calls",
+  feature_databases: "Databases",
 };
 
 function WorkspaceAccessCard({ orgId }: { orgId: string }) {

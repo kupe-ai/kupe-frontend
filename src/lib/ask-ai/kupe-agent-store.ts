@@ -26,7 +26,7 @@ type StoreState = {
   busy: boolean;
   /** Set once a create_agent tool call resolves, so the agents-list page
    * can navigate to it. Cleared by clearCreatedAgent() once consumed. */
-  createdAgent: { id: string; name: string } | null;
+  createdAgent: { id: string; name: string; auto_database_id?: string | null } | null;
   error: string | null;
   attachments: AttachedFile[];
 };
@@ -252,9 +252,16 @@ function applyEvent(assistantId: string, event: HarnessEvent, patchAssistant: (p
       }));
       if (event.name === "create_agent" && !event.is_error) {
         try {
-          const parsed = JSON.parse(event.result) as { id?: string; name?: string };
+          const parsed = JSON.parse(event.result) as { id?: string; name?: string; auto_database_id?: string };
           if (parsed?.id) {
-            setState({ createdAgent: { id: parsed.id, name: parsed.name ?? "" }, scopeAgentId: parsed.id });
+            setState({
+              createdAgent: {
+                id: parsed.id,
+                name: parsed.name ?? "",
+                auto_database_id: parsed.auto_database_id,
+              },
+              scopeAgentId: parsed.id,
+            });
           }
         } catch {
           // create_agent's own result parse failure shouldn't break the turn

@@ -28,6 +28,7 @@ import type {
   ComposioConnection,
   ComposioToolkitsPage,
   ComposioToolsPage,
+  CreateRealtimeSessionBody,
   CreateSessionBody,
   CreatedApiKey,
   InboundCreateBody,
@@ -56,6 +57,7 @@ import type {
   MemberInsertResult,
   AttachListResult,
   CursorContactsPage,
+  RealtimeSessionInfo,
   SessionInfo,
   SessionUsage,
   StandaloneUsageRow,
@@ -77,6 +79,12 @@ import type {
   BillingSubscription,
   KnowledgeBase,
   KnowledgeFile,
+  CallDatabase,
+  CallDatabaseAgent,
+  CallDatabaseRow,
+  CallDatabaseRowsPage,
+  DatabaseDestination,
+  AnalysisField,
 } from "../types";
 
 export type ListParams = { limit?: number; offset?: number; name?: string };
@@ -189,8 +197,14 @@ export const api = {
     if (data.isPublic != null) form.set("is_public", String(data.isPublic));
     return authedJson<CatalogVoice>(`/v1/voices/${voiceId}`, { method: "PATCH", body: form });
   },
-  deleteVoice: (voiceId: string) =>
-    authedJson<void>(`/v1/voices/${voiceId}`, { method: "DELETE" }),
+  deleteVoice: (voiceId: string, opts?: { fallbackVoiceId?: string }) => {
+    const q = opts?.fallbackVoiceId
+      ? `?fallback_voice_id=${encodeURIComponent(opts.fallbackVoiceId)}`
+      : "";
+    return authedJson<void>(`/v1/voices/${voiceId}${q}`, { method: "DELETE" });
+  },
+  voiceUsage: (voiceId: string) =>
+    authedJson<{ agent_count: number }>(`/v1/voices/${voiceId}/usage`),
   speakVoice: async (
     voiceId: string,
     data: { text: string; language?: string; orgId: string; speed?: number; pitch?: number },
@@ -266,6 +280,8 @@ export const api = {
     authedJson<ApiKey>(`/v1/projects/${projectId}/api-keys/${keyId}`, { method: "DELETE" }),
   createSession: (body: CreateSessionBody) =>
     authedJson<SessionInfo>("/v1/sessions", { method: "POST", body: JSON.stringify(body) }),
+  createRealtimeSession: (body: CreateRealtimeSessionBody) =>
+    authedJson<RealtimeSessionInfo>("/v1/realtime/sessions", { method: "POST", body: JSON.stringify(body) }),
   getSession: (sessionId: string) => authedJson<SessionInfo>(`/v1/sessions/${sessionId}`),
   endSession: (sessionId: string) => authedJson<SessionInfo>(`/v1/sessions/${sessionId}/end`, { method: "POST" }),
   listSessions: (orgId: string, params?: ListParams) =>
@@ -775,4 +791,73 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ query, top_k: topK }),
     }),
+
+  listDatabases: (orgId: string, projectId: string, params?: ListParams & { search?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.limit != null) sp.set("limit", String(params.limit));
+    if (params?.offset != null) sp.set("offset", String(params.offset));
+    if (params?.search) sp.set("search", params.search);
+    const q = sp.toString();
+    return authedJson<{ items: CallDatabase[]; total: number; limit: number; offset: number }>(
+      `/v1/orgs/${orgId}/projects/${projectId}/databases${q ? `?${q}` : ""}`,
+    );
+  },
+  createDatabase: (
+    orgId: string,
+    projectId: string,
+    body: { name: string; description?: string; fields?: AnalysisField[]; agent_ids?: string[] },
+  ) =>
+    authedJson<CallDatabase>(`/v1/orgs/${orgId}/projects/${projectId}/databases`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getDatabase: (databaseId: string) => authedJson<CallDatabase>(`/v1/databases/${databaseId}`),
+  patchDatabase: (
+    databaseId: string,
+    body: {
+      name?: string;
+      description?: string;
+      fields?: AnalysisField[];
+      destinations?: DatabaseDestination[];
+    },
+  ) => authedJson<CallDatabase>(`/v1/databases/${databaseId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  archiveDatabase: (databaseId: string) =>
+    authedJson<CallDatabase>(`/v1/databases/${databaseId}/archive`, { method: "POST" }),
+  listDatabaseAgents: (databaseId: string) =>
+    authedJson<CallDatabaseAgent[]>(`/v1/databases/${databaseId}/agents`),
+  attachDatabaseAgent: (databaseId: string, agentId: string, enabled = true) =>
+    authedJson<CallDatabaseAgent>(`/v1/databases/${databaseId}/agents`, {
+      method: "POST",
+      body: JSON.stringify({ agent_id: agentId, enabled }),
+    }),
+  detachDatabaseAgent: (databaseId: string, agentId: string) =>
+    authedJson<void>(`/v1/databases/${databaseId}/agents/${agentId}`, { method: "DELETE" }),
+  listDatabaseRows: (databaseId: string, params?: { cursor?: string; limit?: number; q?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.cursor) sp.set("cursor", params.cursor);
+    if (params?.limit != null) sp.set("limit", String(params.limit));
+    if (params?.q) sp.set("q", params.q);
+    const q = sp.toString();
+    return authedJson<CallDatabaseRowsPage>(`/v1/databases/${databaseId}/rows${q ? `?${q}` : ""}`);
+  },
+  exportDatabase: async (databaseId: string, format: "csv" | "json" | "ndjson" | "zip", q?: string) => {
+    const sp = new URLSearchParams({ format });
+    if (q) sp.set("q", q);
+    const res = await authedFetch(`/v1/databases/${databaseId}/export?${sp.toString()}`);
+    if (!res.ok) {
+      await throwIfNotOk(res, `/v1/databases/${databaseId}/export`, "GET");
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const ext = format === "zip" ? "zip" : format;
+    try {
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `database.${ext}`;
+      a.click();
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  },
+  listAgentDatabases: (agentId: string) => authedJson<CallDatabase[]>(`/v1/agents/${agentId}/databases`),
 };

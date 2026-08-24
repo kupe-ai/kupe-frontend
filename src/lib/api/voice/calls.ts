@@ -4,9 +4,8 @@ import type { PageResponse, VoiceCall, VoiceCallTranscriptTurn } from "./types";
 
 export interface WebCallResult {
   call_id: string;
-  room_name: string;
-  access_token: string;
-  livekit_url: string;
+  client_secret: string;
+  websocket_url: string;
 }
 
 export async function createWebCall(
@@ -14,18 +13,16 @@ export async function createWebCall(
   variables?: Record<string, string>,
 ): Promise<WebCallResult> {
   const { orgId, projectId } = requireScope();
-  const session = await api.createSession({
+  const session = await api.createRealtimeSession({
     agent_id: agentId,
     org_id: orgId,
     project_id: projectId,
-    channel: "web",
     ...(variables && Object.keys(variables).length > 0 ? { variables } : {}),
   });
   return {
-    call_id: session.session_id,
-    room_name: session.room_name ?? session.session_id,
-    access_token: session.token ?? "",
-    livekit_url: session.ws_url ?? "",
+    call_id: session.id,
+    client_secret: session.client_secret.value,
+    websocket_url: session.websocket_url,
   };
 }
 

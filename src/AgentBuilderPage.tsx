@@ -79,7 +79,7 @@ const DEFAULT_CONFIG: AgentConfig = {
       "Just a heads up — we have about {remaining_seconds} seconds left in this {duration_seconds}-second call with {agent_name}.",
   },
   silence_breaker: { enabled: false, idle_seconds: 8, messages: [], hangup_after_unanswered: false },
-  thinking_sounds: { mode: "off", enabled: false },
+  thinking_sounds: { mode: "auto", enabled: true },
   voicemail_detection: {
     enabled: true,
     message: "Sorry we missed you. Please call us back when you can.",
@@ -108,7 +108,14 @@ const PAGE_SIZE = 20;
 
 /** Agents saved before the three-way control only carry the old boolean. */
 function normalizeThinkingSounds(raw: ThinkingSoundsConfig | undefined): ThinkingSoundsConfig {
-  const mode = raw?.mode ?? (raw?.enabled ? "sounds" : DEFAULT_CONFIG.thinking_sounds.mode);
+  let mode: ThinkingSoundsConfig["mode"];
+  if (raw?.mode) {
+    mode = raw.mode;
+  } else if (raw && typeof raw.enabled === "boolean") {
+    mode = raw.enabled ? "sounds" : "off";
+  } else {
+    mode = DEFAULT_CONFIG.thinking_sounds.mode;
+  }
   return { mode, enabled: mode !== "off" };
 }
 

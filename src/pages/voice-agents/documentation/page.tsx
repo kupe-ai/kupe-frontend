@@ -17,11 +17,16 @@ export default function VoiceAgentsDocsPage() {
         kind="docs"
         tone="sky"
         title="Build, test, and deploy voice agents"
-        description="Guides for voice agents and campaigns."
+        description="Guides for voice agents, Databases, and campaigns."
         actions={
-          <Button asChild variant="outline" className="rounded-full">
-            <Link to="/">Back to Home</Link>
-          </Button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild variant="outline" className="rounded-full">
+              <Link to="/deploy-with-code/apis/databases">Databases API</Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-full">
+              <Link to="/">Back to Home</Link>
+            </Button>
+          </div>
         }
       />
     </div>

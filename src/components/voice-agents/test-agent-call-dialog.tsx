@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, PhoneOff, RotateCw } from "lucide-react";
-import { RoomEvent, type TranscriptionSegment } from "livekit-client";
+import { startWebCall, webCallErrorMessage, RoomEvent, type TranscriptionSegment, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +12,6 @@ import { Matrix, loader } from "@/components/ui/matrix";
 import { ConversationEmptyState } from "@/components/ui/conversation";
 import { Message, MessageContent } from "@/components/ui/message";
 import { api } from "@/lib/api";
-import { startWebCall, webCallErrorMessage, type WebCallHandle, type WebCallStatus } from "@/lib/voice/livekit-web-call";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { isThinkingPhone } from "@/lib/voice/thinking-phone";
 import { applyPerceivedLatency } from "@/lib/voice/turn-latency";
