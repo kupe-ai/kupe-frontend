@@ -1,5 +1,5 @@
 # Kupe frontend                  
-Separate Vite + React app. Users sign up / sign in via Supabase Auth
+Separate Vite + React app. Users sign up / sign in via Supabase Auth. 
 (`@supabase/supabase-js`, calling Supabase directly — the frontend never
 talks to CRUD for auth itself), then talks to the CRUD API (with the
 resulting JWT as a Bearer token) to create a voice session and join LiveKit
