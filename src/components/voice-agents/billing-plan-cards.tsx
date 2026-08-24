@@ -90,7 +90,7 @@ export function BillingPlanCards({
   const [loading, setLoading] = useState(true);
   const [busyPlan, setBusyPlan] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [amount, setAmount] = useState("1000");
+  const [amount, setAmount] = useState("500");
   const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -124,8 +124,9 @@ export function BillingPlanCards({
   async function payAsYouGoTopup(planCode: "payg" | "enterprise" = "payg") {
     if (!orgId) return;
     const rupees = Number(amount);
-    if (!Number.isFinite(rupees) || rupees <= 0) {
-      toast.error("Enter a positive amount in INR");
+    const minRupees = planCode === "enterprise" ? 50000 : 500;
+    if (!Number.isFinite(rupees) || rupees < minRupees) {
+      toast.error(`Minimum top-up is ₹${minRupees.toLocaleString("en-IN")}`);
       return;
     }
     setBusyPlan(planCode);
@@ -304,6 +305,12 @@ export function BillingPlanCards({
                   note="Concurrency"
                   show={plan.channels != null}
                 />
+                {plan.code === "payg" && (
+                  <PlanFeature
+                    text={`Top-ups from ${money(minTopup, shownCurrency, shownCurrency === "INR" ? 0 : 2)}`}
+                    show={minTopup != null}
+                  />
+                )}
                 {plan.code === "enterprise" && (
                   <>
                     <PlanFeature text="Custom concurrency & rate limits" show />
@@ -340,7 +347,8 @@ export function BillingPlanCards({
               disabled={busyPlan === "payg" || busyPlan === "enterprise"}
             />
             <p className="text-xs text-muted-foreground">
-              Payment opens right here — you'll pay via Razorpay's checkout and credits land the moment it's confirmed.
+              Minimum ₹500 (or enterprise minimum). Payment opens right here — you'll pay via Razorpay's checkout and
+              credits land the moment it's confirmed.
             </p>
           </div>
           <DialogFooter>

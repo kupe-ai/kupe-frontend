@@ -57,7 +57,7 @@ export default function BillingPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [addingCredits, setAddingCredits] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [amount, setAmount] = useState("1000");
+  const [amount, setAmount] = useState("500");
   const [manageOpen, setManageOpen] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const canManageBalance = membership?.role === "owner" || membership?.role === "admin";
@@ -101,8 +101,8 @@ export default function BillingPage() {
   async function addCredits() {
     if (!org) return;
     const rupees = Number(amount);
-    if (!Number.isFinite(rupees) || rupees <= 0) {
-      toast.error("Enter a positive amount in INR");
+    if (!Number.isFinite(rupees) || rupees < 500) {
+      toast.error("Minimum top-up is ₹500");
       return;
     }
     setAddingCredits(true);
@@ -326,7 +326,8 @@ export default function BillingPage() {
               disabled={addingCredits}
             />
             <p className="text-xs text-muted-foreground">
-              Payment opens on this page — you'll pay via Razorpay and credits land the moment it's confirmed.
+              Minimum ₹500. Payment opens on this page — you'll pay via Razorpay and credits land the moment it's
+              confirmed.
             </p>
           </div>
           <DialogFooter>
