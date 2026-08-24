@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Matrix } from "@/components/ui/matrix";
+import { Matrix, type Frame } from "@/components/ui/matrix";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_BASE_URL } from "@/lib/voice-deploy-data";
 import { createVoiceApiKey, listVoiceApiKeys } from "@/lib/api/voice/api-keys";
@@ -238,6 +238,28 @@ const LANG_LABEL: Record<SdkLang, string> = {
   curl: "cURL",
 };
 
+const MATRIX_GAP = 1.35;
+const MATRIX_DOT = 3.2;
+
+function buildRandomFrames(rows: number, cols: number, count = 28): Frame[] {
+  const frames: Frame[] = [];
+  for (let f = 0; f < count; f++) {
+    const frame: Frame = [];
+    for (let r = 0; r < rows; r++) {
+      const row: number[] = [];
+      for (let c = 0; c < cols; c++) {
+        const n = Math.random();
+        if (n > 0.78) row.push(0.55 + Math.random() * 0.45);
+        else if (n > 0.62) row.push(0.2 + Math.random() * 0.25);
+        else row.push(0);
+      }
+      frame.push(row);
+    }
+    frames.push(frame);
+  }
+  return frames;
+}
+
 export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [activeKey, setActiveKey] = useState<VoiceApiKey | null>(null);
   const [fullKey, setFullKey] = useState<string | null>(null);
@@ -247,23 +269,37 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [lang, setLang] = useState<SdkLang>("typescript");
-  const [wavePhase, setWavePhase] = useState(0);
+  const [matrixGrid, setMatrixGrid] = useState({ rows: 48, cols: 18, size: MATRIX_DOT });
+  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() =>
+    buildRandomFrames(48, 18),
+  );
+  const matrixPanelRef = useRef<HTMLDivElement>(null);
   const bootstrappedRef = useRef(false);
 
-  const waveLevels = useMemo(() => {
-    const cols = 12;
-    return Array.from({ length: cols }, (_, i) => {
-      const colPhase = (i / cols) * Math.PI * 2.2;
-      const primary = (Math.sin(wavePhase + colPhase) + 1) / 2;
-      const secondary = (Math.sin(wavePhase * 1.4 + colPhase * 0.8 + 1.0) + 1) / 2;
-      const barBoost = i % 2 === 0 ? 0.06 : 0;
-      return 0.08 + primary * 0.62 + secondary * 0.24 + barBoost;
-    });
-  }, [wavePhase]);
-
   useEffect(() => {
-    const id = window.setInterval(() => setWavePhase((p) => p + 0.2), 80);
-    return () => window.clearInterval(id);
+    const el = matrixPanelRef.current;
+    if (!el) return;
+
+    const sync = (width: number, height: number) => {
+      if (width < 8 || height < 8) return;
+      // Fixed square cells → true circles. Extra dots spill past edges and clip.
+      const size = MATRIX_DOT;
+      const cols = Math.max(12, Math.ceil((width + MATRIX_GAP) / (size + MATRIX_GAP)));
+      const rows = Math.max(20, Math.ceil((height + MATRIX_GAP) / (size + MATRIX_GAP)));
+      setMatrixGrid((prev) => {
+        if (prev.rows === rows && prev.cols === cols && prev.size === size) return prev;
+        setMatrixFrames(buildRandomFrames(rows, cols));
+        return { rows, cols, size };
+      });
+    };
+
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (box) sync(box.width, box.height);
+    });
+    ro.observe(el);
+    sync(el.clientWidth, el.clientHeight);
+    return () => ro.disconnect();
   }, []);
 
   const ensureKey = useCallback(async (createIfMissing: boolean) => {
@@ -507,26 +543,28 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           </Link>
         </div>
 
-        {/* Right — full-bleed vertical matrix (edge to edge, no padding) */}
+        {/* Right — full-bleed vertical matrix: small circular dots, random flicker */}
         <div
+          ref={matrixPanelRef}
           aria-hidden
           className="relative hidden self-stretch overflow-hidden bg-transparent lg:block"
         >
           <Matrix
-            rows={40}
-            cols={12}
-            mode="vu"
-            levels={waveLevels}
-            size={8}
-            gap={2.5}
-            fill
+            rows={matrixGrid.rows}
+            cols={matrixGrid.cols}
+            frames={matrixFrames}
+            fps={7}
+            autoplay
+            loop
+            size={matrixGrid.size}
+            gap={MATRIX_GAP}
             showOffDots
             palette={{
               on: "var(--primary)",
               off: "color-mix(in oklab, var(--muted-foreground) 34%, transparent)",
             }}
-            className="absolute inset-0 h-full w-full"
-            ariaLabel="Animated vertical voice matrix"
+            className="absolute inset-0"
+            ariaLabel="Animated random matrix"
           />
         </div>
       </div>
