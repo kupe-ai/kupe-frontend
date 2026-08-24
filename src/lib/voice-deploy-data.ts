@@ -2,6 +2,7 @@ import type { AsciiIconKind, AsciiIconTone } from "@/components/voice-agents/asc
 
 export type DeployApiSlug =
   | "kupe-realtime-api"
+  | "kupe-mcp"
   | "instant-outbound"
   | "batch-outbound"
   | "recipient-lists"
@@ -47,6 +48,9 @@ export interface DeployApiCard {
 
 /** Base URL shown in generated snippets — never a real secret, just the API host. */
 export const API_BASE_URL = "https://x.kupe.in";
+
+/** Hosted MCP endpoint (HTTP until TLS is live on mcp.kupe.in). */
+export const MCP_REMOTE_URL = "http://mcp.kupe.in/mcp";
 
 function sdkPython(code: string): { id: string; label: string; code: string } {
   return { id: "python", label: "python", code };
@@ -142,6 +146,77 @@ for await (const event of rt) {
       {
         title: "Usage",
         body: "response.done.usage is OpenAI-shaped (total_tokens, input_tokens, output_tokens, input_token_details, output_token_details). STT audio maps to input audio tokens, LLM prompt/completion to text tokens, TTS to output audio tokens. Channel is web. Telephony minutes are never written.",
+      },
+    ],
+  },
+  {
+    slug: "kupe-mcp",
+    title: "Kupe MCP",
+    description: "Use Kupe from Cursor, Claude Code, or Codex — agents, campaigns, phones, voices, and more as MCP tools.",
+    kind: "robot",
+    tone: "emerald",
+    headline: "Point your coding agent at http://mcp.kupe.in/mcp with your API key.",
+    about:
+      "kupe-mcp is a FastMCP server that wraps the same /v1 API. Hosted at http://mcp.kupe.in/mcp (HTTP until TLS is live). Send Authorization: Bearer sk-kupe-... on every request. Opening the URL in a browser will fail with Not Acceptable — it is a streamable MCP endpoint (Accept: text/event-stream), not a web page. Use Cursor, Claude Code, Codex, or another MCP client.",
+    endpoints: [
+      { method: "POST", path: "/mcp", summary: "Streamable HTTP MCP (JSON-RPC). Requires Accept: text/event-stream." },
+    ],
+    curlTabs: [
+      {
+        id: "cursor",
+        label: "cursor",
+        code: `{
+  "mcpServers": {
+    "kupe": {
+      "url": "${MCP_REMOTE_URL}",
+      "headers": {
+        "Authorization": "Bearer $KUPE_API_KEY"
+      }
+    }
+  }
+}`,
+      },
+      {
+        id: "claude",
+        label: "claude-code",
+        code: `claude mcp add --transport http kupe ${MCP_REMOTE_URL} \\
+  --header "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "codex",
+        label: "codex",
+        code: `[mcp_servers.kupe]
+url = "${MCP_REMOTE_URL}"
+[mcp_servers.kupe.http_headers]
+Authorization = "Bearer $KUPE_API_KEY"
+`,
+      },
+      {
+        id: "stdio",
+        label: "stdio",
+        code: `# Local process fallback (no remote URL)
+# uvx kupe-mcp   OR   python -m app.server --mcp
+{
+  "mcpServers": {
+    "kupe": {
+      "command": "uvx",
+      "args": ["kupe-mcp"],
+      "env": {
+        "KUPE_API_KEY": "$KUPE_API_KEY"
+      }
+    }
+  }
+}`,
+      },
+    ],
+    sections: [
+      {
+        title: "Auth",
+        body: "Every tool call forwards Authorization: Bearer to kupe-backend. Missing header → 401. Use a project API key (sk-kupe-...).",
+      },
+      {
+        title: "Not a browser page",
+        body: "http://mcp.kupe.in/mcp speaks MCP streamable HTTP. Safari/Chrome without Accept: text/event-stream get JSON-RPC -32600 Not Acceptable. Install via Cursor Settings → MCP, or the coding-tool dropdown on this page.",
       },
     ],
   },

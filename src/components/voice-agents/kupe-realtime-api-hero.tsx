@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Matrix, type Frame } from "@/components/ui/matrix";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { API_BASE_URL } from "@/lib/voice-deploy-data";
+import { API_BASE_URL, MCP_REMOTE_URL } from "@/lib/voice-deploy-data";
 import { createVoiceApiKey, listVoiceApiKeys } from "@/lib/api/voice/api-keys";
 import type { VoiceApiKey } from "@/lib/api/voice/types";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,6 @@ type CodingTool = "cursor" | "claude" | "codex";
 const WS_HOST = API_BASE_URL.replace(/^https?:\/\//, "");
 const SAMPLE_AGENT = "agt_collections_demo";
 const SAMPLE_VOICE = "priya";
-const MCP_REMOTE_URL = "https://mcp.kupe.in/mcp";
 const MCP_STDIO_HINT =
   "Stdio fallback: uvx kupe-mcp with KUPE_API_KEY, or python -m app.server --mcp.";
 
@@ -492,7 +491,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="group/nav rounded-full">
-                  Set up for AI coding tool
+                  Install Kupe MCP
                   <ChevronDown className="size-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -505,6 +504,9 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => void copyCodingToolSetup("codex")}>
                   Codex
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/deploy-with-code/apis/kupe-mcp">Kupe MCP docs</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

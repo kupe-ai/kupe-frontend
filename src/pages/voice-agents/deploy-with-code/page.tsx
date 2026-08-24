@@ -54,7 +54,7 @@ export default function VoiceAgentsDeployCodePage() {
       <section className="mt-10 text-left">
         <h1 className="text-display">Build voice agents with code</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Install the Kupe SDK, mint a realtime session, and start streaming voice from your browser or backend.
+          Install the Kupe SDK or Kupe MCP, mint a realtime session, and start streaming voice from your browser, backend, or coding agent.
         </p>
       </section>
 
