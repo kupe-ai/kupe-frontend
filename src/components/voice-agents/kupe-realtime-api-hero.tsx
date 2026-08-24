@@ -238,8 +238,8 @@ const LANG_LABEL: Record<SdkLang, string> = {
   curl: "cURL",
 };
 
-const MATRIX_GAP = 2.4;
-const MATRIX_DOT = 4.6;
+const MATRIX_GAP = 3.6;
+const MATRIX_DOT = 5.8;
 
 function emptyFrame(rows: number, cols: number): Frame {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
@@ -297,8 +297,8 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
       // Spiral arms per galaxy — thicker ribbons
       for (let arm = 0; arm < g.arms; arm++) {
         const armOffset = (arm / g.arms) * Math.PI * 2 + gi * 0.9;
-        for (let i = 0; i < 40; i++) {
-          const t = i / 39;
+        for (let i = 0; i < 28; i++) {
+          const t = i / 27;
           const angle = t * Math.PI * 3.2 + armOffset + phase * g.spin;
           const radius = t * maxR;
           const wobble = Math.sin(t * 8 + phase * 1.3 + arm + gi) * (0.5 + t * 0.9);
@@ -315,7 +315,7 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
       }
 
       // Sparse star dust around each galaxy
-      for (let d = 0; d < 5; d++) {
+      for (let d = 0; d < 3; d++) {
         const a = phase * 0.65 + d * 1.15 + gi * 2.4;
         const rad = maxR * (0.45 + (d % 4) / 9);
         stampSoft(
@@ -342,8 +342,8 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [lang, setLang] = useState<SdkLang>("typescript");
-  const [matrixGrid, setMatrixGrid] = useState({ rows: 36, cols: 14, size: MATRIX_DOT });
-  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() => buildGalaxyFrames(36, 14));
+  const [matrixGrid, setMatrixGrid] = useState({ rows: 28, cols: 11, size: MATRIX_DOT });
+  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() => buildGalaxyFrames(28, 11));
   const matrixPanelRef = useRef<HTMLDivElement>(null);
   const bootstrappedRef = useRef(false);
 
@@ -354,9 +354,9 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
     const sync = (width: number, height: number) => {
       if (width < 8 || height < 8) return;
       const size = MATRIX_DOT;
-      // Slightly fewer cells than a full fill — roomier continuous patterns
-      const cols = Math.max(10, Math.ceil((width + MATRIX_GAP) / (size + MATRIX_GAP)));
-      const rows = Math.max(16, Math.ceil((height + MATRIX_GAP) / (size + MATRIX_GAP)));
+      // Slightly fewer cells — roomier continuous patterns
+      const cols = Math.max(8, Math.ceil((width + MATRIX_GAP) / (size + MATRIX_GAP)));
+      const rows = Math.max(12, Math.ceil((height + MATRIX_GAP) / (size + MATRIX_GAP)));
       setMatrixGrid((prev) => {
         if (prev.rows === rows && prev.cols === cols && prev.size === size) return prev;
         setMatrixFrames(buildGalaxyFrames(rows, cols));
