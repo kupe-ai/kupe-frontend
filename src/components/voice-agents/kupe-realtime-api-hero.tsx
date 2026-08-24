@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, Copy, Eye, EyeOff, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Copy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/brand/wordmark";
-import { AiStar } from "@/components/brand/ai-star";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -252,12 +251,14 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const bootstrappedRef = useRef(false);
 
   const waveLevels = useMemo(() => {
-    const cols = 10;
+    const cols = 26;
     return Array.from({ length: cols }, (_, i) => {
-      const colPhase = (i / cols) * Math.PI * 2;
+      const colPhase = (i / cols) * Math.PI * 2.4;
       const primary = (Math.sin(wavePhase + colPhase) + 1) / 2;
-      const secondary = (Math.sin(wavePhase * 1.35 + colPhase * 0.8 + 0.9) + 1) / 2;
-      return 0.1 + primary * 0.58 + secondary * 0.28;
+      const secondary = (Math.sin(wavePhase * 1.45 + colPhase * 0.75 + 1.1) + 1) / 2;
+      // Pair columns into thicker bars (like image 2 voice waves)
+      const barBoost = i % 2 === 0 ? 0.08 : 0;
+      return 0.08 + primary * 0.62 + secondary * 0.22 + barBoost;
     });
   }, [wavePhase]);
 
@@ -373,7 +374,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1.15fr)_minmax(11rem,0.55fr)]">
+      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.72fr)]">
         {/* Left — content */}
         <div className="flex min-h-0 flex-col p-6 md:p-8 lg:pr-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -406,7 +407,6 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
               onClick={() => void generateKey()}
               loading={generating}
             >
-              {!generating && <AiStar size={14} />}
               Generate API key
             </Button>
           </div>
@@ -467,12 +467,9 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           {/* Code snippet */}
           <div className="mt-5 w-full max-w-xl text-left">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <BrandMark size={16} className="rounded-sm" />
-                <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                  {LANG_LABEL[lang]} · OpenAI SDK
-                </p>
-              </div>
+              <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
+                {LANG_LABEL[lang]} · OpenAI SDK
+              </p>
               <div className="flex items-center gap-1.5">
                 <Tabs value={lang} onValueChange={(v) => setLang(v as SdkLang)}>
                   <TabsList variant="line" className="h-7">
@@ -505,32 +502,31 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
 
           <Link
             to="/deploy-with-code/apis/kupe-realtime-api"
-            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+            className="mt-4 inline-flex text-sm font-medium text-primary hover:underline"
           >
             View full API docs
-            <Sparkles className="size-3.5 opacity-70" />
           </Link>
         </div>
 
-        {/* Right — transparent vertical matrix (dots only) */}
+        {/* Right — big transparent voice-wave matrix (dots only) */}
         <div
           aria-hidden
-          className="relative hidden min-h-[22rem] items-center justify-center bg-transparent lg:flex"
+          className="relative hidden min-h-[22rem] items-center justify-center bg-transparent px-4 py-8 lg:flex"
         >
           <Matrix
-            rows={28}
-            cols={10}
+            rows={14}
+            cols={26}
             mode="vu"
             levels={waveLevels}
-            size={4.2}
-            gap={1.4}
+            size={5.5}
+            gap={1.8}
             showOffDots
             palette={{
               on: "var(--primary)",
-              off: "color-mix(in oklab, var(--muted-foreground) 32%, transparent)",
+              off: "color-mix(in oklab, var(--muted-foreground) 34%, transparent)",
             }}
             className="opacity-95"
-            ariaLabel="Animated vertical voice matrix"
+            ariaLabel="Animated voice wave matrix"
           />
         </div>
       </div>
