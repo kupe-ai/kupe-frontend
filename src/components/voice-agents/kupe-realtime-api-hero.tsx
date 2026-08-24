@@ -20,140 +20,51 @@ import type { VoiceApiKey } from "@/lib/api/voice/types";
 import { cn } from "@/lib/utils";
 
 type SdkLang = "typescript" | "python" | "curl";
+type CodingTool = "cursor" | "claude" | "codex";
 
 const WS_HOST = API_BASE_URL.replace(/^https?:\/\//, "");
 const SAMPLE_AGENT = "agt_collections_demo";
 const SAMPLE_VOICE = "priya";
+const MCP_REMOTE_URL = "https://mcp.kupe.in/mcp";
+const MCP_STDIO_HINT =
+  "Stdio fallback: uvx kupe-mcp with KUPE_API_KEY, or python -m app.server --mcp.";
 
 /**
- * Snippets hit the real Kupe contract verified against
- * POST /v1/realtime/sessions (agent_id required, voice optional name)
- * and wss://…/v1/realtime?model=kupe-realtime&client_secret=…
- * OpenAI SDK `client.post("/realtime/sessions", …)` is used so custom
- * fields (agent_id) are not stripped by typed sessions.create params.
+ * Snippets use the first-party Kupe SDK (pip install kupe / npm i @kupe/sdk).
+ * Paths always join as {base}/v1/... so the OpenAI absolute-path 404 cannot recur.
  */
 function buildSnippet(lang: SdkLang, apiKey: string): string {
   switch (lang) {
     case "typescript":
-      return `import OpenAI from "openai";
+      return `// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
 
-const client = new OpenAI({
-  apiKey: "${apiKey}",
-  baseURL: "${API_BASE_URL}/v1",
+const kupe = new Kupe({ apiKey: "${apiKey}" });
+const session = await kupe.realtime.sessions.create({
+  agent_id: "${SAMPLE_AGENT}",
+  voice: "${SAMPLE_VOICE}",
 });
-
-// Mint ephemeral session — agent_id is required by Kupe
-type KupeSession = {
-  client_secret: { value: string };
-  websocket_url: string;
-};
-
-const session = (await client.post("/realtime/sessions", {
-  body: {
-    agent_id: "${SAMPLE_AGENT}",
-    voice: "${SAMPLE_VOICE}",
-  },
-})) as KupeSession;
-
-const secret = session.client_secret.value;
-const ws = new WebSocket(
-  \`\${session.websocket_url}?model=kupe-realtime&client_secret=\${secret}\`,
-);
-
-ws.onopen = () => {
-  // Text turn demo (mic uses PCM16 mono @ 24 kHz via input_audio_buffer.append)
-  ws.send(
-    JSON.stringify({
-      type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "user",
-        content: [
-          {
-            type: "input_text",
-            text: "Hi Priya — remind this customer their EMI is due tomorrow.",
-          },
-        ],
-      },
-    }),
-  );
-  ws.send(JSON.stringify({ type: "response.create" }));
-};
-
-ws.onmessage = (ev) => {
-  const msg = JSON.parse(String(ev.data));
-  if (msg.type === "response.output_audio.delta") {
-    // msg.delta → base64 PCM16 — enqueue on your audio player
+const rt = await kupe.realtime.connect(session);
+rt.sendText("Hi Priya — remind this customer their EMI is due tomorrow.");
+for await (const event of rt) {
+  if (event.type === "response.output_audio_transcript.done") {
+    console.log("agent:", event.transcript);
   }
-  if (msg.type === "response.output_audio_transcript.done") {
-    console.log("agent:", msg.transcript);
-  }
-};`;
+}`;
     case "python":
-      return `import json
+      return `# pip install kupe
+from kupe import Kupe
 
-from openai import OpenAI
-from pydantic import BaseModel, ConfigDict
-import websocket  # pip install websocket-client
-
-class KupeSession(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    client_secret: dict
-    websocket_url: str
-
-
-client = OpenAI(
-    api_key="${apiKey}",
-    base_url="${API_BASE_URL}/v1",
+client = Kupe(api_key="${apiKey}")
+session = client.realtime.sessions.create(
+    agent_id="${SAMPLE_AGENT}",
+    voice="${SAMPLE_VOICE}",
 )
-
-# Mint ephemeral session — agent_id is required by Kupe
-session = client.post(
-    "/realtime/sessions",
-    body={
-        "agent_id": "${SAMPLE_AGENT}",
-        "voice": "${SAMPLE_VOICE}",
-    },
-    cast_to=KupeSession,
-)
-
-secret = session.client_secret["value"]
-ws_url = f"{session.websocket_url}?model=kupe-realtime&client_secret={secret}"
-
-
-def on_open(ws):
-    # Text turn demo (mic uses PCM16 mono @ 24 kHz via input_audio_buffer.append)
-    ws.send(
-        json.dumps(
-            {
-                "type": "conversation.item.create",
-                "item": {
-                    "type": "message",
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": "Hi Priya — remind this customer their EMI is due tomorrow.",
-                        }
-                    ],
-                },
-            }
-        )
-    )
-    ws.send(json.dumps({"type": "response.create"}))
-
-
-def on_message(_ws, message):
-    msg = json.loads(message)
-    if msg.get("type") == "response.output_audio.delta":
-        # msg["delta"] → base64 PCM16 — enqueue on your audio player
-        return
-    if msg.get("type") == "response.output_audio_transcript.done":
-        print("agent:", msg.get("transcript"))
-
-
-ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message)
-ws.run_forever()`;
+with client.realtime.connect(session) as rt:
+    rt.send_text("Hi Priya — remind this customer their EMI is due tomorrow.")
+    for event in rt:
+        if event.type == "response.output_audio_transcript.done":
+            print("agent:", event.transcript)`;
     case "curl":
       return `# 1) Mint a session (returns client_secret + websocket_url)
 curl -sS -X POST "${API_BASE_URL}/v1/realtime/sessions" \\
@@ -170,6 +81,44 @@ curl -sS -X POST "${API_BASE_URL}/v1/realtime/sessions" \\
 # 3) After connect, send a text turn then ask for a response:
 # {"type":"conversation.item.create","item":{"type":"message","role":"user","content":[{"type":"input_text","text":"Remind them their EMI is due tomorrow."}]}}
 # {"type":"response.create"}`;
+  }
+}
+
+export function cursorMcpConfig(apiKey: string): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        kupe: {
+          url: MCP_REMOTE_URL,
+          headers: { Authorization: `Bearer ${apiKey}` },
+        },
+      },
+    },
+    null,
+    2,
+  );
+}
+
+function claudeCodeMcpConfig(apiKey: string): string {
+  return `claude mcp add --transport http kupe ${MCP_REMOTE_URL} --header "Authorization: Bearer ${apiKey}"`;
+}
+
+function codexMcpConfig(apiKey: string): string {
+  return `[mcp_servers.kupe]
+url = "${MCP_REMOTE_URL}"
+[mcp_servers.kupe.http_headers]
+Authorization = "Bearer ${apiKey}"
+`;
+}
+
+function mcpSetupPayload(tool: CodingTool, apiKey: string): { text: string; title: string } {
+  switch (tool) {
+    case "cursor":
+      return { text: cursorMcpConfig(apiKey), title: "Copied Cursor MCP config" };
+    case "claude":
+      return { text: claudeCodeMcpConfig(apiKey), title: "Copied Claude Code MCP command" };
+    case "codex":
+      return { text: codexMcpConfig(apiKey), title: "Copied Codex MCP config" };
   }
 }
 
@@ -254,10 +203,10 @@ function highlightCode(code: string, lang: SdkLang): string {
     return esc
       .replace(/(#.*)$/gm, '<span class="tok-comment">$1</span>')
       .replace(
-        /\b(import|from|as|def|return|if|elif|else|pass|True|False|None|f)\b/g,
+        /\b(import|from|as|def|return|if|elif|else|pass|True|False|None|with|for|in|f)\b/g,
         '<span class="tok-keyword">$1</span>',
       )
-      .replace(/\b(print|json|OpenAI|WebSocketApp|dumps|loads|get)\b/g, '<span class="tok-fn">$1</span>')
+      .replace(/\b(print|Kupe|connect|send_text)\b/g, '<span class="tok-fn">$1</span>')
       .replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;)/g, '<span class="tok-string">$1</span>')
       .replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>');
   }
@@ -266,11 +215,11 @@ function highlightCode(code: string, lang: SdkLang): string {
   return esc
     .replace(/(\/\/.*)$/gm, '<span class="tok-comment">$1</span>')
     .replace(
-      /\b(import|from|const|let|var|await|async|new|return|if|else|typeof|export|default)\b/g,
+      /\b(import|from|const|let|var|await|async|new|return|if|else|typeof|export|default|for|of)\b/g,
       '<span class="tok-keyword">$1</span>',
     )
-    .replace(/\b(OpenAI|WebSocket|JSON|console|String)\b/g, '<span class="tok-type">$1</span>')
-    .replace(/\b(post|send|stringify|parse|log|onopen|onmessage)\b/g, '<span class="tok-fn">$1</span>')
+    .replace(/\b(Kupe|JSON|console|String)\b/g, '<span class="tok-type">$1</span>')
+    .replace(/\b(create|connect|sendText|log)\b/g, '<span class="tok-fn">$1</span>')
     .replace(/(&quot;[^&]*&quot;|&#39;[^&]*&#39;|`[^`]*`)/g, '<span class="tok-string">$1</span>')
     .replace(/\b(\d+)\b/g, '<span class="tok-number">$1</span>');
 }
@@ -513,6 +462,16 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
     window.setTimeout(() => setCopiedKey(false), 1600);
   }
 
+  async function copyCodingToolSetup(tool: CodingTool) {
+    const secret = fullKey ?? (await ensureFullSecret());
+    if (!secret) return;
+    const { text, title } = mcpSetupPayload(tool, secret);
+    await navigator.clipboard.writeText(text);
+    toast.message(title, {
+      description: `Includes your API key — keep it private. ${MCP_STDIO_HINT}`,
+    });
+  }
+
   const displayKey = activeKey
     ? maskApiKey(activeKey.key_prefix, fullKey, keyRevealed)
     : loadingKey
@@ -538,17 +497,13 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem
-                  onSelect={() =>
-                    toast.message("Cursor setup (demo)", { description: "Prompt pack copied." })
-                  }
-                >
+                <DropdownMenuItem onSelect={() => void copyCodingToolSetup("cursor")}>
                   Cursor
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => toast.message("Claude Code setup (demo)")}>
+                <DropdownMenuItem onSelect={() => void copyCodingToolSetup("claude")}>
                   Claude Code
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => toast.message("Codex setup (demo)")}>
+                <DropdownMenuItem onSelect={() => void copyCodingToolSetup("codex")}>
                   Codex
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -568,7 +523,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             <div className="min-w-0">
               <h2 className="text-xl font-semibold tracking-tight md:text-2xl">Kupe Realtime API</h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                OpenAI SDK · baseURL {API_BASE_URL}/v1 · model{" "}
+                Kupe SDK · model{" "}
                 <span className="font-mono text-foreground/80">kupe-realtime</span>
               </p>
             </div>
@@ -624,7 +579,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           <div className="mt-5 w-full max-w-xl text-left">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
-                {LANG_LABEL[lang]} · OpenAI SDK
+                {LANG_LABEL[lang]} · {lang === "curl" ? "HTTP" : "Kupe SDK"}
               </p>
               <div className="flex items-center gap-1.5">
                 <Tabs value={lang} onValueChange={(v) => setLang(v as SdkLang)}>

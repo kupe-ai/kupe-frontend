@@ -54,7 +54,7 @@ export default function VoiceAgentsDeployCodePage() {
       <section className="mt-10 text-left">
         <h1 className="text-display">Build voice agents with code</h1>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Drop in the OpenAI Realtime SDK, point it at Kupe, and start streaming voice from your browser or backend.
+          Install the Kupe SDK, mint a realtime session, and start streaming voice from your browser or backend.
         </p>
       </section>
 

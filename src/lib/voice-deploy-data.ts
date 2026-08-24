@@ -48,6 +48,14 @@ export interface DeployApiCard {
 /** Base URL shown in generated snippets — never a real secret, just the API host. */
 export const API_BASE_URL = "https://x.kupe.in";
 
+function sdkPython(code: string): { id: string; label: string; code: string } {
+  return { id: "python", label: "python", code };
+}
+
+function sdkTypescript(code: string): { id: string; label: string; code: string } {
+  return { id: "typescript", label: "typescript", code };
+}
+
 export interface DeployRecipe {
   slug: DeployRecipeSlug;
   title: string;
@@ -60,39 +68,47 @@ export const DEPLOY_API_CARDS: DeployApiCard[] = [
   {
     slug: "kupe-realtime-api",
     title: "Kupe Realtime API",
-    description: "OpenAI-compatible WebSocket for browser and SDK voice: k-STT, k-TTS, and Kupe LLM.",
+    description: "Python and TypeScript SDK for browser and backend voice: k-STT, k-TTS, and Kupe LLM.",
     kind: "code",
     tone: "violet",
-    headline: "Drop in the OpenAI Realtime SDK. Change the base URL.",
+    headline: "Install the Kupe SDK. Mint a session and stream voice.",
     about:
-      "Kupe Realtime is an OpenAI-compatible voice WebSocket (model kupe-realtime). Mint a session with POST /v1/realtime/sessions, connect to wss://x.kupe.in/v1/realtime, and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name. Tools run server-side. This API is web-only and does not write telephony minutes.",
+      "Kupe Realtime is a voice WebSocket (model kupe-realtime). Use pip install kupe or npm i @kupe/sdk to mint a session with realtime.sessions.create, then connect and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name. Tools run server-side. This API is web-only and does not write telephony minutes.",
     endpoints: [
       { method: "POST", path: "/v1/realtime/sessions", summary: "Mint an ephemeral client secret and hydrate the agent." },
       { method: "GET", path: "/v1/realtime", summary: "WebSocket (upgrade). Query model=kupe-realtime." },
     ],
     curlTabs: [
-      {
-        id: "openai-sdk",
-        label: "openai-sdk",
-        code: `import OpenAI from "openai";
+      sdkPython(`# pip install kupe
+from kupe import Kupe
 
-const client = new OpenAI({
-  apiKey: process.env.KUPE_API_KEY,
-  baseURL: "https://x.kupe.in/v1",
-});
+client = Kupe()  # KUPE_API_KEY
+session = client.realtime.sessions.create(agent_id="agt_...", voice="priya")
+with client.realtime.connect(session) as rt:
+    rt.send_text("Hi — remind them EMI is due tomorrow.")
+    for event in rt:
+        if event.type == "response.output_audio_transcript.done":
+            print(event.transcript)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
 
-const session = await client.beta.realtime.sessions.create({
-  model: "kupe-realtime",
+const kupe = new Kupe(); // KUPE_API_KEY
+const session = await kupe.realtime.sessions.create({
   agent_id: "agt_...",
   voice: "priya",
 });
-
-// session.client_secret.value → connect wss://x.kupe.in/v1/realtime
-`,
-      },
+const rt = await kupe.realtime.connect(session);
+rt.sendText("Hi — remind them EMI is due tomorrow.");
+for await (const event of rt) {
+  if (event.type === "response.output_audio_transcript.done") {
+    console.log(event.transcript);
+  }
+}
+`),
       {
         id: "mint-session",
-        label: "mint-session",
+        label: "curl",
         code: `curl -X POST ${API_BASE_URL}/v1/realtime/sessions \\
   -H "Authorization: Bearer $KUPE_API_KEY" \\
   -H "Content-Type: application/json" \\
@@ -145,6 +161,32 @@ const session = await client.beta.realtime.sessions.create({
       { method: "GET", path: "/v1/orgs/{org_id}/sessions", summary: "List sessions for an org, paginated." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+session = client.sessions.create(
+    org_id="<org_id>",
+    project_id="<project_id>",
+    agent_id="<agent_id>",
+    channel="telephony",
+    provider="plivo",
+)
+print(session.id)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const session = await kupe.sessions.create({
+  org_id: "<org_id>",
+  project_id: "<project_id>",
+  agent_id: "<agent_id>",
+  channel: "telephony",
+  provider: "plivo",
+});
+console.log(session.id);
+`),
       {
         id: "create-call",
         label: "create-call",
@@ -192,6 +234,34 @@ const session = await client.beta.realtime.sessions.create({
       { method: "POST", path: "/v1/batches/{batch_id}/cancel", summary: "Cancel a batch permanently." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+batch = client.campaigns.create(
+    org_id="<org_id>",
+    project_id="<project_id>",
+    agent_id="<agent_id>",
+    telephony_account_id="<telephony_account_id>",
+    name="Q3 renewal dials",
+    max_concurrent_calls=5,
+)
+client.campaigns.start(batch.id)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const batch = await kupe.campaigns.create({
+  org_id: "<org_id>",
+  project_id: "<project_id>",
+  agent_id: "<agent_id>",
+  telephony_account_id: "<telephony_account_id>",
+  name: "Q3 renewal dials",
+  max_concurrent_calls: 5,
+});
+await kupe.campaigns.start(batch.id);
+`),
       {
         id: "create-batch",
         label: "create-batch",
@@ -250,6 +320,31 @@ curl -X POST ${API_BASE_URL}/v1/batches/<batch_id>/pause \\
       { method: "GET", path: "/v1/batches/{batch_id}/contacts", summary: "Campaign people — pass cursor= for keyset pages." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+lst = client.recipient_lists.create(
+    org_id="<org_id>",
+    project_id="<project_id>",
+    name="Q3 renewals — West",
+)
+client.campaigns.attach_list(batch_id="<batch_id>", recipient_list_id=lst.id)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const list = await kupe.recipientLists.create({
+  org_id: "<org_id>",
+  project_id: "<project_id>",
+  name: "Q3 renewals — West",
+});
+await kupe.campaigns.attachList({
+  batch_id: "<batch_id>",
+  recipient_list_id: list.id,
+});
+`),
       {
         id: "create-list",
         label: "create-list",
@@ -306,6 +401,32 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       { method: "GET", path: "/v1/orgs/{org_id}/telephony-accounts", summary: "List connected telephony accounts." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+client.inbound.create(
+    org_id="<org_id>",
+    project_id="<project_id>",
+    agent_id="<agent_id>",
+    telephony_account_id="<telephony_account_id>",
+    name="Support inbound",
+    availability={"always": True, "timezone": "Asia/Kolkata"},
+)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+await kupe.inbound.create({
+  org_id: "<org_id>",
+  project_id: "<project_id>",
+  agent_id: "<agent_id>",
+  telephony_account_id: "<telephony_account_id>",
+  name: "Support inbound",
+  availability: { always: true, timezone: "Asia/Kolkata" },
+});
+`),
       {
         id: "create-inbound",
         label: "create-inbound",
@@ -410,6 +531,20 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       { method: "GET", path: "/v1/orgs/{org_id}/usage/standalone", summary: "Non-call usage such as Voice Library TTS." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+transcript = client.logs.transcript("<session_id>")
+print(transcript)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const transcript = await kupe.logs.transcript("<session_id>");
+console.log(transcript);
+`),
       {
         id: "get-transcript",
         label: "get-transcript",
@@ -446,6 +581,20 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       { method: "GET", path: "/v1/agents/{agent_id}/databases", summary: "List databases attached to an agent (lazy-provisions a default)." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+rows = client.databases.rows.list("<database_id>", limit=50)
+client.databases.export("<database_id>", format="csv")
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const rows = await kupe.databases.rows.list("<database_id>", { limit: 50 });
+await kupe.databases.export("<database_id>", { format: "csv" });
+`),
       {
         id: "list-rows",
         label: "list-rows",
@@ -477,6 +626,22 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       { method: "GET", path: "/v1/orgs/{org_id}/usage/cost-summary", summary: "Period usage total in the requested currency." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+wallet = client.billing.wallet.retrieve("<org_id>", currency="USD")
+invoices = client.billing.invoices.list("<org_id>", currency="USD")
+print(wallet.balance, invoices)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const wallet = await kupe.billing.wallet.retrieve("<org_id>", { currency: "USD" });
+const invoices = await kupe.billing.invoices.list("<org_id>", { currency: "USD" });
+console.log(wallet.balance, invoices);
+`),
       {
         id: "wallet",
         label: "wallet",
@@ -514,6 +679,32 @@ curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?limit=50&cursor=" \\
       { method: "DELETE", path: "/v1/agents/{agent_id}/tools/{tool_id}", summary: "Detach a tool." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+agent = client.agents.create(
+    org_id="<org_id>",
+    project_id="<project_id>",
+    name="Support line",
+    system_prompt="You are a helpful support agent for Acme.",
+)
+client.agents.update(agent.id, greeting="Hi, thanks for calling Acme — how can I help?")
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+
+const kupe = new Kupe();
+const agent = await kupe.agents.create({
+  org_id: "<org_id>",
+  project_id: "<project_id>",
+  name: "Support line",
+  system_prompt: "You are a helpful support agent for Acme.",
+});
+await kupe.agents.update(agent.id, {
+  greeting: "Hi, thanks for calling Acme — how can I help?",
+});
+`),
       {
         id: "create-agent",
         label: "create-agent",
@@ -718,6 +909,22 @@ curl -X PATCH ${API_BASE_URL}/v1/agents/<agent_id> \\
       { method: "GET", path: "/v1/voices/{voice_id}/usage", summary: "How many live agents still use this cloned voice." },
     ],
     curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+voice = client.voices.clone(name="Priya", sample=open("priya-sample.wav", "rb"))
+print(voice.id)
+`),
+      sdkTypescript(`// npm i @kupe/sdk
+import { Kupe } from "@kupe/sdk";
+import { readFile } from "node:fs/promises";
+
+const kupe = new Kupe();
+const sample = await readFile("priya-sample.wav");
+const voice = await kupe.voices.clone({ name: "Priya", sample, is_public: false });
+console.log(voice.id);
+`),
       {
         id: "clone-voice",
         label: "clone-voice",
