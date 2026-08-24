@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { DOCS_URL } from "@/config";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import {
   AsciiEmptyState,
@@ -138,14 +139,12 @@ export default function VoiceAgentsKnowledgePage() {
               <Button
                 variant="outline"
                 className="rounded-full"
-                onClick={() =>
-                  toast.message("Docs (demo)", {
-                    description: "Documentation link is not wired yet.",
-                  })
-                }
+                asChild
               >
-                Read docs
-                <ExternalLink className="size-3.5" />
+                <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                  Read docs
+                  <ExternalLink className="size-3.5" />
+                </a>
               </Button>
               <Button className="group/nav rounded-full" onClick={() => setCreateOpen(true)}>
                 <KupeIcon name="plus" className="size-4" />

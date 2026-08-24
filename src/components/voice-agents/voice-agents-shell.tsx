@@ -9,6 +9,7 @@ import { NavItemIcon } from "@/components/voice-agents/nav-item-icon";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
+  isExternalHref,
   isVoiceAgentsNavActive,
 } from "@/lib/voice-agents-nav";
 
@@ -27,20 +28,29 @@ function NavLinkRow({
   active: boolean;
   collapsed?: boolean;
 }) {
-  return (
-    <Link
-      to={href}
-      title={collapsed ? label : undefined}
-      className={cn(
-        "group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
-        collapsed && "justify-center px-2",
-        active
-          ? "bg-muted font-medium text-foreground"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-      )}
-    >
+  const className = cn(
+    "group/nav flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors",
+    collapsed && "justify-center px-2",
+    active
+      ? "bg-muted font-medium text-foreground"
+      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+  );
+  const body = (
+    <>
       <NavItemIcon id={id} icon={icon} className="size-5" />
       {!collapsed && <span className="truncate">{label}</span>}
+    </>
+  );
+  if (isExternalHref(href)) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" title={collapsed ? label : undefined} className={className}>
+        {body}
+      </a>
+    );
+  }
+  return (
+    <Link to={href} title={collapsed ? label : undefined} className={className}>
+      {body}
     </Link>
   );
 }

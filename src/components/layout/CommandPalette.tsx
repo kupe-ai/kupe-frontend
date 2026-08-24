@@ -12,6 +12,7 @@ import { KupeIcon, type KupeIconName } from "@/components/icons/kupe-icon";
 import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
+  isExternalHref,
   isVoiceAgentsNavActive,
 } from "@/lib/voice-agents-nav";
 import { pushRecentActivity, readRecentActivity } from "@/lib/recent-activity";
@@ -108,6 +109,10 @@ export function CommandPalette({
     if (isSettingsHref(href)) {
       if (settings?.openSettings()) return;
       navigate(href);
+      return;
+    }
+    if (isExternalHref(href)) {
+      window.open(href, "_blank", "noopener,noreferrer");
       return;
     }
     navigate(href);

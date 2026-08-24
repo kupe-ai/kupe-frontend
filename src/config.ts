@@ -15,5 +15,8 @@ export const HARNESS_URL = isProd
 export const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY || "";
 export const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
 
+/** Public API docs (Mintlify). Sidebar Documentation and in-app “Read docs” links. */
+export const DOCS_URL = import.meta.env.VITE_DOCS_URL || "https://docs.kupe.in";
+
 export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "";
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";

@@ -28,6 +28,7 @@ import {
   VOICE_AGENTS_FOOTER_NAV,
   VOICE_AGENTS_NAV,
   filterNavByFlags,
+  isExternalHref,
   isVoiceAgentsNavActive,
 } from "@/lib/voice-agents-nav";
 import { useFeatureFlags } from "@/context/feature-flags-context";
@@ -67,6 +68,7 @@ function NavLinks({
           )}
           {items.map((item) => {
             const isSettings = item.href === SETTINGS_HREF;
+            const external = isExternalHref(item.href);
             const active = isSettings
               ? Boolean(settings?.open)
               : isVoiceAgentsNavActive(pathname, item.href);
@@ -78,6 +80,10 @@ function NavLinks({
               if (isSettings) {
                 if (settings?.openSettings()) return;
                 navigate(item.href);
+                return;
+              }
+              if (external) {
+                window.open(item.href, "_blank", "noopener,noreferrer");
                 return;
               }
               navigate(item.href);
@@ -104,6 +110,21 @@ function NavLinks({
                 {icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
               </button>
+            ) : external ? (
+              <a
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  pushRecentActivity(item.href, item.label);
+                  onNavigate?.();
+                }}
+                style={{ animationDelay: `${delay}ms` }}
+                className={className}
+              >
+                {icon}
+                {!collapsed && <span className="truncate">{item.label}</span>}
+              </a>
             ) : (
               <Link
                 to={item.href}

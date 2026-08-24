@@ -1,34 +1,23 @@
 "use client";
 
 import { useEffect } from "react";
-import { Link } from "react-router-dom";
-import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
-import { Button } from "@/components/ui/button";
+import { DOCS_URL } from "@/config";
 
+/** Legacy in-app docs route — send users to the public docs site. */
 export default function VoiceAgentsDocsPage() {
   useEffect(() => {
-    document.title = "Documentation · Voice Agents · Kupe";
+    window.location.replace(DOCS_URL);
   }, []);
 
   return (
-    <div className="voice-page voice-page-narrow">
-      <p className="text-caption">Documentation</p>
-      <AsciiEmptyState
-        kind="docs"
-        tone="sky"
-        title="Build, test, and deploy voice agents"
-        description="Guides for voice agents, Databases, and campaigns."
-        actions={
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild variant="outline" className="rounded-full">
-              <Link to="/deploy-with-code/apis/databases">Databases API</Link>
-            </Button>
-            <Button asChild variant="outline" className="rounded-full">
-              <Link to="/">Back to Home</Link>
-            </Button>
-          </div>
-        }
-      />
+    <div className="voice-page voice-page-narrow flex min-h-[40vh] items-center justify-center">
+      <p className="text-sm text-muted-foreground">
+        Opening{" "}
+        <a href={DOCS_URL} className="underline underline-offset-2">
+          {DOCS_URL}
+        </a>
+        …
+      </p>
     </div>
   );
 }

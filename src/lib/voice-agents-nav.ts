@@ -1,4 +1,5 @@
 import type { KupeIconName } from "@/components/icons/kupe-icon";
+import { DOCS_URL } from "@/config";
 
 export interface VoiceAgentsNavItem {
   id: string;
@@ -142,10 +143,14 @@ export const VOICE_AGENTS_FOOTER_NAV: VoiceAgentsNavItem[] = [
   {
     id: "docs",
     label: "Documentation",
-    href: "/documentation",
+    href: DOCS_URL,
     icon: "book",
   },
 ];
+
+export function isExternalHref(href: string) {
+  return /^https?:\/\//i.test(href);
+}
 
 export function filterNavByFlags<T extends { flag?: string }>(
   items: T[],
@@ -155,6 +160,7 @@ export function filterNavByFlags<T extends { flag?: string }>(
 }
 
 export function isVoiceAgentsNavActive(pathname: string, href: string) {
+  if (isExternalHref(href)) return false;
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(href + "/");
 }

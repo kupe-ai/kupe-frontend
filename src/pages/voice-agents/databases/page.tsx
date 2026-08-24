@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ExternalLink, MoreVertical, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { DOCS_URL } from "@/config";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { VoicePageHeader, VoicePagination } from "@/components/voice-agents/shared";
@@ -115,10 +116,10 @@ export default function VoiceAgentsDatabasesPage() {
           actions={
             <>
               <Button variant="outline" className="rounded-full" asChild>
-                <Link to="/deploy-with-code/apis/databases">
+                <a href={DOCS_URL} target="_blank" rel="noreferrer">
                   Read docs
                   <ExternalLink className="size-3.5" />
-                </Link>
+                </a>
               </Button>
               <Button className="group/nav rounded-full" onClick={() => setCreateOpen(true)}>
                 <KupeIcon name="plus" className="size-4" />

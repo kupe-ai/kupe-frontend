@@ -9,6 +9,7 @@ import { VoicePageHeader } from "@/components/voice-agents/shared";
 import { ModernIcon } from "@/components/icons/modern-icon";
 import { Button } from "@/components/ui/button";
 import { DEPLOY_API_CARDS, DEPLOY_RECIPES } from "@/lib/voice-deploy-data";
+import { DOCS_URL } from "@/config";
 import { useSettingsDialogOptional } from "@/components/settings/settings-dialog-context";
 
 export default function VoiceAgentsDeployCodePage() {
@@ -37,15 +38,11 @@ export default function VoiceAgentsDeployCodePage() {
               <ModernIcon name="key" className="size-3.5" />
               API keys
             </Button>
-            <Button
-              variant="outline"
-              className="group/nav rounded-full"
-              onClick={() =>
-                navigate("/deploy-with-code/recipes/moengage")
-              }
-            >
-              <ModernIcon name="book" className="size-3.5" />
-              Read docs
+            <Button variant="outline" className="group/nav rounded-full" asChild>
+              <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                <ModernIcon name="book" className="size-3.5" />
+                Read docs
+              </a>
             </Button>
           </div>
         }
