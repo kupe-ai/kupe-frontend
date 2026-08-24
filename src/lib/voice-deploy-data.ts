@@ -77,7 +77,7 @@ export const DEPLOY_API_CARDS: DeployApiCard[] = [
     tone: "violet",
     headline: "Install the Kupe SDK. Mint a session and stream voice.",
     about:
-      "Kupe Realtime is a voice WebSocket (model kupe-realtime). Use pip install kupe or npm i @kupe/sdk to mint a session with realtime.sessions.create, then connect and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name. Tools run server-side. This API is web-only and does not write telephony minutes.",
+      "Kupe Realtime is a voice WebSocket (model kupe-realtime). Use pip install kupe or npm i @kupeai/sdk to mint a session with realtime.sessions.create, then connect and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name. Tools run server-side. This API is web-only and does not write telephony minutes.",
     endpoints: [
       { method: "POST", path: "/v1/realtime/sessions", summary: "Mint an ephemeral client secret and hydrate the agent." },
       { method: "GET", path: "/v1/realtime", summary: "WebSocket (upgrade). Query model=kupe-realtime." },
@@ -94,8 +94,8 @@ with client.realtime.connect(session) as rt:
         if event.type == "response.output_audio_transcript.done":
             print(event.transcript)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe(); // KUPE_API_KEY
 const session = await kupe.realtime.sessions.create({
@@ -249,8 +249,8 @@ session = client.sessions.create(
 )
 print(session.id)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const session = await kupe.sessions.create({
@@ -323,8 +323,8 @@ batch = client.campaigns.create(
 )
 client.campaigns.start(batch.id)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const batch = await kupe.campaigns.create({
@@ -406,8 +406,8 @@ lst = client.recipient_lists.create(
 )
 client.campaigns.attach_list(batch_id="<batch_id>", recipient_list_id=lst.id)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const list = await kupe.recipientLists.create({
@@ -489,8 +489,8 @@ client.inbound.create(
     availability={"always": True, "timezone": "Asia/Kolkata"},
 )
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 await kupe.inbound.create({
@@ -613,8 +613,8 @@ client = Kupe()
 transcript = client.logs.transcript("<session_id>")
 print(transcript)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const transcript = await kupe.logs.transcript("<session_id>");
@@ -663,8 +663,8 @@ client = Kupe()
 rows = client.databases.rows.list("<database_id>", limit=50)
 client.databases.export("<database_id>", format="csv")
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const rows = await kupe.databases.rows.list("<database_id>", { limit: 50 });
@@ -709,8 +709,8 @@ wallet = client.billing.wallet.retrieve("<org_id>", currency="USD")
 invoices = client.billing.invoices.list("<org_id>", currency="USD")
 print(wallet.balance, invoices)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const wallet = await kupe.billing.wallet.retrieve("<org_id>", { currency: "USD" });
@@ -766,8 +766,8 @@ agent = client.agents.create(
 )
 client.agents.update(agent.id, greeting="Hi, thanks for calling Acme — how can I help?")
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 
 const kupe = new Kupe();
 const agent = await kupe.agents.create({
@@ -991,8 +991,8 @@ client = Kupe()
 voice = client.voices.clone(name="Priya", sample=open("priya-sample.wav", "rb"))
 print(voice.id)
 `),
-      sdkTypescript(`// npm i @kupe/sdk
-import { Kupe } from "@kupe/sdk";
+      sdkTypescript(`// npm i @kupeai/sdk
+import { Kupe } from "@kupeai/sdk";
 import { readFile } from "node:fs/promises";
 
 const kupe = new Kupe();
