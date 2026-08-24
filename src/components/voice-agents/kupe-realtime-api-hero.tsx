@@ -29,13 +29,13 @@ const MCP_STDIO_HINT =
   "Stdio fallback: uvx kupe-mcp with KUPE_API_KEY, or python -m app.server --mcp.";
 
 /**
- * Snippets use the first-party Kupe SDK (pip install kupe / npm i kupe-sdk).
+ * Snippets use the first-party Kupe SDK (pip install kupe / npm install kupe-sdk).
  * Paths always join as {base}/v1/... so the OpenAI absolute-path 404 cannot recur.
  */
 function buildSnippet(lang: SdkLang, apiKey: string): string {
   switch (lang) {
     case "typescript":
-      return `// npm i kupe-sdk
+      return `// npm install kupe-sdk
 import { Kupe } from "kupe-sdk";
 
 const kupe = new Kupe({ apiKey: "${apiKey}" });
