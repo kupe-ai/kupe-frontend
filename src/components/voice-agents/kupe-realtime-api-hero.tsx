@@ -186,6 +186,49 @@ function snippetApiKey(prefix: string | null | undefined, fullKey: string | null
   return "sk-kupe-YOUR_KEY";
 }
 
+const SECRET_STORE_KEY = "kupe.deploy.apiKeySecrets";
+
+function readSecretStore(): Record<string, string> {
+  try {
+    const raw = sessionStorage.getItem(SECRET_STORE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function rememberSecret(id: string, key: string) {
+  try {
+    const store = readSecretStore();
+    store[id] = key;
+    sessionStorage.setItem(SECRET_STORE_KEY, JSON.stringify(store));
+  } catch {
+    // private mode / quota — ignore
+  }
+}
+
+function recallSecret(id: string): string | null {
+  const value = readSecretStore()[id];
+  return typeof value === "string" && value.startsWith("sk-") ? value : null;
+}
+
+function applyCreatedSecret(
+  row: VoiceApiKey,
+  setActiveKey: (k: VoiceApiKey) => void,
+  setFullKey: (k: string) => void,
+  setKeyRevealed: (v: boolean) => void,
+) {
+  setActiveKey(row);
+  if (row.key) {
+    rememberSecret(row.id, row.key);
+    setFullKey(row.key);
+    setKeyRevealed(true);
+  }
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -382,15 +425,13 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
         )[0]!;
         setActiveKey(latest);
+        const remembered = recallSecret(latest.id);
+        if (remembered) setFullKey(remembered);
         return latest;
       }
       if (createIfMissing) {
         const row = await createVoiceApiKey(`Deploy key ${new Date().toLocaleDateString()}`);
-        setActiveKey(row);
-        if (row.key) {
-          setFullKey(row.key);
-          setKeyRevealed(true);
-        }
+        applyCreatedSecret(row, setActiveKey, setFullKey, setKeyRevealed);
         return row;
       }
       return null;
@@ -412,12 +453,10 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
     setGenerating(true);
     try {
       const row = await createVoiceApiKey(`Deploy key ${new Date().toLocaleDateString()}`);
-      setActiveKey(row);
+      applyCreatedSecret(row, setActiveKey, setFullKey, setKeyRevealed);
       if (row.key) {
-        setFullKey(row.key);
-        setKeyRevealed(true);
         void navigator.clipboard.writeText(row.key);
-        toast.message("API key generated", { description: "Copied to clipboard — store it securely." });
+        toast.message("API key generated", { description: "Full key copied to clipboard — store it securely." });
       }
     } catch {
       toast.error("Couldn't generate API key");
@@ -439,31 +478,38 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const copySnippet = useMemo(() => buildSnippet(lang, copyKeyLiteral), [lang, copyKeyLiteral]);
   const highlighted = useMemo(() => highlightCode(displaySnippet, lang), [displaySnippet, lang]);
 
+  async function ensureFullSecret(): Promise<string | null> {
+    if (fullKey) return fullKey;
+    try {
+      const row = await createVoiceApiKey(`Deploy key ${new Date().toLocaleDateString()}`);
+      applyCreatedSecret(row, setActiveKey, setFullKey, setKeyRevealed);
+      return row.key ?? null;
+    } catch {
+      toast.error("Couldn't create API key");
+      return null;
+    }
+  }
+
   async function copyCode() {
-    await navigator.clipboard.writeText(copySnippet);
+    let snippet = copySnippet;
+    if (!fullKey) {
+      const secret = await ensureFullSecret();
+      if (secret) snippet = buildSnippet(lang, secret);
+    }
+    await navigator.clipboard.writeText(snippet);
     setCopiedCode(true);
     toast.message("Copied SDK snippet", {
-      description: fullKey
-        ? "Includes your full API key — keep it private."
-        : activeKey
-          ? "Uses your key prefix — generate a key to embed the full secret."
-          : undefined,
+      description: "Includes your full API key — keep it private.",
     });
     window.setTimeout(() => setCopiedCode(false), 1600);
   }
 
   async function copyKey() {
-    const value = fullKey ?? activeKey?.key_prefix ?? "";
-    if (!value) return;
-    await navigator.clipboard.writeText(value);
+    const secret = fullKey ?? (await ensureFullSecret());
+    if (!secret) return;
+    await navigator.clipboard.writeText(secret);
     setCopiedKey(true);
-    if (!fullKey) {
-      toast.message("Copied key prefix", {
-        description: "Generate a new key to copy the full secret.",
-      });
-    } else {
-      toast.message("Copied API key");
-    }
+    toast.message("Copied full API key");
     window.setTimeout(() => setCopiedKey(false), 1600);
   }
 
@@ -563,9 +609,13 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
                 </Button>
               </div>
             </div>
-            {!fullKey && activeKey ? (
+            {fullKey ? (
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Showing prefix only — generate a new key to reveal the full secret once.
+                Copy pastes the full secret. Use reveal to show it once in this browser session.
+              </p>
+            ) : activeKey ? (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Prefix only — Copy or Generate creates a full secret you can paste.
               </p>
             ) : null}
           </div>
