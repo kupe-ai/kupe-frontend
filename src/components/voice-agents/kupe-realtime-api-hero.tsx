@@ -259,104 +259,71 @@ function stampSoft(frame: Frame, row: number, col: number, radius: number, peak:
       const d = Math.hypot(r - row, c - col);
       if (d > radius) continue;
       const falloff = 1 - d / radius;
-      const value = peak * (0.35 * falloff + 0.65 * falloff * falloff);
+      const value = peak * falloff * falloff;
       frame[r]![c] = Math.max(frame[r]![c]!, value);
     }
   }
 }
 
-/** Morphological dilation — thickens lit pixels for a bolder galaxy trail. */
-function dilateFrame(frame: Frame, passes = 2): Frame {
-  let current = frame.map((row) => [...row]);
-  for (let p = 0; p < passes; p++) {
-    const next = current.map((row) => [...row]);
-    for (let r = 0; r < current.length; r++) {
-      for (let c = 0; c < current[r]!.length; c++) {
-        let max = current[r]![c]!;
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            const nr = r + dr;
-            const nc = c + dc;
-            if (nr >= 0 && nr < current.length && nc >= 0 && nc < current[r]!.length) {
-              max = Math.max(max, current[nr]![nc]! * 0.94);
-            }
-          }
-        }
-        next[r]![c] = max;
-      }
-    }
-    current = next;
-  }
-  return current;
-}
-
-/** Continuous galaxy arms + ant-colony trails — sparse, organic, animated. */
-function buildColonyFrames(rows: number, cols: number, count = 36): Frame[] {
+/** Three animated blue spiral galaxies — sparse, organic, drifting. */
+function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
   const frames: Frame[] = [];
-  const cx = (cols - 1) / 2;
-  const cy = (rows - 1) / 2;
-  const maxR = Math.min(rows, cols) * 0.46;
-  const arms = 3;
-  const colonies = [
-    { x: cols * 0.22, y: rows * 0.28, drift: 0.9 },
-    { x: cols * 0.74, y: rows * 0.62, drift: 1.15 },
-    { x: cols * 0.38, y: rows * 0.78, drift: 0.75 },
+  const galaxies = [
+    { cx: cols * 0.28, cy: rows * 0.26, arms: 2, spin: 0.62, scale: 0.34, drift: 0.55 },
+    { cx: cols * 0.72, cy: rows * 0.48, arms: 2, spin: -0.48, scale: 0.38, drift: 0.72 },
+    { cx: cols * 0.42, cy: rows * 0.76, arms: 2, spin: 0.38, scale: 0.32, drift: 0.44 },
   ];
 
   for (let f = 0; f < count; f++) {
     const phase = (f / count) * Math.PI * 2;
     const frame = emptyFrame(rows, cols);
 
-    // Spiral galaxy arms
-    for (let arm = 0; arm < arms; arm++) {
-      const armOffset = (arm / arms) * Math.PI * 2;
-      for (let i = 0; i < 42; i++) {
-        const t = i / 41;
-        const angle = t * Math.PI * 3.4 + armOffset + phase * 0.55;
-        const radius = t * maxR;
-        const wobble = Math.sin(t * 9 + phase * 1.4 + arm) * (0.6 + t * 1.1);
-        const r = cy + Math.sin(angle) * radius + Math.cos(angle * 2) * wobble * 0.35;
-        const c = cx + Math.cos(angle) * radius + Math.sin(angle * 2) * wobble * 0.35;
-        const peak = 0.35 + (1 - t) * 0.55;
-        stampSoft(frame, r, c, 1.55 + (1 - t) * 0.75, peak);
-      }
-    }
+    for (let gi = 0; gi < galaxies.length; gi++) {
+      const g = galaxies[gi]!;
+      const maxR = Math.min(rows, cols) * g.scale;
+      const gx = g.cx + Math.sin(phase * g.drift + gi * 2.1) * (cols * 0.04);
+      const gy = g.cy + Math.cos(phase * g.drift * 0.85 + gi * 1.4) * (rows * 0.035);
 
-    // Soft galactic core
-    stampSoft(frame, cy, cx, 3.4, 0.95);
-    stampSoft(frame, cy + Math.sin(phase) * 0.4, cx + Math.cos(phase) * 0.4, 2.1, 1);
-
-    // Ant-colony clusters with continuous trails
-    for (let ci = 0; ci < colonies.length; ci++) {
-      const colony = colonies[ci]!;
-      const ox = colony.x + Math.sin(phase * colony.drift + ci * 1.7) * (cols * 0.08);
-      const oy = colony.y + Math.cos(phase * colony.drift * 0.85 + ci) * (rows * 0.07);
-      stampSoft(frame, oy, ox, 2.8, 0.95);
-
-      // Trail of ants walking in a loop from colony toward core
-      for (let s = 0; s < 18; s++) {
-        const u = s / 17;
-        const bend = Math.sin(u * Math.PI * 2 + phase + ci) * 1.8;
-        const r = oy * (1 - u) + cy * u + bend * 0.45;
-        const c = ox * (1 - u) + cx * u + Math.cos(u * Math.PI * 3 + phase) * bend * 0.35;
-        stampSoft(frame, r, c, 1.35, 0.35 + (1 - u) * 0.45);
-      }
-    }
-
-    // Sparse dust — only a few extra spark dots near arms
-    for (let d = 0; d < 8; d++) {
-      const a = phase * 0.7 + d * 0.9;
-      const rad = maxR * (0.35 + ((d * 17) % 10) / 18);
+      // Bright core
+      stampSoft(frame, gy, gx, 2.4, 0.95);
       stampSoft(
         frame,
-        cy + Math.sin(a) * rad,
-        cx + Math.cos(a * 1.1) * rad,
-        1.15,
-        0.5 + (d % 3) * 0.14,
+        gy + Math.sin(phase * g.spin * 1.2) * 0.35,
+        gx + Math.cos(phase * g.spin * 1.2) * 0.35,
+        1.5,
+        1,
       );
+
+      // Spiral arms per galaxy
+      for (let arm = 0; arm < g.arms; arm++) {
+        const armOffset = (arm / g.arms) * Math.PI * 2 + gi * 0.9;
+        for (let i = 0; i < 36; i++) {
+          const t = i / 35;
+          const angle = t * Math.PI * 3.2 + armOffset + phase * g.spin;
+          const radius = t * maxR;
+          const wobble = Math.sin(t * 8 + phase * 1.3 + arm + gi) * (0.5 + t * 0.9);
+          const r = gy + Math.sin(angle) * radius + Math.cos(angle * 2.1) * wobble * 0.3;
+          const c = gx + Math.cos(angle) * radius + Math.sin(angle * 2.1) * wobble * 0.3;
+          const peak = 0.32 + (1 - t) * 0.58;
+          stampSoft(frame, r, c, 1.1 + (1 - t) * 0.5, peak);
+        }
+      }
+
+      // Sparse star dust around each galaxy
+      for (let d = 0; d < 5; d++) {
+        const a = phase * 0.65 + d * 1.15 + gi * 2.4;
+        const rad = maxR * (0.45 + (d % 4) / 9);
+        stampSoft(
+          frame,
+          gy + Math.sin(a) * rad,
+          gx + Math.cos(a * 1.08) * rad,
+          0.75,
+          0.38 + (d % 2) * 0.14,
+        );
+      }
     }
 
-    frames.push(dilateFrame(frame, 2));
+    frames.push(frame);
   }
   return frames;
 }
@@ -371,7 +338,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const [copiedKey, setCopiedKey] = useState(false);
   const [lang, setLang] = useState<SdkLang>("typescript");
   const [matrixGrid, setMatrixGrid] = useState({ rows: 36, cols: 14, size: MATRIX_DOT });
-  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() => buildColonyFrames(36, 14));
+  const [matrixFrames, setMatrixFrames] = useState<Frame[]>(() => buildGalaxyFrames(36, 14));
   const matrixPanelRef = useRef<HTMLDivElement>(null);
   const bootstrappedRef = useRef(false);
 
@@ -387,7 +354,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
       const rows = Math.max(16, Math.ceil((height + MATRIX_GAP) / (size + MATRIX_GAP)));
       setMatrixGrid((prev) => {
         if (prev.rows === rows && prev.cols === cols && prev.size === size) return prev;
-        setMatrixFrames(buildColonyFrames(rows, cols));
+        setMatrixFrames(buildGalaxyFrames(rows, cols));
         return { rows, cols, size };
       });
     };
@@ -642,7 +609,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           </Link>
         </div>
 
-        {/* Right — sparse galaxy / ant-colony pattern (dots only, transparent) */}
+        {/* Right — three animated blue galaxies on a subtle muted grid */}
         <div
           ref={matrixPanelRef}
           aria-hidden
@@ -658,16 +625,13 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             size={matrixGrid.size}
             gap={MATRIX_GAP}
             showOffDots
-            offOpacity={0.38}
-            activeRadiusScale={1.32}
-            onThreshold={0.04}
-            brightness={1.08}
+            offOpacity={0.16}
             palette={{
               on: "var(--primary)",
-              off: "color-mix(in oklab, var(--muted-foreground) 55%, transparent)",
+              off: "color-mix(in oklab, var(--muted-foreground) 40%, transparent)",
             }}
             className="absolute inset-0"
-            ariaLabel="Animated galaxy matrix"
+            ariaLabel="Animated triple galaxy matrix"
           />
         </div>
       </div>
