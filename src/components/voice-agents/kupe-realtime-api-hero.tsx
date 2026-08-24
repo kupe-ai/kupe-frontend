@@ -285,12 +285,12 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
       const gy = g.cy + Math.cos(phase * g.drift * 0.85 + gi * 1.4) * (rows * 0.035);
 
       // Bright core
-      stampSoft(frame, gy, gx, 2.4, 0.95);
+      stampSoft(frame, gy, gx, 2.65, 0.95);
       stampSoft(
         frame,
         gy + Math.sin(phase * g.spin * 1.2) * 0.35,
         gx + Math.cos(phase * g.spin * 1.2) * 0.35,
-        1.5,
+        1.75,
         1,
       );
 
@@ -305,7 +305,16 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
           const r = gy + Math.sin(angle) * radius + Math.cos(angle * 2.1) * wobble * 0.3;
           const c = gx + Math.cos(angle) * radius + Math.sin(angle * 2.1) * wobble * 0.3;
           const peak = 0.32 + (1 - t) * 0.58;
-          stampSoft(frame, r, c, 1.1 + (1 - t) * 0.5, peak);
+          const armRadius = 1.35 + (1 - t) * 0.62;
+          stampSoft(frame, r, c, armRadius, peak);
+          // Slight ribbon width — second stamp offset along the arm
+          stampSoft(
+            frame,
+            r + Math.cos(angle + Math.PI / 2) * 0.35,
+            c + Math.sin(angle + Math.PI / 2) * 0.35,
+            armRadius * 0.82,
+            peak * 0.72,
+          );
         }
       }
 
@@ -317,7 +326,7 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
           frame,
           gy + Math.sin(a) * rad,
           gx + Math.cos(a * 1.08) * rad,
-          0.75,
+          0.9,
           0.38 + (d % 2) * 0.14,
         );
       }
