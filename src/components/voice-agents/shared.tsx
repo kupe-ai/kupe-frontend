@@ -310,9 +310,9 @@ export function RecentAgentsTable({
                   </li>
                 </QuickContextMenu>
               ))}
-              {hasMore ? <li ref={sentinelRef} className="h-1" aria-hidden /> : null}
             </ul>
           )}
+          {hasMore ? <div ref={sentinelRef} className="h-1" aria-hidden /> : null}
         </div>
       </div>
 
