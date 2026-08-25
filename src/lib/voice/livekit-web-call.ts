@@ -1,7 +1,7 @@
 "use client";
 
 import { api } from "@/lib/api";
-import { captureEvent } from "@/lib/posthog";
+import { captureEvent, captureException } from "@/lib/posthog";
 import { createWebCall } from "@/lib/api/voice/calls";
 import { KoriApiError } from "@/lib/api/kori-errors";
 
@@ -376,6 +376,7 @@ export async function startWebCall(
   } catch (error) {
     await cleanup();
     callbacks.onStatusChange?.("error");
+    captureException(error, { call_id: callId, agent_id: agentId, channel: "web" });
     callbacks.onError?.(error);
     throw error;
   }
