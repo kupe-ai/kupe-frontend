@@ -112,6 +112,7 @@ export type RealtimeSessionInfo = {
   voice: string | null;
   instructions: string;
   tools: unknown[];
+  client_secret: { value: string; expires_at: number };
   websocket_url: string;
   session_id?: string;
   agent_id?: string;
