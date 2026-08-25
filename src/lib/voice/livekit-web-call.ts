@@ -312,22 +312,6 @@ export async function startWebCall(
       room.emit(RoomEvent.DataReceived, bytes);
     };
 
-    const emitTranscript = (role: "user" | "agent", text: string, final: boolean, id?: string) => {
-      const now = Date.now();
-      const seg: TranscriptionSegment = {
-        id: id || `${role}-${now}`,
-        text,
-        language: "en",
-        startTime: 0,
-        endTime: 0,
-        final,
-        firstReceivedTime: now,
-        lastReceivedTime: now,
-      };
-      const participant = { isLocal: role === "user", identity: role };
-      room.emit(RoomEvent.TranscriptionReceived, [seg], participant);
-    };
-
     socket.onmessage = (ev) => {
       let msg: Record<string, unknown>;
       try {
@@ -347,15 +331,11 @@ export async function startWebCall(
         const bin = Uint8Array.from(atob(msg.delta), (c) => c.charCodeAt(0));
         player?.enqueue(bin.buffer);
       }
-      if (type === "conversation.item.input_audio_transcription.completed" && typeof msg.transcript === "string") {
-        emitTranscript("user", msg.transcript, true);
-      }
-      if (type === "response.output_audio_transcript.done" && typeof msg.transcript === "string") {
-        emitTranscript("agent", msg.transcript, true, String(msg.item_id || ""));
-      }
-      if (type === "response.output_audio_transcript.delta" && typeof msg.delta === "string") {
-        emitTranscript("agent", msg.delta, false, String(msg.item_id || ""));
-      }
+      // Transcripts arrive twice from the agents service: once as
+      // {kind:"transcript"} (handled by emitKind above) and once as the
+      // OpenAI-compatible event below, for SDK clients. Rendering both put
+      // every user and agent turn on screen twice, so the OpenAI events are
+      // intentionally not re-emitted into the transcript here.
     };
     socket.onclose = () => {
       void cleanup();
