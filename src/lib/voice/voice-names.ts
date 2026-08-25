@@ -13,3 +13,18 @@ export function sanitizeVoiceName(name: string | null | undefined): string {
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
+
+export function voiceNameTaken(
+  name: string,
+  voices: { id: string; voice_name: string; source?: string }[],
+  excludeId?: string,
+): boolean {
+  const key = sanitizeVoiceName(name);
+  if (!key) return false;
+  return voices.some(
+    (v) =>
+      v.id !== excludeId &&
+      v.source !== "catalog" &&
+      sanitizeVoiceName(v.voice_name) === key,
+  );
+}

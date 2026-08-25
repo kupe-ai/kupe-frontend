@@ -77,9 +77,9 @@ export const DEPLOY_API_CARDS: DeployApiCard[] = [
     tone: "violet",
     headline: "Install the Kupe SDK. Mint a session and stream voice.",
     about:
-      "Kupe Realtime is a voice WebSocket (model kupe-realtime). Use pip install kupe or npm install kupe-sdk to mint a session with realtime.sessions.create, then connect and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name. Tools run server-side. This API is web-only and does not write telephony minutes.",
+      "Kupe Realtime is a voice WebSocket (model kupe-realtime). Use pip install kupe or npm install kupe-sdk to mint a session with realtime.sessions.create. Pass name or agent_id — a new name creates the agent with prompt, greeting, voice, and tools or mcp. Then connect and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name or voice id. Tools run server-side. This API is web-only and does not write telephony minutes.",
     endpoints: [
-      { method: "POST", path: "/v1/realtime/sessions", summary: "Mint an ephemeral client secret and hydrate the agent." },
+      { method: "POST", path: "/v1/realtime/sessions", summary: "Mint an ephemeral client secret. Pass name or agent_id; new names create the agent with prompt, greeting, voice, tools/mcp." },
       { method: "GET", path: "/v1/realtime", summary: "WebSocket (upgrade). Query model=kupe-realtime." },
     ],
     curlTabs: [
@@ -87,7 +87,12 @@ export const DEPLOY_API_CARDS: DeployApiCard[] = [
 from kupe import Kupe
 
 client = Kupe()  # KUPE_API_KEY
-session = client.realtime.sessions.create(agent_id="agt_...", voice="priya")
+session = client.realtime.sessions.create(
+    name="Priya",
+    voice="priya",
+    prompt="You collect overdue EMIs. Be warm and brief.",
+    greeting="Hi, this is Priya from the bank.",
+)
 with client.realtime.connect(session) as rt:
     rt.send_text("Hi — remind them EMI is due tomorrow.")
     for event in rt:
@@ -99,8 +104,10 @@ import { Kupe } from "kupe-sdk";
 
 const kupe = new Kupe(); // KUPE_API_KEY
 const session = await kupe.realtime.sessions.create({
-  agent_id: "agt_...",
+  name: "Priya",
   voice: "priya",
+  prompt: "You collect overdue EMIs. Be warm and brief.",
+  greeting: "Hi, this is Priya from the bank.",
 });
 const rt = await kupe.realtime.connect(session);
 rt.sendText("Hi — remind them EMI is due tomorrow.");
@@ -117,15 +124,17 @@ for await (const event of rt) {
   -H "Authorization: Bearer $KUPE_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "agent_id": "agt_...",
-    "voice": "priya"
+    "name": "Priya",
+    "voice": "priya",
+    "prompt": "You collect overdue EMIs. Be warm and brief.",
+    "greeting": "Hi, this is Priya from the bank."
   }'`,
       },
     ],
     sections: [
       {
         title: "Connect",
-        body: "wss://x.kupe.in/v1/realtime?model=kupe-realtime with Authorization: Bearer sk-kupe-... (server) or the ephemeral client_secret (browser). Optional agent_id query hydrates prompt, tools, greeting, and voice on session.created so you skip an extra round trip.",
+        body: "wss://x.kupe.in/v1/realtime?model=kupe-realtime with Authorization: Bearer sk-kupe-... (server) or the ephemeral client_secret (browser). POST /v1/realtime/sessions takes name or agent_id. If name is new, the agent is created with prompt, greeting, voice, and tools or mcp. Copy the id from the agent editor when you already have one.",
       },
       {
         title: "Audio",

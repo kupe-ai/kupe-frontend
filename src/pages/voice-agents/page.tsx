@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
+import { KupeRealtimeApiHero } from "@/components/voice-agents/kupe-realtime-api-hero";
 import { TemplateAgentDialog } from "@/components/voice-agents/template-agent-dialog";
 import { RecentAgentsTable } from "@/components/voice-agents/shared";
 import { QuickContextMenu } from "@/components/quick-context-menu";
@@ -169,7 +170,7 @@ export default function VoiceAgentsHomePage() {
   if (loading) return <VoiceAgentsPageShimmer />;
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-6 md:py-6">
+    <div className="mx-auto w-full max-w-5xl px-4 py-5 md:px-6 md:py-6 lg:max-w-6xl xl:max-w-7xl 2xl:max-w-[90rem]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">Home</p>
@@ -252,15 +253,28 @@ export default function VoiceAgentsHomePage() {
         </ChartContainer>
       </section>
 
-      {recentAgents.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="mb-3 text-base font-semibold tracking-tight">Recents</h2>
-          <RecentAgentsTable
-            agents={recentAgents}
-            onChanged={() => void agentsQuery.refetch()}
-          />
-        </section>
-      ) : null}
+      <section className="mt-8 grid grid-cols-1 items-start gap-5 sm:gap-6 min-[900px]:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,1.12fr)]">
+        <div className="min-w-0">
+          <h2 className="mb-3 text-base font-semibold tracking-tight">Agents</h2>
+          {recentAgents.length > 0 ? (
+            <RecentAgentsTable
+              agents={recentAgents}
+              onChanged={() => void agentsQuery.refetch()}
+            />
+          ) : (
+            <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
+              <p className="text-sm font-medium">No agents yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Create one from a template below, or mint a session with the SDK.
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <h2 className="mb-3 text-base font-semibold tracking-tight">Deploy with code</h2>
+          <KupeRealtimeApiHero compact className="h-full" />
+        </div>
+      </section>
 
       <section className="mt-8 pb-8">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -287,7 +301,7 @@ export default function VoiceAgentsHomePage() {
           </div>
         </div>
 
-        <div className="stagger mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="stagger mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {visibleTemplates.map((tpl) => (
             <QuickContextMenu
               key={tpl.id}

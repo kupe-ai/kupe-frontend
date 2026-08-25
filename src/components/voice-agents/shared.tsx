@@ -188,7 +188,7 @@ export function RecentAgentsTable({
   return (
     <div>
       <div className="mb-3 flex justify-end">
-        <div className="relative w-full max-w-xs">
+        <div className="relative w-full min-[900px]:max-w-xs">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}

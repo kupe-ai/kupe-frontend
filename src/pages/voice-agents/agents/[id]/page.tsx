@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronDown,
   ChevronLeft,
+  Copy,
   Loader2,
   MoreHorizontal,
   Plus,
@@ -15,6 +16,11 @@ import { useDefaultLayout } from "react-resizable-panels";
 import { AgentAvatar } from "@/components/voice-agents/agent-avatar";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -383,6 +389,24 @@ export default function VoiceAgentEditorPage() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          {id ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex max-w-[7.5rem] items-center gap-1 rounded-md px-1.5 py-1 font-mono text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground sm:max-w-[9.5rem]"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(id);
+                    toast.message("Copied agent ID");
+                  }}
+                >
+                  <span className="min-w-0 truncate">{id}</span>
+                  <Copy className="size-3 shrink-0" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs font-mono">{id}</TooltipContent>
+            </Tooltip>
+          ) : null}
           <Button
             type="button"
             size="sm"

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, MoreHorizontal, Pause, Play, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { Copy, Loader2, MoreHorizontal, Pause, Play, Search } from "lucide-react";
 import { toast } from "sonner";
 import { KupeIcon } from "@/components/icons/kupe-icon";
 import { Button } from "@/components/ui/button";
@@ -29,11 +29,18 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/searchable-select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Matrix, seededPattern } from "@/components/ui/matrix";
+import { QuickContextMenu, type QuickMenuEntry } from "@/components/quick-context-menu";
 import { AudioPreviewProvider, useAudioPreview } from "@/lib/hooks/use-audio-preview";
 import { useAuth } from "@/lib/useAuth";
 import {
@@ -48,6 +55,7 @@ import {
 } from "@/lib/api/voice/providers";
 import { friendlyVoiceError } from "@/lib/voice/friendly-error";
 import { displayProviderName, formatProviderModel } from "@/lib/voice/provider-brand";
+import { voiceNameTaken } from "@/lib/voice/voice-names";
 import { ProviderLogo } from "@/components/voice-agents/provider-logo";
 import { KupeVoicePicker } from "@/components/voice-agents/kupe-voice-picker";
 import type { CatalogVoice } from "@/types";
@@ -114,6 +122,8 @@ function VoiceLibraryPageInner() {
     const model = formatProviderModel(v.provider_name ?? "", v.model_name ?? "").toLowerCase();
     return (
       v.voice_name.toLowerCase().includes(q) ||
+      v.voice_id.toLowerCase().includes(q) ||
+      v.id.toLowerCase().includes(q) ||
       model.includes(q) ||
       (v.provider_name ?? "").toLowerCase().includes(q)
     );
@@ -190,6 +200,7 @@ function VoiceLibraryPageInner() {
       <CloneVoiceDialog
         open={cloneOpen}
         onOpenChange={setCloneOpen}
+        voices={voices}
         onCloned={() => {
           setCloneOpen(false);
           void refresh();
@@ -270,6 +281,36 @@ function VoiceSection({
   );
 }
 
+const VOICE_NAME_TAKEN = "A voice with that name already exists. Pick a different name.";
+
+function copyVoiceId(voiceId: string) {
+  void navigator.clipboard.writeText(voiceId);
+  toast.message("Copied voice ID");
+}
+
+function CopyableVoiceId({ voiceId }: { voiceId: string }) {
+  if (!voiceId) return null;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="mt-1 inline-flex max-w-full items-center gap-1 rounded-md py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            copyVoiceId(voiceId);
+          }}
+        >
+          <span className="min-w-0 truncate">{voiceId}</span>
+          <Copy className="size-3 shrink-0" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs font-mono">{voiceId}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 function VoiceCard({
   voice,
   allVoices,
@@ -284,6 +325,12 @@ function VoiceCard({
   const player = useAudioPreview();
   const [previewing, setPreviewing] = useState(false);
   const isPlaying = player.isItemActive(voice.id) && player.isPlaying;
+  const owner = Boolean(isOwner && voice.source === "cloned");
+  const menuApi = useRef<{
+    openRename: () => void;
+    openDelete: () => void;
+    toggleVisibility: () => void;
+  } | null>(null);
 
   async function togglePreview() {
     if (isPlaying) {
@@ -308,80 +355,111 @@ function VoiceCard({
       ? formatProviderModel(voice.provider_name ?? "", voice.model_name ?? "")
       : null;
 
+  const contextItems: QuickMenuEntry[] = [
+    {
+      label: "Copy voice ID",
+      icon: Copy,
+      onSelect: () => copyVoiceId(voice.voice_id),
+    },
+    ...(owner
+      ? ([
+          { type: "separator" as const },
+          { label: "Rename", onSelect: () => menuApi.current?.openRename() },
+          {
+            label: voice.is_public ? "Make private" : "Make public",
+            onSelect: () => menuApi.current?.toggleVisibility(),
+          },
+          { type: "separator" as const },
+          {
+            label: "Delete",
+            variant: "destructive" as const,
+            onSelect: () => menuApi.current?.openDelete(),
+          },
+        ] satisfies QuickMenuEntry[])
+      : []),
+  ];
+
   return (
-    <div className="animate-pop-in-up flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-      <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background">
-        <Matrix
-          rows={5}
-          cols={5}
-          pattern={pattern}
-          size={4.2}
-          gap={1.1}
-          scrambleOnHover
-          className="flex size-full items-center justify-center"
-          palette={{ on: "var(--primary)", off: "transparent" }}
-          ariaLabel=""
-        />
-      </span>
+    <QuickContextMenu title={voice.voice_name} items={contextItems}>
+      <div className="animate-pop-in-up flex items-center gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <span className="relative flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-background">
+          <Matrix
+            rows={5}
+            cols={5}
+            pattern={pattern}
+            size={4.2}
+            gap={1.1}
+            scrambleOnHover
+            className="flex size-full items-center justify-center"
+            palette={{ on: "var(--primary)", off: "transparent" }}
+            ariaLabel=""
+          />
+        </span>
 
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <p className="truncate text-sm font-semibold">{voice.voice_name}</p>
-          {voice.source === "cloned" && (
-            <span className="shrink-0 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
-              Cloned
-            </span>
-          )}
-        </div>
-        {modelLine ? (
-          <div className="mt-1 flex min-w-0 items-center gap-1.5">
-            {providerKey ? <ProviderLogo provider={providerKey} model={voice.model_name} size="sm" /> : null}
-            <p className="truncate text-xs text-muted-foreground">{modelLine}</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-sm font-semibold">{voice.voice_name}</p>
+            {voice.source === "cloned" && (
+              <span className="shrink-0 rounded-full bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                Cloned
+              </span>
+            )}
           </div>
-        ) : null}
-        <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-          {voice.gender && <span className="capitalize">{voice.gender}</span>}
-          {voice.supported_languages.slice(0, 2).map((l) => (
-            <span key={l} className="rounded-full bg-muted px-1.5 py-0.5 uppercase">
-              {l}
-            </span>
-          ))}
-          {voice.source === "cloned" && (
-            <span
-              className={
-                voice.is_public
-                  ? "rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-emerald-600 dark:text-emerald-400"
-                  : "rounded-full bg-muted px-1.5 py-0.5"
-              }
-            >
-              {voice.is_public ? "Public" : "Private"}
-            </span>
-          )}
+          {modelLine ? (
+            <div className="mt-1 flex min-w-0 items-center gap-1.5">
+              {providerKey ? <ProviderLogo provider={providerKey} model={voice.model_name} size="sm" /> : null}
+              <p className="truncate text-xs text-muted-foreground">{modelLine}</p>
+            </div>
+          ) : null}
+          <CopyableVoiceId voiceId={voice.voice_id} />
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+            {voice.gender && <span className="capitalize">{voice.gender}</span>}
+            {voice.supported_languages.slice(0, 2).map((l) => (
+              <span key={l} className="rounded-full bg-muted px-1.5 py-0.5 uppercase">
+                {l}
+              </span>
+            ))}
+            {voice.source === "cloned" && (
+              <span
+                className={
+                  voice.is_public
+                    ? "rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-emerald-600 dark:text-emerald-400"
+                    : "rounded-full bg-muted px-1.5 py-0.5"
+                }
+              >
+                {voice.is_public ? "Public" : "Private"}
+              </span>
+            )}
+          </div>
         </div>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0 rounded-full"
+          onClick={() => void togglePreview()}
+          aria-label={isPlaying ? "Pause preview" : "Play preview"}
+          disabled={previewing}
+        >
+          {previewing ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : isPlaying ? (
+            <Pause className="size-4" />
+          ) : (
+            <Play className="size-4" />
+          )}
+        </Button>
+
+        <VoiceCardMenu
+          voice={voice}
+          allVoices={allVoices}
+          isOwner={owner}
+          apiRef={menuApi}
+          onChanged={onChanged}
+        />
       </div>
-
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="shrink-0 rounded-full"
-        onClick={() => void togglePreview()}
-        aria-label={isPlaying ? "Pause preview" : "Play preview"}
-        disabled={previewing}
-      >
-        {previewing ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : isPlaying ? (
-          <Pause className="size-4" />
-        ) : (
-          <Play className="size-4" />
-        )}
-      </Button>
-
-      {isOwner && voice.source === "cloned" && (
-        <VoiceCardMenu voice={voice} allVoices={allVoices} onChanged={onChanged} />
-      )}
-    </div>
+    </QuickContextMenu>
   );
 }
 
@@ -394,10 +472,18 @@ function defaultFallbackVoiceId(candidates: CatalogVoice[]): string {
 function VoiceCardMenu({
   voice,
   allVoices,
+  isOwner,
+  apiRef,
   onChanged,
 }: {
   voice: CatalogVoice;
   allVoices: CatalogVoice[];
+  isOwner?: boolean;
+  apiRef: MutableRefObject<{
+    openRename: () => void;
+    openDelete: () => void;
+    toggleVisibility: () => void;
+  } | null>;
   onChanged: () => void;
 }) {
   const [renameOpen, setRenameOpen] = useState(false);
@@ -426,6 +512,10 @@ function VoiceCardMenu({
 
   async function saveRename() {
     if (!name.trim()) return;
+    if (voiceNameTaken(name, allVoices, voice.id)) {
+      toast.error(VOICE_NAME_TAKEN);
+      return;
+    }
     setSaving(true);
     try {
       await updateVoice(voice.id, { name: name.trim() });
@@ -479,22 +569,44 @@ function VoiceCardMenu({
   const canConfirm =
     !usageLoading && agentCount !== null && (!inUse || Boolean(fallbackVoiceId));
 
+  apiRef.current = {
+    openRename: () => setRenameOpen(true),
+    openDelete: () => void openDelete(),
+    toggleVisibility: () => void toggleVisibility(),
+  };
+
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label="More">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0"
+            aria-label="More"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <MoreHorizontal className="size-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => setRenameOpen(true)}>Rename</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void toggleVisibility()}>
-            {voice.is_public ? "Make private" : "Make public"}
+          <DropdownMenuItem onClick={() => copyVoiceId(voice.voice_id)}>
+            Copy voice ID
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => void openDelete()} className="text-destructive">
-            Delete
-          </DropdownMenuItem>
+          {isOwner ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setRenameOpen(true)}>Rename</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void toggleVisibility()}>
+                {voice.is_public ? "Make private" : "Make public"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void openDelete()} className="text-destructive">
+                Delete
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -583,10 +695,12 @@ function VoiceCardMenu({
 function CloneVoiceDialog({
   open,
   onOpenChange,
+  voices,
   onCloned,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  voices: CatalogVoice[];
   onCloned: () => void;
 }) {
   const [name, setName] = useState("");
@@ -612,6 +726,10 @@ function CloneVoiceDialog({
   async function save() {
     if (!name.trim() || !file) {
       toast.message("Name and a sample clip are required");
+      return;
+    }
+    if (voiceNameTaken(name, voices)) {
+      toast.error(VOICE_NAME_TAKEN);
       return;
     }
     setSaving(true);

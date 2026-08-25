@@ -19,6 +19,15 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
@@ -115,6 +124,18 @@ function compareRows(a: CallDatabaseRow, b: CallDatabaseRow, key: string, dir: S
   return dir === "asc" ? cmp : -cmp;
 }
 
+function isFilledValue(v: unknown): boolean {
+  if (v == null) return false;
+  if (typeof v === "string") return v.trim() !== "";
+  if (Array.isArray(v)) return v.length > 0;
+  return true;
+}
+
+/** Count rows (on the loaded page) that have a non-empty value for this column. */
+function filledCountForColumn(rows: CallDatabaseRow[], key: string): number {
+  return rows.reduce((n, row) => n + (isFilledValue(rawValue(row, key)) ? 1 : 0), 0);
+}
+
 export default function VoiceAgentsDatabaseDetailPage() {
   const { id = "" } = useParams();
   const [db, setDb] = useState<CallDatabase | null>(null);
@@ -134,6 +155,8 @@ export default function VoiceAgentsDatabaseDetailPage() {
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(() => new Set());
   const [successFilter, setSuccessFilter] = useState<"all" | "yes" | "no">("all");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
+  const [columnToDelete, setColumnToDelete] = useState<{ key: string; label: string } | null>(null);
+  const [deletingColumn, setDeletingColumn] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setAppliedQ(q.trim()), 500);
@@ -264,8 +287,29 @@ export default function VoiceAgentsDatabaseDetailPage() {
       const next = await patchCallDatabase(db.id, { fields: nextFields });
       setDb(next);
       toast.message(patch === "delete" ? "Column removed" : "Column updated");
+      if (patch === "delete") {
+        setRows((prev) =>
+          prev.map((row) => {
+            if (!(name in (row.values || {}))) return row;
+            const values = { ...row.values };
+            delete values[name];
+            return { ...row, values };
+          }),
+        );
+      }
     } catch {
       toast.error("Couldn't update column");
+    }
+  }
+
+  async function confirmDeleteColumn() {
+    if (!columnToDelete) return;
+    setDeletingColumn(true);
+    try {
+      await patchField(columnToDelete.key, "delete");
+      setColumnToDelete(null);
+    } finally {
+      setDeletingColumn(false);
     }
   }
 
@@ -339,10 +383,7 @@ export default function VoiceAgentsDatabaseDetailPage() {
           icon: Trash2,
           variant: "destructive",
           disabled: !field && col.key !== "summary" && col.key !== "success",
-          onSelect: () => {
-            if (!window.confirm(`Delete column “${col.label}”?`)) return;
-            void patchField(col.key, "delete");
-          },
+          onSelect: () => setColumnToDelete({ key: col.key, label: col.label }),
         },
       );
     }
@@ -350,9 +391,9 @@ export default function VoiceAgentsDatabaseDetailPage() {
     items.push(
       { type: "separator" },
       {
-        label: "Open schema",
+        label: "Manage columns",
         icon: Settings2,
-        onSelect: () => openSchema(),
+        onSelect: () => openSchema({ tab: "columns" }),
       },
     );
 
@@ -638,10 +679,71 @@ export default function VoiceAgentsDatabaseDetailPage() {
           if (!open) setFocusField(null);
         }}
         db={db}
+        rows={rows}
+        total={total}
         initialTab={schemaTab}
         focusField={focusField}
-        onSaved={(next) => setDb(next)}
+        onSaved={(next) => {
+          setDb(next);
+          const kept = new Set((next.fields || []).map((f) => f.name));
+          setRows((prev) =>
+            prev.map((row) => {
+              const values = { ...row.values };
+              let changed = false;
+              for (const key of Object.keys(values)) {
+                if (!kept.has(key)) {
+                  delete values[key];
+                  changed = true;
+                }
+              }
+              return changed ? { ...row, values } : row;
+            }),
+          );
+        }}
       />
+
+      <AlertDialog
+        open={!!columnToDelete}
+        onOpenChange={(next) => !next && !deletingColumn && setColumnToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {columnToDelete && filledCountForColumn(rows, columnToDelete.key) > 0
+                ? "Delete column with data?"
+                : "Delete column?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {columnToDelete ? (
+                filledCountForColumn(rows, columnToDelete.key) > 0 ? (
+                  <>
+                    “{columnToDelete.label}” has filled data in{" "}
+                    {filledCountForColumn(rows, columnToDelete.key)} row
+                    {filledCountForColumn(rows, columnToDelete.key) === 1 ? "" : "s"}
+                    {total > rows.length ? " on this page (more may exist)" : ""}. Deleting removes
+                    the column and its values from this database.
+                  </>
+                ) : (
+                  <>
+                    Delete column “{columnToDelete.label}”? This can’t be undone from the schema.
+                  </>
+                )
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingColumn}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              className="rounded-full"
+              disabled={deletingColumn}
+              onClick={() => void confirmDeleteColumn()}
+            >
+              {deletingColumn ? "Deleting…" : "Delete column"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -650,6 +752,8 @@ function SchemaSheet({
   open,
   onOpenChange,
   db,
+  rows,
+  total,
   onSaved,
   initialTab = "columns",
   focusField,
@@ -657,6 +761,8 @@ function SchemaSheet({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   db: CallDatabase;
+  rows: CallDatabaseRow[];
+  total: number;
   onSaved: (db: CallDatabase) => void;
   initialTab?: string;
   focusField?: string | null;
@@ -669,12 +775,14 @@ function SchemaSheet({
   const [connections, setConnections] = useState<ComposioConnection[]>([]);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState(initialTab);
+  const [pendingRemove, setPendingRemove] = useState<{ idx: number; name: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setFields(db.fields);
     setDestinations(db.destinations || []);
     setTab(initialTab);
+    setPendingRemove(null);
     const { orgId, projectId } = requireScope();
     void Promise.all([
       listCallDatabaseAgents(db.id).then(setAgents),
@@ -695,6 +803,27 @@ function SchemaSheet({
     return () => window.clearTimeout(t);
   }, [open, focusField, fields]);
 
+  function requestRemoveField(idx: number) {
+    const field = fields[idx];
+    const name = field?.name?.trim() || "";
+    if (!name) {
+      setFields(fields.filter((_, i) => i !== idx));
+      return;
+    }
+    const filled = filledCountForColumn(rows, name);
+    if (filled > 0) {
+      setPendingRemove({ idx, name });
+      return;
+    }
+    setFields(fields.filter((_, i) => i !== idx));
+  }
+
+  function confirmRemoveField() {
+    if (!pendingRemove) return;
+    setFields(fields.filter((_, i) => i !== pendingRemove.idx));
+    setPendingRemove(null);
+  }
+
   async function save() {
     setSaving(true);
     try {
@@ -709,240 +838,277 @@ function SchemaSheet({
     }
   }
 
+  const pendingFilled =
+    pendingRemove != null ? filledCountForColumn(rows, pendingRemove.name) : 0;
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-lg">
-        <SheetTitle>Schema</SheetTitle>
-        <Tabs value={tab} onValueChange={setTab} className="mt-4">
-          <TabsList>
-            <TabsTrigger value="columns">Columns</TabsTrigger>
-            <TabsTrigger value="agents">Agents</TabsTrigger>
-            <TabsTrigger value="destinations">Destinations</TabsTrigger>
-          </TabsList>
-          <TabsContent value="columns" className="mt-4 space-y-3">
-            {fields.map((field, idx) => (
-              <div
-                key={`${field.name}-${idx}`}
-                id={field.name ? `schema-field-${field.name}` : undefined}
-                className={cn(
-                  "grid grid-cols-[1fr_7rem_1fr_auto] items-center gap-2 rounded-lg p-1",
-                  focusField && field.name === focusField && "bg-muted/60 ring-1 ring-border",
-                )}
-              >
-                <Input
-                  value={field.name}
-                  onChange={(e) => {
-                    const next = [...fields];
-                    next[idx] = { ...field, name: e.target.value };
-                    setFields(next);
-                  }}
-                  placeholder="name"
-                  autoFocus={focusField === field.name}
-                />
-                <Select
-                  value={field.type}
-                  onValueChange={(type) => {
-                    const next = [...fields];
-                    next[idx] = { ...field, type: type as AnalysisField["type"] };
-                    setFields(next);
-                  }}
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="flex w-full flex-col overflow-y-auto sm:max-w-lg">
+          <SheetTitle>Schema</SheetTitle>
+          <Tabs value={tab} onValueChange={setTab} className="mt-4">
+            <TabsList>
+              <TabsTrigger value="columns">Columns</TabsTrigger>
+              <TabsTrigger value="agents">Agents</TabsTrigger>
+              <TabsTrigger value="destinations">Destinations</TabsTrigger>
+            </TabsList>
+            <TabsContent value="columns" className="mt-4 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Add, rename, or remove columns. Removing a column with filled data will delete those
+                values when you save.
+              </p>
+              {fields.map((field, idx) => (
+                <div
+                  key={`${field.name}-${idx}`}
+                  id={field.name ? `schema-field-${field.name}` : undefined}
+                  className={cn(
+                    "grid grid-cols-[1fr_7rem_1fr_auto] items-center gap-2 rounded-lg p-1",
+                    focusField && field.name === focusField && "bg-muted/60 ring-1 ring-border",
+                  )}
                 >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="string">string</SelectItem>
-                    <SelectItem value="number">number</SelectItem>
-                    <SelectItem value="boolean">boolean</SelectItem>
-                    <SelectItem value="enum">enum</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Input
-                  value={field.description}
-                  onChange={(e) => {
-                    const next = [...fields];
-                    next[idx] = { ...field, description: e.target.value };
-                    setFields(next);
-                  }}
-                  placeholder="description"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setFields(fields.filter((_, i) => i !== idx))}
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            ))}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFields([...fields, { name: "", type: "string", description: "" }])}
-            >
-              <Plus className="size-4" />
-              Add column
-            </Button>
-            <Button onClick={() => void save()} disabled={saving}>
-              Save columns
-            </Button>
-          </TabsContent>
-          <TabsContent value="agents" className="mt-4 space-y-3">
-            {agents.map((link) => (
-              <div key={link.agent_id} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                <span>{link.name || link.agent_id}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={async () => {
-                    try {
-                      await detachCallDatabaseAgent(db.id, link.agent_id);
-                      setAgents(agents.filter((a) => a.agent_id !== link.agent_id));
-                    } catch {
-                      toast.error("Couldn't detach");
-                    }
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
-              </div>
-            ))}
-            <Select
-              onValueChange={async (agentId) => {
-                try {
-                  const attached = await attachCallDatabaseAgent(db.id, agentId);
-                  const named = allAgents.find((a) => a.id === agentId);
-                  setAgents([...agents, { ...attached, name: named?.name }]);
-                } catch {
-                  toast.error("Couldn't attach agent");
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Attach an agent" />
-              </SelectTrigger>
-              <SelectContent>
-                {allAgents
-                  .filter((a) => !agents.some((l) => l.agent_id === a.id))
-                  .map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </TabsContent>
-          <TabsContent value="destinations" className="mt-4 space-y-4">
-            {destinations.map((dest, idx) => (
-              <div key={idx} className="space-y-2 rounded-lg border p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium capitalize">{dest.kind}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDestinations(destinations.filter((_, i) => i !== idx))}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-                {dest.kind === "webhook" && (
                   <Input
-                    value={dest.url || ""}
-                    placeholder="https://…"
+                    value={field.name}
                     onChange={(e) => {
-                      const next = [...destinations];
-                      next[idx] = { ...dest, url: e.target.value };
-                      setDestinations(next);
+                      const next = [...fields];
+                      next[idx] = { ...field, name: e.target.value };
+                      setFields(next);
                     }}
+                    placeholder="name"
+                    autoFocus={focusField === field.name}
                   />
-                )}
-                {dest.kind === "tool" && (
                   <Select
-                    value={dest.tool_id || ""}
-                    onValueChange={(toolId) => {
-                      const next = [...destinations];
-                      next[idx] = { ...dest, tool_id: toolId };
-                      setDestinations(next);
+                    value={field.type}
+                    onValueChange={(type) => {
+                      const next = [...fields];
+                      next[idx] = { ...field, type: type as AnalysisField["type"] };
+                      setFields(next);
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose a tool" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {tools.map((t) => (
-                        <SelectItem key={t.id} value={t.id}>
-                          {t.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="string">string</SelectItem>
+                      <SelectItem value="number">number</SelectItem>
+                      <SelectItem value="boolean">boolean</SelectItem>
+                      <SelectItem value="enum">enum</SelectItem>
                     </SelectContent>
                   </Select>
-                )}
-                {dest.kind === "composio" && (
-                  <div className="grid gap-2">
+                  <Input
+                    value={field.description}
+                    onChange={(e) => {
+                      const next = [...fields];
+                      next[idx] = { ...field, description: e.target.value };
+                      setFields(next);
+                    }}
+                    placeholder="description"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Remove column ${field.name || idx + 1}`}
+                    onClick={() => requestRemoveField(idx)}
+                  >
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFields([...fields, { name: "", type: "string", description: "" }])}
+              >
+                <Plus className="size-4" />
+                Add column
+              </Button>
+              <Button onClick={() => void save()} disabled={saving}>
+                Save columns
+              </Button>
+            </TabsContent>
+            <TabsContent value="agents" className="mt-4 space-y-3">
+              {agents.map((link) => (
+                <div key={link.agent_id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span>{link.name || link.agent_id}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await detachCallDatabaseAgent(db.id, link.agent_id);
+                        setAgents(agents.filter((a) => a.agent_id !== link.agent_id));
+                      } catch {
+                        toast.error("Couldn't detach");
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))}
+              <Select
+                onValueChange={async (agentId) => {
+                  try {
+                    const attached = await attachCallDatabaseAgent(db.id, agentId);
+                    const named = allAgents.find((a) => a.id === agentId);
+                    setAgents([...agents, { ...attached, name: named?.name }]);
+                  } catch {
+                    toast.error("Couldn't attach agent");
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Attach an agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allAgents
+                    .filter((a) => !agents.some((l) => l.agent_id === a.id))
+                    .map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </TabsContent>
+            <TabsContent value="destinations" className="mt-4 space-y-4">
+              {destinations.map((dest, idx) => (
+                <div key={idx} className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium capitalize">{dest.kind}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDestinations(destinations.filter((_, i) => i !== idx))}
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                  {dest.kind === "webhook" && (
                     <Input
-                      value={dest.composio_slug || ""}
-                      placeholder="Tool slug"
+                      value={dest.url || ""}
+                      placeholder="https://…"
                       onChange={(e) => {
                         const next = [...destinations];
-                        next[idx] = { ...dest, composio_slug: e.target.value };
+                        next[idx] = { ...dest, url: e.target.value };
                         setDestinations(next);
                       }}
                     />
+                  )}
+                  {dest.kind === "tool" && (
                     <Select
-                      value={dest.connected_account_id || ""}
-                      onValueChange={(cid) => {
+                      value={dest.tool_id || ""}
+                      onValueChange={(toolId) => {
                         const next = [...destinations];
-                        next[idx] = { ...dest, connected_account_id: cid };
+                        next[idx] = { ...dest, tool_id: toolId };
                         setDestinations(next);
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Connected account" />
+                        <SelectValue placeholder="Choose a tool" />
                       </SelectTrigger>
                       <SelectContent>
-                        {connections.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.toolkit_name || c.toolkit_slug}
+                        {tools.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
-                )}
+                  )}
+                  {dest.kind === "composio" && (
+                    <div className="grid gap-2">
+                      <Input
+                        value={dest.composio_slug || ""}
+                        placeholder="Tool slug"
+                        onChange={(e) => {
+                          const next = [...destinations];
+                          next[idx] = { ...dest, composio_slug: e.target.value };
+                          setDestinations(next);
+                        }}
+                      />
+                      <Select
+                        value={dest.connected_account_id || ""}
+                        onValueChange={(cid) => {
+                          const next = [...destinations];
+                          next[idx] = { ...dest, connected_account_id: cid };
+                          setDestinations(next);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Connected account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {connections.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.toolkit_name || c.toolkit_slug}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDestinations([...destinations, { kind: "webhook", url: "" }])}
+                >
+                  Add webhook
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDestinations([...destinations, { kind: "tool" }])}
+                >
+                  Add tool
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDestinations([...destinations, { kind: "composio" }])}
+                >
+                  Add Composio
+                </Button>
               </div>
-            ))}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDestinations([...destinations, { kind: "webhook", url: "" }])}
-              >
-                Add webhook
+              <Button onClick={() => void save()} disabled={saving}>
+                Save destinations
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDestinations([...destinations, { kind: "tool" }])}
-              >
-                Add tool
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDestinations([...destinations, { kind: "composio" }])}
-              >
-                Add Composio
-              </Button>
-            </div>
-            <Button onClick={() => void save()} disabled={saving}>
-              Save destinations
+              <p className="text-xs text-muted-foreground">
+                Destinations fire after a row is written. Webhooks must be public HTTPS URLs.
+              </p>
+            </TabsContent>
+          </Tabs>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog
+        open={!!pendingRemove}
+        onOpenChange={(next) => !next && setPendingRemove(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete column with data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingRemove ? (
+                <>
+                  “{pendingRemove.name}” has filled data in {pendingFilled} row
+                  {pendingFilled === 1 ? "" : "s"}
+                  {total > rows.length ? " on this page (more may exist)" : ""}. Removing it and
+                  saving will permanently delete those values.
+                </>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button variant="destructive" className="rounded-full" onClick={confirmRemoveField}>
+              Remove column
             </Button>
-            <p className="text-xs text-muted-foreground">
-              Destinations fire after a row is written. Webhooks must be public HTTPS URLs.
-            </p>
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

@@ -93,8 +93,15 @@ export type CreateSessionBody = Partial<ProviderSelection> & {
 export type CreateRealtimeSessionBody = {
   org_id: string;
   project_id: string;
-  agent_id: string;
+  agent_id?: string;
+  name?: string;
   voice?: string;
+  prompt?: string;
+  instructions?: string;
+  greeting?: string;
+  greetings?: string;
+  tools?: unknown[];
+  mcp?: unknown;
   variables?: Record<string, string>;
 };
 
@@ -105,8 +112,9 @@ export type RealtimeSessionInfo = {
   voice: string | null;
   instructions: string;
   tools: unknown[];
-  client_secret: { value: string; expires_at: number };
   websocket_url: string;
+  session_id?: string;
+  agent_id?: string;
 };
 
 export type SessionInfo = {

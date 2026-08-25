@@ -23,8 +23,10 @@ type SdkLang = "typescript" | "python" | "curl";
 type CodingTool = "cursor" | "claude" | "codex";
 
 const WS_HOST = API_BASE_URL.replace(/^https?:\/\//, "");
-const SAMPLE_AGENT = "agt_collections_demo";
+const SAMPLE_NAME = "Priya";
 const SAMPLE_VOICE = "priya";
+const SAMPLE_PROMPT = "You collect overdue EMIs. Be warm and brief.";
+const SAMPLE_GREETING = "Hi, this is Priya from the bank.";
 const MCP_STDIO_HINT =
   "Stdio fallback: uvx kupe-mcp with KUPE_API_KEY, or python -m app.server --mcp.";
 
@@ -40,8 +42,10 @@ import { Kupe } from "kupe-sdk";
 
 const kupe = new Kupe({ apiKey: "${apiKey}" });
 const session = await kupe.realtime.sessions.create({
-  agent_id: "${SAMPLE_AGENT}",
+  name: "${SAMPLE_NAME}",
   voice: "${SAMPLE_VOICE}",
+  prompt: "${SAMPLE_PROMPT}",
+  greeting: "${SAMPLE_GREETING}",
 });
 const rt = await kupe.realtime.connect(session);
 rt.sendText("Hi Priya — remind this customer their EMI is due tomorrow.");
@@ -56,8 +60,10 @@ from kupe import Kupe
 
 client = Kupe(api_key="${apiKey}")
 session = client.realtime.sessions.create(
-    agent_id="${SAMPLE_AGENT}",
+    name="${SAMPLE_NAME}",
     voice="${SAMPLE_VOICE}",
+    prompt="${SAMPLE_PROMPT}",
+    greeting="${SAMPLE_GREETING}",
 )
 with client.realtime.connect(session) as rt:
     rt.send_text("Hi Priya — remind this customer their EMI is due tomorrow.")
@@ -70,8 +76,10 @@ curl -sS -X POST "${API_BASE_URL}/v1/realtime/sessions" \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "agent_id": "${SAMPLE_AGENT}",
-    "voice": "${SAMPLE_VOICE}"
+    "name": "${SAMPLE_NAME}",
+    "voice": "${SAMPLE_VOICE}",
+    "prompt": "${SAMPLE_PROMPT}",
+    "greeting": "${SAMPLE_GREETING}"
   }'
 
 # 2) Connect WebSocket (replace SECRET from step 1):
@@ -324,7 +332,14 @@ function buildGalaxyFrames(rows: number, cols: number, count = 40): Frame[] {
   return frames;
 }
 
-export function KupeRealtimeApiHero({ className }: { className?: string }) {
+export function KupeRealtimeApiHero({
+  className,
+  compact = false,
+}: {
+  className?: string;
+  /** Home-page tile: no galaxy panel, tighter chrome, don't mint a key until asked. */
+  compact?: boolean;
+}) {
   const [activeKey, setActiveKey] = useState<VoiceApiKey | null>(null);
   const [fullKey, setFullKey] = useState<string | null>(null);
   const [keyRevealed, setKeyRevealed] = useState(false);
@@ -339,6 +354,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   const bootstrappedRef = useRef(false);
 
   useEffect(() => {
+    if (compact) return;
     const el = matrixPanelRef.current;
     if (!el) return;
 
@@ -362,7 +378,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
     ro.observe(el);
     sync(el.clientWidth, el.clientHeight);
     return () => ro.disconnect();
-  }, []);
+  }, [compact]);
 
   const ensureKey = useCallback(async (createIfMissing: boolean) => {
     setLoadingKey(true);
@@ -394,8 +410,8 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
   useEffect(() => {
     if (bootstrappedRef.current) return;
     bootstrappedRef.current = true;
-    void ensureKey(true);
-  }, [ensureKey]);
+    void ensureKey(!compact);
+  }, [compact, ensureKey]);
 
   async function generateKey() {
     setGenerating(true);
@@ -484,9 +500,21 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
         className,
       )}
     >
-      <div className="relative grid min-h-[28rem] lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.58fr)]">
+      <div
+        className={cn(
+          "relative grid",
+          compact
+            ? "min-h-0"
+            : "min-h-[22rem] sm:min-h-[26rem] lg:min-h-[28rem] lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.58fr)]",
+        )}
+      >
         {/* Left — content */}
-        <div className="flex min-h-0 flex-col p-6 md:p-8 lg:pr-6 lg:border-r lg:border-border/60">
+        <div
+          className={cn(
+            "flex min-h-0 flex-col",
+            compact ? "p-4 sm:p-5" : "p-5 sm:p-6 md:p-8 lg:border-r lg:border-border/60 lg:pr-6",
+          )}
+        >
           <div className="flex flex-wrap items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -520,10 +548,20 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
             </Button>
           </div>
 
-          <div className="mt-8 flex items-start gap-3 text-left">
-            <BrandMark size={44} className="rounded-xl shadow-sm ring-1 ring-border/60" />
+          <div className={cn("flex items-start gap-3 text-left", compact ? "mt-5" : "mt-8")}>
+            <BrandMark
+              size={compact ? 36 : 44}
+              className="rounded-xl shadow-sm ring-1 ring-border/60"
+            />
             <div className="min-w-0">
-              <h2 className="text-xl font-semibold tracking-tight md:text-2xl">Kupe Realtime API</h2>
+              <h2
+                className={cn(
+                  "font-semibold tracking-tight",
+                  compact ? "text-lg sm:text-xl" : "text-xl md:text-2xl",
+                )}
+              >
+                Kupe Realtime API
+              </h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
                 Kupe SDK · model{" "}
                 <span className="font-mono text-foreground/80">kupe-realtime</span>
@@ -532,7 +570,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           </div>
 
           {/* API key */}
-          <div className="mt-6 w-full max-w-xl text-left">
+          <div className={cn("w-full text-left", compact ? "mt-4 max-w-none" : "mt-6 max-w-xl")}>
             <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               API key
             </p>
@@ -578,7 +616,7 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
           </div>
 
           {/* Code snippet */}
-          <div className="mt-5 w-full max-w-xl text-left">
+          <div className={cn("mt-5 w-full text-left", compact ? "max-w-none" : "max-w-xl")}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                 {LANG_LABEL[lang]} · {lang === "curl" ? "HTTP" : "Kupe SDK"}
@@ -605,7 +643,12 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
                 </Button>
               </div>
             </div>
-            <div className="sdk-code mt-2 max-h-56 overflow-auto rounded-xl border border-border bg-muted/25 shadow-inner">
+            <div
+              className={cn(
+                "sdk-code mt-2 overflow-auto rounded-xl border border-border bg-muted/25 shadow-inner",
+                compact ? "max-h-44 sm:max-h-52 lg:max-h-56" : "max-h-56",
+              )}
+            >
               <pre
                 className="p-4 font-mono text-[11px] leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: highlighted }}
@@ -625,7 +668,10 @@ export function KupeRealtimeApiHero({ className }: { className?: string }) {
         <div
           ref={matrixPanelRef}
           aria-hidden
-          className="relative hidden self-stretch overflow-hidden bg-transparent lg:block"
+          className={cn(
+            "relative hidden self-stretch overflow-hidden bg-transparent",
+            !compact && "lg:block",
+          )}
         >
           <Matrix
             rows={matrixGrid.rows}
