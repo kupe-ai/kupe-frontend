@@ -150,6 +150,7 @@ export function RecentAgentsTable({
   title,
   searchPlaceholder = "Search...",
   pageSize = AGENTS_PAGE_SIZE,
+  panelClassName,
   onChanged,
 }: {
   agents: RecentVoiceAgent[];
@@ -158,6 +159,8 @@ export function RecentAgentsTable({
   searchPlaceholder?: string;
   /** Initial visible rows; more load as the list scrolls. */
   pageSize?: number;
+  /** Extra classes on the bordered table card (e.g. matched height on home). */
+  panelClassName?: string;
   onChanged?: () => void;
 }) {
   const navigate = useNavigate();
@@ -232,8 +235,13 @@ export function RecentAgentsTable({
       ) : (
         <div className="mb-3 flex justify-end">{searchField}</div>
       )}
-      <div className="overflow-hidden rounded-xl border border-border">
-        <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+      <div
+        className={cn(
+          "flex flex-col overflow-hidden rounded-xl border border-border",
+          panelClassName,
+        )}
+      >
+        <div className="grid shrink-0 grid-cols-[1fr_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
           <span>Agent</span>
           <button
             type="button"
@@ -251,7 +259,10 @@ export function RecentAgentsTable({
         </div>
         <div
           ref={scrollRef}
-          className="max-h-[min(28rem,calc(100vh-18rem))] overflow-y-auto overscroll-contain"
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto overscroll-contain",
+            !panelClassName && "max-h-[min(28rem,calc(100vh-18rem))]",
+          )}
         >
           {pageItems.length === 0 ? (
             <p className="px-4 py-8 text-center text-sm text-muted-foreground">

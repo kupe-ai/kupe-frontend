@@ -498,6 +498,7 @@ export function KupeRealtimeApiHero({
     <section
       className={cn(
         "relative overflow-hidden rounded-3xl border border-border bg-card shadow-elevated",
+        compact && "flex min-h-0 flex-col",
         className,
       )}
     >
@@ -505,36 +506,19 @@ export function KupeRealtimeApiHero({
         <>
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-16 -right-10 h-44 w-44 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_42%,transparent),transparent_70%)] opacity-80 blur-2xl"
+            className="pointer-events-none absolute -top-20 -right-12 h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_68%,transparent),transparent_62%)] opacity-95 blur-xl"
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute top-0 right-0 h-28 w-36 opacity-[0.55]"
-          >
-            <Matrix
-              rows={9}
-              cols={12}
-              mode="vu"
-              levels={[0.2, 0.35, 0.55, 0.4, 0.7, 0.45, 0.3, 0.6, 0.25, 0.5, 0.35, 0.2]}
-              size={3.2}
-              gap={1.4}
-              showOffDots
-              offOpacity={0.12}
-              palette={{
-                on: "var(--primary)",
-                off: "color-mix(in oklab, var(--muted-foreground) 30%, transparent)",
-              }}
-              className="absolute top-3 right-3"
-              ariaLabel=""
-            />
-          </div>
+            className="pointer-events-none absolute -bottom-8 -left-8 h-40 w-40 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_38%,transparent),transparent_68%)] opacity-70 blur-2xl"
+          />
         </>
       ) : null}
       <div
         className={cn(
           "relative grid",
           compact
-            ? "min-h-0"
+            ? "flex min-h-0 flex-1 flex-col"
             : "min-h-[22rem] sm:min-h-[26rem] lg:min-h-[28rem] lg:grid-cols-[minmax(0,1fr)_minmax(14rem,0.58fr)]",
         )}
       >
@@ -542,41 +526,43 @@ export function KupeRealtimeApiHero({
         <div
           className={cn(
             "relative z-[1] flex min-h-0 flex-col",
-            compact ? "p-4 sm:p-5" : "p-5 sm:p-6 md:p-8 lg:border-r lg:border-border/60 lg:pr-6",
+            compact ? "flex-1 p-4 sm:p-5" : "p-5 sm:p-6 md:p-8 lg:border-r lg:border-border/60 lg:pr-6",
           )}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="group/nav rounded-full">
-                  Install Kupe MCP
-                  <ChevronDown className="size-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onSelect={() => void copyCodingToolSetup("cursor")}>
-                  Cursor
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void copyCodingToolSetup("claude")}>
-                  Claude Code
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void copyCodingToolSetup("codex")}>
-                  Codex
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/deploy-with-code/apis/kupe-mcp">Kupe MCP docs</Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Button
-              size="sm"
-              className="rounded-full"
-              onClick={() => void generateKey()}
-              loading={generating}
-            >
-              Generate API key
-            </Button>
-            <Button variant="outline" size="sm" className="rounded-full" asChild>
+            <div className="flex flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="group/nav rounded-full">
+                    Install Kupe MCP
+                    <ChevronDown className="size-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onSelect={() => void copyCodingToolSetup("cursor")}>
+                    Cursor
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void copyCodingToolSetup("claude")}>
+                    Claude Code
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => void copyCodingToolSetup("codex")}>
+                    Codex
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/deploy-with-code/apis/kupe-mcp">Kupe MCP docs</Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="sm"
+                className="rounded-full"
+                onClick={() => void generateKey()}
+                loading={generating}
+              >
+                Generate API key
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" className="ml-auto rounded-full" asChild>
               <a href={DOCS_URL} target="_blank" rel="noreferrer">
                 <BookOpen className="size-3.5" />
                 Read docs
@@ -652,7 +638,12 @@ export function KupeRealtimeApiHero({
           </div>
 
           {/* Code snippet */}
-          <div className={cn("mt-5 w-full text-left", compact ? "max-w-none" : "max-w-xl")}>
+          <div
+            className={cn(
+              "mt-5 w-full text-left",
+              compact ? "flex min-h-0 max-w-none flex-1 flex-col" : "max-w-xl",
+            )}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                 {LANG_LABEL[lang]} · {lang === "curl" ? "HTTP" : "Kupe SDK"}
@@ -682,7 +673,7 @@ export function KupeRealtimeApiHero({
             <div
               className={cn(
                 "sdk-code mt-2 overflow-auto rounded-xl border border-border bg-muted/25 shadow-inner",
-                compact ? "max-h-44 sm:max-h-52 lg:max-h-56" : "max-h-56",
+                compact ? "min-h-0 flex-1 max-h-none sm:max-h-none lg:max-h-none" : "max-h-56",
               )}
             >
               <pre

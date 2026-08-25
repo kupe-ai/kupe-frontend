@@ -142,7 +142,7 @@ for await (const event of rt) {
       },
       {
         title: "Echo",
-        body: "Never send the agent's own audio back. On open speakers the mic records the agent, server VAD reads it as the caller, and the agent answers itself with its own lines showing up as user transcripts. Use input with acoustic echo cancellation - a headset, a phone line, or getUserMedia({ audio: { echoCancellation: true } }) in the browser - or stop sending input_audio_buffer.append while the agent's audio is still playing, which costs barge-in. The SDKs ship this as echo_suppression=\"half_duplex\" (Python) and echoSuppression: \"half_duplex\" (TypeScript).",
+        body: "Never send the agent's own audio back. On open speakers the mic records the agent, server VAD reads it as the caller, and the agent answers itself with its own lines showing up as user transcripts. Use input with acoustic echo cancellation - a headset, a phone line, or getUserMedia({ audio: { echoCancellation: true } }) in the browser - or send silence in input_audio_buffer.append while the agent's audio is still playing, which costs barge-in. Keep sending frames - VAD and STT run over a continuous stream, so stopping the appends stalls turn detection and the agent stops hearing the caller. The SDKs ship this as echo_suppression=\"half_duplex\" (Python) and echoSuppression: \"half_duplex\" (TypeScript).",
       },
       {
         title: "VAD / interruptions",
