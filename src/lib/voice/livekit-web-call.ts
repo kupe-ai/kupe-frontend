@@ -214,6 +214,16 @@ function wsUrl(base: string, secret: string): string {
   const url = new URL(base, window.location.href);
   if (url.protocol === "https:") url.protocol = "wss:";
   if (url.protocol === "http:") url.protocol = "ws:";
+  // The backend's realtime-session response is meant to point at the agents
+  // host under /agents/v1/realtime (see kupe-backend's _realtime_ws_url and
+  // its test_realtime_sessions assertion). When PUBLIC_AGENTS_WS_URL is
+  // misconfigured without the /agents suffix, it instead returns .../v1/realtime,
+  // which 404s the WebSocket upgrade ("Couldn't reach the call server").
+  // Repair that here so the web-call widget still connects even if the
+  // backend value regresses again.
+  if (url.pathname === "/v1/realtime") {
+    url.pathname = "/agents/v1/realtime";
+  }
   url.searchParams.set("client_secret", secret);
   url.searchParams.set("model", "kupe-realtime");
   return url.toString();
