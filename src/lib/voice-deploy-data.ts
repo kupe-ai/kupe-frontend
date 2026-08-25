@@ -141,6 +141,10 @@ for await (const event of rt) {
         body: "PCM16 mono at 24 kHz. Client event input_audio_buffer.append sends base64 frames. Server event response.output_audio.delta returns base64 frames. Stop scheduled playback on input_audio_buffer.speech_started.",
       },
       {
+        title: "Echo",
+        body: "Never send the agent's own audio back. On open speakers the mic records the agent, server VAD reads it as the caller, and the agent answers itself with its own lines showing up as user transcripts. Use input with acoustic echo cancellation - a headset, a phone line, or getUserMedia({ audio: { echoCancellation: true } }) in the browser - or stop sending input_audio_buffer.append while the agent's audio is still playing, which costs barge-in. The SDKs ship this as echo_suppression=\"half_duplex\" (Python) and echoSuppression: \"half_duplex\" (TypeScript).",
+      },
+      {
         title: "VAD / interruptions",
         body: "Server VAD emits input_audio_buffer.speech_started and speech_stopped. On speech_started the player must cancel queued audio and the client may send response.cancel. Greeting audio is flushed as soon as the socket attaches.",
       },
