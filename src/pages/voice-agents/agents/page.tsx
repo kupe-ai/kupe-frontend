@@ -232,8 +232,11 @@ export default function VoiceAgentsAgentsPage() {
 
       {recentAgents.length > 0 ? (
         <section className="mt-10">
-          <h2 className="mb-1 text-base font-semibold tracking-tight">Recents</h2>
-          <RecentAgentsTable agents={recentAgents} onChanged={refreshRecents} />
+          <RecentAgentsTable
+            title="Recents"
+            agents={recentAgents}
+            onChanged={refreshRecents}
+          />
         </section>
       ) : null}
 

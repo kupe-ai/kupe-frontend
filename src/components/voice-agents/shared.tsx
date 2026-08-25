@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowDown,
@@ -41,6 +41,8 @@ import {
   type VoiceAgentTemplate,
 } from "@/lib/voice-agents-data";
 import { TemplateAgentDialog } from "@/components/voice-agents/template-agent-dialog";
+
+const AGENTS_PAGE_SIZE = 10;
 
 export function VoicePageHeader({
   title,
@@ -145,22 +147,27 @@ async function copyValue(text: string, label: string) {
 
 export function RecentAgentsTable({
   agents,
+  title,
   searchPlaceholder = "Search...",
-  defaultPerPage = 3,
+  pageSize = AGENTS_PAGE_SIZE,
   onChanged,
 }: {
   agents: RecentVoiceAgent[];
+  /** When set, title and search sit on one row (search right). */
+  title?: string;
   searchPlaceholder?: string;
-  defaultPerPage?: number;
+  /** Initial visible rows; more load as the list scrolls. */
+  pageSize?: number;
   onChanged?: () => void;
 }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(defaultPerPage);
+  const [visibleCount, setVisibleCount] = useState(pageSize);
   const [renaming, setRenaming] = useState<RecentVoiceAgent | null>(null);
   const [renamingBusy, setRenamingBusy] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -179,26 +186,52 @@ export function RecentAgentsTable({
   }, [agents, search, sortDesc]);
 
   useEffect(() => {
-    setPage(1);
-  }, [search, perPage]);
+    setVisibleCount(pageSize);
+  }, [search, pageSize, agents]);
 
-  const pageStart = (page - 1) * perPage;
-  const pageItems = filtered.slice(pageStart, pageStart + perPage);
+  const pageItems = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    const sentinel = sentinelRef.current;
+    if (!root || !sentinel || !hasMore) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisibleCount((c) => Math.min(c + pageSize, filtered.length));
+        }
+      },
+      { root, rootMargin: "120px", threshold: 0 },
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [hasMore, filtered.length, pageSize, pageItems.length]);
+
+  const searchField = (
+    <div className={cn("relative w-full", title ? "max-w-[12.5rem] sm:max-w-[14rem]" : "min-[900px]:max-w-xs")}>
+      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder={searchPlaceholder}
+        className="h-9 rounded-full pl-8"
+        aria-label="Search agents"
+      />
+    </div>
+  );
 
   return (
     <div>
-      <div className="mb-3 flex justify-end">
-        <div className="relative w-full min-[900px]:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="h-9 rounded-full pl-8"
-            aria-label="Search agents"
-          />
+      {title ? (
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="shrink-0 text-base font-semibold tracking-tight">{title}</h2>
+          {searchField}
         </div>
-      </div>
+      ) : (
+        <div className="mb-3 flex justify-end">{searchField}</div>
+      )}
       <div className="overflow-hidden rounded-xl border border-border">
         <div className="grid grid-cols-[1fr_auto] gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground">
           <span>Agent</span>
@@ -216,73 +249,70 @@ export function RecentAgentsTable({
             />
           </button>
         </div>
-        {pageItems.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No agents match your search.
-          </p>
-        ) : (
-          <ul className="stagger divide-y divide-border">
-            {pageItems.map((agent) => (
-              <QuickContextMenu
-                key={agent.id}
-                title={agent.name}
-                items={agentMenuItems(agent, {
-                  onOpen: () => navigate(`/agents/${agent.id}`),
-                  onRename: () => setRenaming(agent),
-                  onDuplicate: async () => {
-                    try {
-                      const copy = await duplicateVoiceAgent(agent.id);
-                      toast.message("Agent duplicated");
-                      onChanged?.();
-                      navigate(`/agents/${copy.id}`);
-                    } catch {
-                      toast.error("Couldn't duplicate agent");
-                    }
-                  },
-                  onDelete: async () => {
-                    try {
-                      await deleteVoiceAgent(agent.id);
-                      toast.message("Agent deleted");
-                      onChanged?.();
-                    } catch {
-                      toast.error("Couldn't delete agent");
-                    }
-                  },
-                })}
-              >
-                <li className="cursor-context-menu">
-                  <Link
-                    to={`/agents/${agent.id}`}
-                    className="group/nav grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors duration-200 [transition-timing-function:var(--ease-pop)] hover:bg-muted/40"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <AgentAvatar seed={agent.seed} size={36} />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold">
-                          {agent.name}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {agent.email}
-                        </p>
+        <div
+          ref={scrollRef}
+          className="max-h-[min(28rem,calc(100vh-18rem))] overflow-y-auto overscroll-contain"
+        >
+          {pageItems.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+              No agents match your search.
+            </p>
+          ) : (
+            <ul className="stagger divide-y divide-border">
+              {pageItems.map((agent) => (
+                <QuickContextMenu
+                  key={agent.id}
+                  title={agent.name}
+                  items={agentMenuItems(agent, {
+                    onOpen: () => navigate(`/agents/${agent.id}`),
+                    onRename: () => setRenaming(agent),
+                    onDuplicate: async () => {
+                      try {
+                        const copy = await duplicateVoiceAgent(agent.id);
+                        toast.message("Agent duplicated");
+                        onChanged?.();
+                        navigate(`/agents/${copy.id}`);
+                      } catch {
+                        toast.error("Couldn't duplicate agent");
+                      }
+                    },
+                    onDelete: async () => {
+                      try {
+                        await deleteVoiceAgent(agent.id);
+                        toast.message("Agent deleted");
+                        onChanged?.();
+                      } catch {
+                        toast.error("Couldn't delete agent");
+                      }
+                    },
+                  })}
+                >
+                  <li className="cursor-context-menu">
+                    <Link
+                      to={`/agents/${agent.id}`}
+                      className="group/nav grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-3 transition-colors duration-200 [transition-timing-function:var(--ease-pop)] hover:bg-muted/40"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <AgentAvatar seed={agent.seed} size={36} />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">
+                            {agent.name}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {agent.email}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-sm text-muted-foreground tabular-nums">
-                      {agent.lastEdited}
-                    </span>
-                  </Link>
-                </li>
-              </QuickContextMenu>
-            ))}
-          </ul>
-        )}
-        <div className="border-t border-border px-3">
-          <VoicePagination
-            page={page}
-            perPage={perPage}
-            total={filtered.length}
-            onPageChange={setPage}
-            onPerPageChange={setPerPage}
-          />
+                      <span className="text-sm text-muted-foreground tabular-nums">
+                        {agent.lastEdited}
+                      </span>
+                    </Link>
+                  </li>
+                </QuickContextMenu>
+              ))}
+              {hasMore ? <li ref={sentinelRef} className="h-1" aria-hidden /> : null}
+            </ul>
+          )}
         </div>
       </div>
 

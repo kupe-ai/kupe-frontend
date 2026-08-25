@@ -255,19 +255,22 @@ export default function VoiceAgentsHomePage() {
 
       <section className="mt-8 grid grid-cols-1 items-start gap-5 sm:gap-6 min-[900px]:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,1.12fr)]">
         <div className="min-w-0">
-          <h2 className="mb-3 text-base font-semibold tracking-tight">Agents</h2>
           {recentAgents.length > 0 ? (
             <RecentAgentsTable
+              title="Agents"
               agents={recentAgents}
               onChanged={() => void agentsQuery.refetch()}
             />
           ) : (
-            <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
-              <p className="text-sm font-medium">No agents yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Create one from a template below, or mint a session with the SDK.
-              </p>
-            </div>
+            <>
+              <h2 className="mb-3 text-base font-semibold tracking-tight">Agents</h2>
+              <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
+                <p className="text-sm font-medium">No agents yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Create one from a template below, or mint a session with the SDK.
+                </p>
+              </div>
+            </>
           )}
         </div>
         <div className="min-w-0">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Check, ChevronDown, Copy, Eye, EyeOff } from "lucide-react";
+import { BookOpen, Check, ChevronDown, Copy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { BrandMark } from "@/components/brand/wordmark";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Matrix, type Frame } from "@/components/ui/matrix";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DOCS_URL } from "@/config";
 import { API_BASE_URL, MCP_REMOTE_URL } from "@/lib/voice-deploy-data";
 import { createVoiceApiKey, listVoiceApiKeys } from "@/lib/api/voice/api-keys";
 import type { VoiceApiKey } from "@/lib/api/voice/types";
@@ -83,7 +84,7 @@ curl -sS -X POST "${API_BASE_URL}/v1/realtime/sessions" \\
   }'
 
 # 2) Connect WebSocket (replace SECRET from step 1):
-# wss://${WS_HOST}/v1/realtime?model=kupe-realtime&client_secret=SECRET
+# wss://${WS_HOST}/agents/v1/realtime?model=kupe-realtime&client_secret=SECRET
 
 # 3) After connect, send a text turn then ask for a response:
 # {"type":"conversation.item.create","item":{"type":"message","role":"user","content":[{"type":"input_text","text":"Remind them their EMI is due tomorrow."}]}}
@@ -500,6 +501,35 @@ export function KupeRealtimeApiHero({
         className,
       )}
     >
+      {compact ? (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-16 -right-10 h-44 w-44 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_42%,transparent),transparent_70%)] opacity-80 blur-2xl"
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute top-0 right-0 h-28 w-36 opacity-[0.55]"
+          >
+            <Matrix
+              rows={9}
+              cols={12}
+              mode="vu"
+              levels={[0.2, 0.35, 0.55, 0.4, 0.7, 0.45, 0.3, 0.6, 0.25, 0.5, 0.35, 0.2]}
+              size={3.2}
+              gap={1.4}
+              showOffDots
+              offOpacity={0.12}
+              palette={{
+                on: "var(--primary)",
+                off: "color-mix(in oklab, var(--muted-foreground) 30%, transparent)",
+              }}
+              className="absolute top-3 right-3"
+              ariaLabel=""
+            />
+          </div>
+        </>
+      ) : null}
       <div
         className={cn(
           "relative grid",
@@ -511,7 +541,7 @@ export function KupeRealtimeApiHero({
         {/* Left — content */}
         <div
           className={cn(
-            "flex min-h-0 flex-col",
+            "relative z-[1] flex min-h-0 flex-col",
             compact ? "p-4 sm:p-5" : "p-5 sm:p-6 md:p-8 lg:border-r lg:border-border/60 lg:pr-6",
           )}
         >
@@ -545,6 +575,12 @@ export function KupeRealtimeApiHero({
               loading={generating}
             >
               Generate API key
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-full" asChild>
+              <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                <BookOpen className="size-3.5" />
+                Read docs
+              </a>
             </Button>
           </div>
 

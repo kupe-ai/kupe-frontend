@@ -80,7 +80,7 @@ export const DEPLOY_API_CARDS: DeployApiCard[] = [
       "Kupe Realtime is a voice WebSocket (model kupe-realtime). Use pip install kupe or npm install kupe-sdk to mint a session with realtime.sessions.create. Pass name or agent_id — a new name creates the agent with prompt, greeting, voice, and tools or mcp. Then connect and stream PCM16 at 24 kHz. The session always runs k-STT, k-TTS, and the Kupe LLM. Voices are addressed by sanitized name or voice id. Tools run server-side. This API is web-only and does not write telephony minutes.",
     endpoints: [
       { method: "POST", path: "/v1/realtime/sessions", summary: "Mint an ephemeral client secret. Pass name or agent_id; new names create the agent with prompt, greeting, voice, tools/mcp." },
-      { method: "GET", path: "/v1/realtime", summary: "WebSocket (upgrade). Query model=kupe-realtime." },
+      { method: "GET", path: "/agents/v1/realtime", summary: "WebSocket (upgrade) on the agents host. Query model=kupe-realtime." },
     ],
     curlTabs: [
       sdkPython(`# pip install kupe
@@ -134,7 +134,7 @@ for await (const event of rt) {
     sections: [
       {
         title: "Connect",
-        body: "wss://x.kupe.in/v1/realtime?model=kupe-realtime with Authorization: Bearer sk-kupe-... (server) or the ephemeral client_secret (browser). POST /v1/realtime/sessions takes name or agent_id. If name is new, the agent is created with prompt, greeting, voice, and tools or mcp. Copy the id from the agent editor when you already have one.",
+        body: "wss://x.kupe.in/agents/v1/realtime?model=kupe-realtime with Authorization: Bearer sk-kupe-... (server) or the ephemeral client_secret (browser). POST /v1/realtime/sessions takes name or agent_id. If name is new, the agent is created with prompt, greeting, voice, and tools or mcp. Copy the id from the agent editor when you already have one.",
       },
       {
         title: "Audio",

@@ -55,16 +55,23 @@ import {
   sliderToPercent,
 } from "@/lib/voice/ambient-preview";
 
+/** Caps provider/model picker width on narrow panes without touching KB/language selects. */
+const MODEL_SELECT_CONTROL =
+  "min-w-0 w-full max-w-[12.5rem] shrink sm:max-w-[15rem] md:max-w-[18rem]";
+const MODEL_SELECT_TRIGGER = "w-full min-w-0";
+
 function SettingRow({
   title,
   description,
   children,
   className,
+  controlClassName,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   className?: string;
+  controlClassName?: string;
 }) {
   return (
     <div className={cn("flex flex-wrap items-start justify-between gap-4 py-3", className)}>
@@ -72,7 +79,7 @@ function SettingRow({
         <p className="text-sm font-medium">{title}</p>
         {description && <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>}
       </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <div className={cn("flex shrink-0 items-center gap-2", controlClassName)}>{children}</div>
     </div>
   );
 }
@@ -144,7 +151,7 @@ const THINKING_SOUND_HELP: Record<ThinkingSoundMode, string> = {
   words:
     "Acknowledge the caller in the agent's language (अच्छा, ठीक है, બરાબર, சரி, “got it”) instead of a hesitation sound.",
   auto:
-    "Let the ThinkSpark model choose the reaction on the fly from the caller's last turn and the conversation — the right language, script and tone (and silence when nothing fits). The agent's own reply skips the acknowledgement.",
+    "ThinkSpark picks a fitting reaction (or silence) from the last turn. The agent's reply skips the acknowledgement.",
 };
 
 function settingKey(controlKey: string): keyof AgentSettings {
@@ -662,7 +669,11 @@ export function AgentSettingsPanel({
           {providersError}
         </p>
       ) : null}
-      <SettingRow title="LLM" description="Model used for replies on calls. Default is Kupe / Gemma 4 31B IT.">
+      <SettingRow
+        title="LLM"
+        description="Model used for replies on calls. Default is Kupe / Gemma 4 31B IT."
+        controlClassName={MODEL_SELECT_CONTROL}
+      >
         <SearchableSelect
           value={llmId}
           onChange={setLlmId}
@@ -670,9 +681,14 @@ export function AgentSettingsPanel({
           placeholder={llmProviders.length ? "Select LLM" : "No LLMs available"}
           searchPlaceholder="Search models…"
           options={providerOptions(llmProviders)}
+          className={MODEL_SELECT_TRIGGER}
         />
       </SettingRow>
-      <SettingRow title="Voice (TTS)" description="How the agent speaks. Default is Kupe / k-TTS.">
+      <SettingRow
+        title="Voice (TTS)"
+        description="How the agent speaks. Default is Kupe / k-TTS."
+        controlClassName={MODEL_SELECT_CONTROL}
+      >
         <SearchableSelect
           value={ttsId}
           onChange={(v) => {
@@ -683,18 +699,28 @@ export function AgentSettingsPanel({
           placeholder={ttsProviders.length ? "Select TTS" : "No TTS available"}
           searchPlaceholder="Search TTS models…"
           options={providerOptions(ttsProviders)}
+          className={MODEL_SELECT_TRIGGER}
         />
       </SettingRow>
-      <SettingRow title="Voice identity" description="Specific TTS voice for this model — search, preview, and pick.">
+      <SettingRow
+        title="Voice identity"
+        description="Specific TTS voice for this model — search, preview, and pick."
+        controlClassName={MODEL_SELECT_CONTROL}
+      >
         <KupeVoicePicker
           voices={voices}
           value={voiceId}
           onValueChange={setVoiceId}
           disabled={!ttsId || !voices.length}
           placeholder={voices.length ? "Select voice" : "No voices for this TTS"}
+          className={MODEL_SELECT_TRIGGER}
         />
       </SettingRow>
-      <SettingRow title="Speech recognition (STT)" description="How caller audio is transcribed. Default is Kupe / k-STT.">
+      <SettingRow
+        title="Speech recognition (STT)"
+        description="How caller audio is transcribed. Default is Kupe / k-STT."
+        controlClassName={MODEL_SELECT_CONTROL}
+      >
         <SearchableSelect
           value={sttId}
           onChange={setSttId}
@@ -702,6 +728,7 @@ export function AgentSettingsPanel({
           placeholder={sttProviders.length ? "Select STT" : "No STT available"}
           searchPlaceholder="Search STT models…"
           options={providerOptions(sttProviders)}
+          className={MODEL_SELECT_TRIGGER}
         />
       </SettingRow>
 
