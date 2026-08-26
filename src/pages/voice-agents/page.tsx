@@ -208,7 +208,7 @@ export default function VoiceAgentsHomePage() {
         </div>
       )}
 
-      <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-5">
+      <section className="mt-6 rounded-2xl border border-border bg-card p-4 shadow-xs md:p-5">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="grid min-w-0 flex-1 grid-cols-2 gap-4 sm:grid-cols-4">
             {homeStats.map((s) => (
@@ -342,7 +342,7 @@ export default function VoiceAgentsHomePage() {
                   setSelected(tpl);
                   setDialogOpen(true);
                 }}
-                className="group/nav pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-sm transition-transform duration-200 [transition-timing-function:var(--ease-pop)] hover:-translate-y-0.5 hover:bg-muted/30"
+                className="group/nav pressable cursor-context-menu rounded-2xl border border-border bg-card p-4 text-left shadow-xs transition-colors duration-200 hover:bg-muted/30"
               >
                 <AgentAvatar seed={tpl.seed} size={36} />
                 <h3 className="mt-2.5 text-sm font-semibold tracking-tight">{tpl.name}</h3>

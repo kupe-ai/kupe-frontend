@@ -157,6 +157,8 @@
   --elevation: 0 1px 2px rgb(14 14 14 / 0.06);
   --elevation-right: -1px 0 3px rgb(14 14 14 / 0.05);
   --elevation-modal: 0 24px 80px rgb(14 14 14 / 0.18), 0 2px 8px rgb(14 14 14 / 0.06);
+  /* Light: short, low-contrast lift — no neon blob under CTAs. */
+  --shadow-hero-btn: 0 1px 1px rgb(14 14 14 / 0.06), 0 2px 4px rgb(64 72 255 / 0.1);
 
   --ease-pop: linear(
     0, 0.009, 0.035 2.1%, 0.141 4.4%, 0.723 12.9%, 0.938 16.7%, 1.017,
@@ -235,6 +237,7 @@
   --elevation: 0 1px 2px rgb(0 0 0 / 0.35);
   --elevation-right: -1px 0 3px rgb(0 0 0 / 0.3);
   --elevation-modal: 0 24px 80px rgb(0 0 0 / 0.55), 0 2px 8px rgb(0 0 0 / 0.3);
+  --shadow-hero-btn: 0 1px 2px rgb(1 7 153 / 0.35), 0 8px 20px rgb(64 72 255 / 0.28);
 
   --primary: #4048ff;
   --primary-foreground: #ffffff;
@@ -745,9 +748,7 @@
   }
   .kupe-chip-active {
     color: #fff;
-    box-shadow:
-      0 1px 2px rgb(1 7 153 / 0.28),
-      0 6px 14px rgb(64 72 255 / 0.38);
+    box-shadow: var(--shadow-hero-btn);
   }
   .kupe-theme-gradient {
     background-color: var(--primary);
@@ -755,9 +756,7 @@
     background-repeat: no-repeat;
   }
   [data-slot="button"][data-variant="default"] {
-    box-shadow:
-      0 1px 2px rgb(1 7 153 / 0.22),
-      0 6px 18px rgb(64 72 255 / 0.38);
+    box-shadow: var(--shadow-hero-btn);
   }
   [data-slot="button"][data-variant="default"]::after {
     content: "";

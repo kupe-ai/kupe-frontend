@@ -497,7 +497,7 @@ export function KupeRealtimeApiHero({
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-3xl border border-border bg-card shadow-elevated",
+        "relative overflow-hidden rounded-3xl border border-border bg-card shadow-xs",
         compact && "flex min-h-0 flex-col",
         className,
       )}
@@ -506,11 +506,11 @@ export function KupeRealtimeApiHero({
         <>
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-20 -right-12 h-56 w-56 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_68%,transparent),transparent_62%)] opacity-95 blur-xl"
+            className="pointer-events-none absolute -top-24 -right-16 h-64 w-64 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_18%,transparent),transparent_72%)] opacity-45 blur-3xl dark:bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_52%,transparent),transparent_64%)] dark:opacity-80"
           />
           <div
             aria-hidden
-            className="pointer-events-none absolute -bottom-8 -left-8 h-40 w-40 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_38%,transparent),transparent_68%)] opacity-70 blur-2xl"
+            className="pointer-events-none absolute -bottom-10 -left-10 h-44 w-44 rounded-full bg-[radial-gradient(circle_at_center,color-mix(in_oklab,var(--primary)_12%,transparent),transparent_76%)] opacity-30 blur-3xl dark:opacity-50"
           />
         </>
       ) : null}

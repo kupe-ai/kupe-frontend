@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Conversation, ConversationContent, useChatStickScroll } from "@/components/ui/conversation";
 import { AttachmentChips, ChatComposer, ComposerSubmitButton, SuggestionChips } from "@/components/ask-ai/chat-composer";
 import { AskKupeTurn } from "@/components/ask-ai/ask-kupe-thread";
+import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import { useWorkspace } from "@/context/workspace-context";
 import {
   removeAttachment,
@@ -77,16 +78,24 @@ export default function AskKupePage() {
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
+      <FlickeringGrid
+        className="pointer-events-none absolute inset-0 z-0 [mask-image:radial-gradient(ellipse_at_center,transparent_42%,black_78%)]"
+        squareSize={3}
+        gridGap={7}
+        flickerChance={0.18}
+        color="#4048FF"
+        maxOpacity={0.28}
+      />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-[min(52%,36rem)]"
+        className="pointer-events-none absolute inset-y-0 right-0 z-0 w-[min(52%,36rem)]"
       >
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_18%,color-mix(in_oklab,var(--kupe-hero)_18%,transparent),transparent_62%)] dark:bg-[radial-gradient(ellipse_at_100%_18%,color-mix(in_oklab,var(--kupe-hero)_32%,transparent),transparent_68%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_100%_88%,color-mix(in_oklab,var(--kupe-hero-soft)_10%,transparent),transparent_70%)] dark:bg-[radial-gradient(ellipse_at_100%_88%,color-mix(in_oklab,var(--kupe-hero-soft)_22%,transparent),transparent_74%)]" />
         <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-primary/25 to-transparent dark:via-primary/35" />
       </div>
 
-      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-6">
+      <div className="relative z-[1] mx-auto flex h-full min-h-0 w-full max-w-5xl flex-col px-4 py-5 md:px-6 md:py-6">
       {!chatting ? (
         <section className="flex flex-1 flex-col items-center justify-center text-center">
           <AgentAvatar seed={KAI_AVATAR_SEED} fade size={168} alt="" />
