@@ -665,6 +665,8 @@ console.log(transcript);
       { method: "POST", path: "/v1/databases/{database_id}/agents", summary: "Attach an agent so its calls write rows." },
       { method: "DELETE", path: "/v1/databases/{database_id}/agents/{agent_id}", summary: "Detach an agent." },
       { method: "GET", path: "/v1/databases/{database_id}/rows", summary: "Keyset page of rows. Pass cursor= from next_cursor." },
+      { method: "PATCH", path: "/v1/databases/{database_id}/rows/{row_id}", summary: "Update who_called or extracted values on a row." },
+      { method: "DELETE", path: "/v1/databases/{database_id}/rows/{row_id}", summary: "Delete a row from the database." },
       { method: "GET", path: "/v1/databases/{database_id}/export", summary: "Stream csv, json, ndjson, or zip." },
       { method: "GET", path: "/v1/agents/{agent_id}/databases", summary: "List databases attached to an agent (lazy-provisions a default)." },
     ],

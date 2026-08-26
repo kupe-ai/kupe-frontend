@@ -70,6 +70,18 @@ export function listCallDatabaseRows(
   return api.listDatabaseRows(id, params);
 }
 
+export function patchCallDatabaseRow(
+  id: string,
+  rowId: string,
+  body: { who_called?: string | null; values?: Record<string, unknown> },
+) {
+  return api.patchDatabaseRow(id, rowId, body);
+}
+
+export function deleteCallDatabaseRow(id: string, rowId: string) {
+  return api.deleteDatabaseRow(id, rowId);
+}
+
 export function exportCallDatabase(id: string, format: "csv" | "json" | "ndjson" | "zip", q?: string) {
   return api.exportDatabase(id, format, q);
 }

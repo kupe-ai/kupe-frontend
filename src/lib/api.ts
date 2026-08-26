@@ -840,6 +840,17 @@ export const api = {
     const q = sp.toString();
     return authedJson<CallDatabaseRowsPage>(`/v1/databases/${databaseId}/rows${q ? `?${q}` : ""}`);
   },
+  patchDatabaseRow: (
+    databaseId: string,
+    rowId: string,
+    body: { who_called?: string | null; values?: Record<string, unknown> },
+  ) =>
+    authedJson<CallDatabaseRow>(`/v1/databases/${databaseId}/rows/${rowId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  deleteDatabaseRow: (databaseId: string, rowId: string) =>
+    authedJson<void>(`/v1/databases/${databaseId}/rows/${rowId}`, { method: "DELETE" }),
   exportDatabase: async (databaseId: string, format: "csv" | "json" | "ndjson" | "zip", q?: string) => {
     const sp = new URLSearchParams({ format });
     if (q) sp.set("q", q);

@@ -1279,6 +1279,7 @@ export type CallDatabaseRow = {
   session_id: string;
   agent_id: string | null;
   who_called: string | null;
+  direction?: "web" | "inbound" | "outbound" | null;
   started_at: string | null;
   duration_seconds: number | null;
   values: Record<string, unknown>;

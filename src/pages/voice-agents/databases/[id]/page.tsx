@@ -46,6 +46,7 @@ import { requireScope } from "@/lib/api/workspace-scope";
 import {
   attachCallDatabaseAgent,
   detachCallDatabaseAgent,
+  deleteCallDatabaseRow,
   exportCallDatabase,
   getCallDatabase,
   listCallDatabaseAgents,
@@ -59,9 +60,16 @@ import {
 } from "@/lib/api/voice/databases";
 import type { Agent, CatalogTool, ComposioConnection } from "@/types";
 import { cn } from "@/lib/utils";
+import {
+  DatabaseCell,
+  cellText,
+  rawValue,
+} from "@/components/voice-agents/database-notion-cell";
+import { DatabaseRowEditor } from "@/components/voice-agents/database-row-editor";
 
 const SYSTEM_COLS = [
   { key: "who_called", label: "Who called", schema: false },
+  { key: "direction", label: "Direction", schema: false },
   { key: "started_at", label: "Started", schema: false },
   { key: "duration_seconds", label: "Duration", schema: false },
 ] as const;
@@ -75,37 +83,14 @@ type ColDef = { key: string; label: string; schema: boolean };
 type SortDir = "asc" | "desc";
 type SortState = { key: string; dir: SortDir } | null;
 
-function formatDuration(seconds: number | null) {
-  if (seconds == null) return "—";
-  const s = Math.round(seconds);
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return m > 0 ? `${m}m ${r}s` : `${r}s`;
-}
-
-function formatWhen(iso: string | null) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
-}
-
-function rawValue(row: CallDatabaseRow, key: string): unknown {
-  if (key === "who_called") return row.who_called;
-  if (key === "started_at") return row.started_at;
-  if (key === "duration_seconds") return row.duration_seconds;
-  return row.values?.[key];
-}
-
-function cellValue(row: CallDatabaseRow, key: string) {
-  if (key === "who_called") return row.who_called || "—";
-  if (key === "started_at") return formatWhen(row.started_at);
-  if (key === "duration_seconds") return formatDuration(row.duration_seconds);
-  const v = row.values?.[key];
-  if (v == null || v === "") return "—";
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  return String(v);
-}
+const SYSTEM_FIELD_NAMES = new Set([
+  "summary",
+  "success",
+  "who_called",
+  "direction",
+  "started_at",
+  "duration_seconds",
+]);
 
 function compareRows(a: CallDatabaseRow, b: CallDatabaseRow, key: string, dir: SortDir) {
   const av = rawValue(a, key);
@@ -157,6 +142,9 @@ export default function VoiceAgentsDatabaseDetailPage() {
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [columnToDelete, setColumnToDelete] = useState<{ key: string; label: string } | null>(null);
   const [deletingColumn, setDeletingColumn] = useState(false);
+  const [editingRow, setEditingRow] = useState<CallDatabaseRow | null>(null);
+  const [rowToDelete, setRowToDelete] = useState<CallDatabaseRow | null>(null);
+  const [deletingRow, setDeletingRow] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => setAppliedQ(q.trim()), 500);
@@ -219,7 +207,7 @@ export default function VoiceAgentsDatabaseDetailPage() {
   }, [id, db?.id, appliedQ, perPage, loadRows]);
   const allColumns: ColDef[] = useMemo(() => {
     const custom = (db?.fields || [])
-      .filter((f) => f.name !== "summary" && f.name !== "success")
+      .filter((f) => f.name !== "summary" && f.name !== "success" && !SYSTEM_FIELD_NAMES.has(f.name))
       .map((f) => ({ key: f.name, label: f.name, schema: true }));
     return [...SYSTEM_COLS, ...BUILTIN_COLS, ...custom];
   }, [db]);
@@ -242,7 +230,7 @@ export default function VoiceAgentsDatabaseDetailPage() {
     if (activeFilters.length) {
       list = list.filter((row) =>
         activeFilters.every(([key, needle]) =>
-          cellValue(row, key).toLowerCase().includes(needle.trim().toLowerCase()),
+          cellText(row, key).toLowerCase().includes(needle.trim().toLowerCase()),
         ),
       );
     }
@@ -400,6 +388,52 @@ export default function VoiceAgentsDatabaseDetailPage() {
     return items;
   }
 
+  function rowMenu(row: CallDatabaseRow): QuickMenuEntry[] {
+    const schemaCols = allColumns.filter((c) => c.schema);
+    return [
+      {
+        label: "Edit row",
+        icon: Pencil,
+        onSelect: () => setEditingRow(row),
+      },
+      {
+        label: "Change type",
+        icon: Settings2,
+        disabled: schemaCols.length === 0,
+        children: schemaCols.map((col) => ({
+          label: col.label,
+          children: (["string", "number", "boolean", "enum"] as const).map((type) => ({
+            label: type,
+            onSelect: () => void patchField(col.key, { type }),
+          })),
+        })),
+      },
+      { type: "separator" },
+      {
+        label: "Delete row",
+        icon: Trash2,
+        variant: "destructive",
+        onSelect: () => setRowToDelete(row),
+      },
+    ];
+  }
+
+  async function confirmDeleteRow() {
+    if (!rowToDelete || !db) return;
+    setDeletingRow(true);
+    try {
+      await deleteCallDatabaseRow(db.id, rowToDelete.id);
+      setRows((prev) => prev.filter((r) => r.id !== rowToDelete.id));
+      setTotal((n) => Math.max(0, n - 1));
+      setRowToDelete(null);
+      toast.message("Row deleted");
+    } catch {
+      toast.error("Couldn't delete row");
+    } finally {
+      setDeletingRow(false);
+    }
+  }
+
   if (loading && !db) {
     return (
       <div className="flex h-full min-h-0 flex-col px-4 py-5 md:px-6 md:py-6">
@@ -533,10 +567,9 @@ export default function VoiceAgentsDatabaseDetailPage() {
                       key={col.key}
                       className={cn(
                         "whitespace-nowrap border-b border-border bg-muted/80 px-3 py-2.5 text-left text-xs font-medium text-muted-foreground backdrop-blur",
-                        i < 3 && "sticky z-40",
-                        i === 0 && "left-0",
-                        i === 1 && "left-[9rem]",
-                        i === 2 && "left-[18rem]",
+                        i < 2 && "sticky z-40",
+                        i === 0 && "left-0 min-w-[11rem]",
+                        i === 1 && "left-[11rem] min-w-[8.5rem]",
                       )}
                     >
                       <QuickContextMenu title={col.label} items={columnMenu(col)}>
@@ -576,23 +609,32 @@ export default function VoiceAgentsDatabaseDetailPage() {
                 </tr>
               ) : displayRows.length ? (
                 displayRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-muted/40">
-                    {columns.map((col, i) => (
-                      <td
-                        key={col.key}
-                        className={cn(
-                          "max-w-xs truncate border-b border-border px-3 py-2.5",
-                          i < 3 && "sticky bg-card",
-                          i === 0 && "left-0 z-10",
-                          i === 1 && "left-[9rem] z-10",
-                          i === 2 && "left-[18rem] z-10",
-                        )}
-                        title={cellValue(row, col.key)}
-                      >
-                        {cellValue(row, col.key)}
-                      </td>
-                    ))}
-                  </tr>
+                  <QuickContextMenu
+                    key={row.id}
+                    title={row.who_called || "Call"}
+                    items={rowMenu(row)}
+                  >
+                    <tr className="group cursor-context-menu hover:bg-muted/40 data-[state=open]:bg-muted/60">
+                      {columns.map((col, i) => (
+                        <td
+                          key={col.key}
+                          className={cn(
+                            "max-w-xs border-b border-border px-3 py-2.5",
+                            i < 2 && "sticky bg-card group-hover:bg-muted/40 group-data-[state=open]:bg-muted/60",
+                            i === 0 && "left-0 z-10 min-w-[11rem]",
+                            i === 1 && "left-[11rem] z-10 min-w-[8.5rem]",
+                          )}
+                          title={cellText(row, col.key)}
+                        >
+                          <DatabaseCell
+                            row={row}
+                            colKey={col.key}
+                            field={db.fields.find((f) => f.name === col.key)}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  </QuickContextMenu>
                 ))
               ) : (
                 <tr>
@@ -740,6 +782,46 @@ export default function VoiceAgentsDatabaseDetailPage() {
               onClick={() => void confirmDeleteColumn()}
             >
               {deletingColumn ? "Deleting…" : "Delete column"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <DatabaseRowEditor
+        open={!!editingRow}
+        onOpenChange={(open) => {
+          if (!open) setEditingRow(null);
+        }}
+        db={db}
+        row={editingRow}
+        onSaved={({ db: nextDb, row: nextRow }) => {
+          setDb(nextDb);
+          setRows((prev) => prev.map((r) => (r.id === nextRow.id ? nextRow : r)));
+        }}
+      />
+
+      <AlertDialog
+        open={!!rowToDelete}
+        onOpenChange={(next) => !next && !deletingRow && setRowToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this row?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {rowToDelete
+                ? `Remove the call from ${rowToDelete.who_called || "this row"}? This only deletes the database row, not the call recording.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingRow}>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              className="rounded-full"
+              disabled={deletingRow}
+              onClick={() => void confirmDeleteRow()}
+            >
+              {deletingRow ? "Deleting…" : "Delete row"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
