@@ -315,7 +315,7 @@ export function BillingPlanCards({
                   <>
                     <PlanFeature text="Custom concurrency & rate limits" show />
                     <PlanFeature text="Forward-deployed engineering support" show />
-                    <PlanFeature text="Available on 1,00,000+ minutes/month" show />
+                    <PlanFeature text="Available from 100k minutes of consumption" show />
                     <PlanFeature text={`Renewals from ${money(minTopup, shownCurrency, shownCurrency === "INR" ? 0 : 2)}`} show={minTopup != null} />
                     {isCurrent && (
                       <li>

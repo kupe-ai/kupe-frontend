@@ -1,76 +1,20 @@
 "use client";
 
-import { Link, useSearchParams } from "react-router-dom";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { BrandLockup } from "@/components/brand/wordmark";
 import { ProductTrailer } from "@/components/auth/product-trailer";
-import { KupeIcon } from "@/components/icons/kupe-icon";
 
 /**
  * Claude-style split login landing — dark/light aware.
  * Left: brand + auth. Right: continuous product trailer (cream stage always).
  */
 export function LoginLanding({ children }: { children: React.ReactNode }) {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [params] = useSearchParams();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const isDark = mounted && resolvedTheme === "dark";
-  const next = params.get("next");
-  const signupHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
-
   return (
     <div className="login-landing flex h-full min-h-0 flex-col overflow-y-auto bg-[#f9f7f2] text-[#1d1d1c] transition-colors duration-300 dark:bg-[#0e0e0e] dark:text-[#f5f2eb]">
-      <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-4 px-5 sm:h-16 sm:px-8 lg:px-10">
+      <header className="relative z-20 flex h-14 shrink-0 items-center justify-center px-5 sm:h-16 sm:px-8 lg:px-10">
         <Link to="/login" className="shrink-0" aria-label="Kupe home">
           <BrandLockup height={26} />
         </Link>
-
-        <nav
-          className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-6 text-[13px] text-[#1d1d1c]/55 lg:flex dark:text-white/55"
-          aria-label="Primary"
-        >
-          {[
-            { href: "#product", label: "Product" },
-            { href: "#platform", label: "Platform" },
-            { href: "#voice", label: "Voice AI" },
-          ].map((l) => (
-            <a
-              key={l.label}
-              href={l.href}
-              className="transition-opacity hover:text-[#1d1d1c] hover:opacity-100 dark:hover:text-white"
-            >
-              {l.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            type="button"
-            aria-label="Toggle theme"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className="group/nav flex size-9 items-center justify-center rounded-full text-[#1d1d1c]/60 transition-colors hover:bg-black/5 hover:text-[#1d1d1c] dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
-          >
-            {mounted ? (
-              isDark ? (
-                <KupeIcon name="sun" className="size-4" />
-              ) : (
-                <KupeIcon name="moon" className="size-4" />
-              )
-            ) : (
-              <span className="size-4" />
-            )}
-          </button>
-          <Link
-            to={signupHref}
-            className="kupe-hero-fill inline-flex items-center rounded-full px-4 py-2 text-[13px] font-medium text-white shadow-[0_1px_2px_rgb(1_7_153_/_0.22),0_6px_16px_rgb(64_72_255_/_0.32)] transition-[filter] hover:brightness-110"
-          >
-            Try Kupe
-          </Link>
-        </div>
       </header>
 
       <main className="flex min-h-0 flex-1 flex-col lg:flex-row">
