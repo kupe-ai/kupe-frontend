@@ -472,9 +472,15 @@ export type BackgroundNoiseConfig = {
   volume: number;
 };
 
+export type BandpassFilterConfig = {
+  enabled: boolean;
+  intensity: number;
+};
+
 export type AgentAudioConfig = {
   noise_cancellation: NoiseCancellation;
   background_noise: BackgroundNoiseConfig;
+  bandpass_filter: BandpassFilterConfig;
 };
 
 export type EndOfCallWarningConfig = {

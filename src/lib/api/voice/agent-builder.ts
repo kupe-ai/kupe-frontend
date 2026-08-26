@@ -83,6 +83,11 @@ export interface AgentSettings {
   volume_threshold_db?: number;
   background_sound?: string;
   background_volume?: number;
+  /** Bandpass on the agent's own voice -- thinking sounds, filler words, TTS.
+   * Not the background ambient loop above. */
+  bandpass_filter_enabled?: boolean;
+  /** 0-100. Higher = narrower/more telephone-like passband. */
+  bandpass_filter_intensity?: number;
   multilingual_enabled?: boolean;
   allowed_languages?: string[];
   auto_detect_language?: boolean;
@@ -523,6 +528,8 @@ function settingsFromConfig(config: AgentConfig | undefined): AgentSettings {
     volume_threshold_db: config?.turn.volume_threshold_db ?? -30,
     background_sound: bgId,
     background_volume: Math.round((bg?.volume ?? 0) * 100),
+    bandpass_filter_enabled: config?.audio?.bandpass_filter?.enabled ?? false,
+    bandpass_filter_intensity: config?.audio?.bandpass_filter?.intensity ?? 50,
     voicemail_enabled: config?.voicemail_detection.enabled,
     voicemail_message: config?.voicemail_detection.message,
     max_call_length_minutes: config?.session.max_duration_seconds
@@ -626,6 +633,10 @@ export async function updateAgentSettings(agentId: string, data: AgentSettings) 
     },
     audio: {
       background_noise: backgroundFromSettings(data, agent.config.audio.background_noise),
+      bandpass_filter: {
+        enabled: data.bandpass_filter_enabled ?? agent.config.audio?.bandpass_filter?.enabled ?? false,
+        intensity: data.bandpass_filter_intensity ?? agent.config.audio?.bandpass_filter?.intensity ?? 50,
+      },
     },
     silence_breaker: {
       enabled: nudges.length > 0,

@@ -247,6 +247,8 @@ const DEFAULTS: Required<
   volume_threshold_db: -30,
   background_sound: "none",
   background_volume: 0,
+  bandpass_filter_enabled: false,
+  bandpass_filter_intensity: 70,
   multilingual_enabled: true,
   allowed_languages: ["en", "hi", "gu"],
   auto_detect_language: true,
@@ -330,8 +332,6 @@ export function AgentSettingsPanel({
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved" | null>(null);
   const [kbOptions, setKbOptions] = useState<SearchableOption[]>([]);
   const [previewing, setPreviewing] = useState(false);
-  const [bandpassEnabled, setBandpassEnabled] = useState(false);
-  const [bandpassTightness, setBandpassTightness] = useState(70);
   const previewRef = useRef<AmbientPreviewPlayer | null>(null);
   const previewParamsRef = useRef({ volume: 0, bandpass: false, tightness: 70 });
 
@@ -463,8 +463,8 @@ export function AgentSettingsPanel({
 
   previewParamsRef.current = {
     volume: settings.background_volume,
-    bandpass: bandpassEnabled,
-    tightness: bandpassTightness,
+    bandpass: settings.bandpass_filter_enabled,
+    tightness: settings.bandpass_filter_intensity,
   };
 
   useEffect(() => {
@@ -485,8 +485,8 @@ export function AgentSettingsPanel({
   useEffect(() => {
     const player = previewRef.current;
     if (!player?.playing) return;
-    player.setBandpass(bandpassEnabled, bandpassTightness);
-  }, [bandpassEnabled, bandpassTightness]);
+    player.setBandpass(settings.bandpass_filter_enabled, settings.bandpass_filter_intensity);
+  }, [settings.bandpass_filter_enabled, settings.bandpass_filter_intensity]);
 
   useEffect(() => {
     const player = previewRef.current;
@@ -523,8 +523,8 @@ export function AgentSettingsPanel({
       await player.play(
         id,
         sliderToGain(percentToSlider(settings.background_volume)),
-        bandpassEnabled,
-        bandpassTightness,
+        settings.bandpass_filter_enabled,
+        settings.bandpass_filter_intensity,
       );
       setPreviewing(true);
     } catch (err) {
@@ -876,19 +876,25 @@ export function AgentSettingsPanel({
           className="w-48"
         />
       </SettingRow>
-      <SettingRow title="Bandpass filter" description="Preview a phone-narrow frequency band on the loop.">
-        <Switch checked={bandpassEnabled} onCheckedChange={setBandpassEnabled} />
+      <SettingRow
+        title="Bandpass filter"
+        description="Narrows the agent's own voice -- thinking sounds, filler words, and TTS -- toward a phone-like band. Applies live on calls, not just this loop preview."
+      >
+        <Switch
+          checked={settings.bandpass_filter_enabled}
+          onCheckedChange={(v) => set("bandpass_filter_enabled", v)}
+        />
       </SettingRow>
-      {bandpassEnabled && (
+      {settings.bandpass_filter_enabled && (
         <SettingRow
-          title="Bandpass tightness"
-          description={`${Math.round(bandpassHz(bandpassTightness).low)}–${Math.round(bandpassHz(bandpassTightness).high)} Hz`}
+          title="Bandpass intensity"
+          description={`${Math.round(bandpassHz(settings.bandpass_filter_intensity).low)}–${Math.round(bandpassHz(settings.bandpass_filter_intensity).high)} Hz`}
         >
           <RangeControl
-            value={bandpassTightness}
+            value={settings.bandpass_filter_intensity}
             min={0}
             max={100}
-            onChange={setBandpassTightness}
+            onChange={(v) => set("bandpass_filter_intensity", v)}
             format={(v) => `${v}`}
             className="w-48"
           />

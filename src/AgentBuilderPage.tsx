@@ -69,6 +69,7 @@ const DEFAULT_CONFIG: AgentConfig = {
   audio: {
     noise_cancellation: "medium",
     background_noise: { enabled: false, source: "preset", id: "office", volume: 0.25 },
+    bandpass_filter: { enabled: false, intensity: 50 },
   },
   end_of_call_warning: {
     enabled: false,
