@@ -159,7 +159,7 @@ export function DatabaseCell({
   if (colKey === "duration_seconds") {
     if (row.duration_seconds == null) return <EmptyDash />;
     return (
-      <NotionChip className="bg-foreground text-background">
+      <NotionChip className="bg-sky-500/12 text-sky-800 tabular-nums dark:bg-sky-500/20 dark:text-sky-200">
         {formatDuration(row.duration_seconds)}
       </NotionChip>
     );
