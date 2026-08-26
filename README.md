@@ -1,4 +1,4 @@
-# Kupe frontend                                                   
+# Kupe frontend                                                       
 Separate Vite + React app. Users sign up / sign in via Supabase Auth. 
 (`@supabase/supabase-js`, calling Supabase directly — the frontend never
 talks to CRUD for auth itself), then talks to the CRUD API (with the
