@@ -172,19 +172,24 @@ async function loadInteraction(callId: string, seed?: VoiceCall): Promise<Intera
     .then((info) => toTranscriptTurns(info.turns, info.transcript))
     .catch(() => [] as VoiceCallTranscriptTurn[]);
 
-  const recordingP = api
-    .getRecording(callId)
-    .then(async (rec) => {
-      if (rec.status === "complete" && rec.id) {
-        const play = await api.getPlaybackUrl(rec.id);
-        return play.url;
-      }
-      return null;
-    })
-    .catch(() => null);
+  // Playback sign can hang (Supabase Storage ReadTimeout). Do not wait for
+  // it before returning the transcript — the detail dialog used to stay on
+  // "Loading transcript…" for the whole sign timeout even when turns existed.
+  const [base, transcript] = await Promise.all([sessionP, transcriptP]);
+  return { ...base, transcript, recording_url: seed?.recording_url ?? null };
+}
 
-  const [base, transcript, recording_url] = await Promise.all([sessionP, transcriptP, recordingP]);
-  return { ...base, transcript, recording_url };
+async function loadRecordingUrl(callId: string): Promise<string | null> {
+  try {
+    const rec = await api.getRecording(callId);
+    if (rec.status === "complete" && rec.id) {
+      const play = await api.getPlaybackUrl(rec.id);
+      return play.url;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 export function prefetchInteraction(callId: string, seed?: VoiceCall): Promise<InteractionDetail> {
@@ -207,4 +212,19 @@ export function prefetchInteraction(callId: string, seed?: VoiceCall): Promise<I
 
 export function getInteraction(callId: string, seed?: VoiceCall): Promise<InteractionDetail> {
   return prefetchInteraction(callId, seed);
+}
+
+const _recordingUrlCache = new Map<string, Promise<string | null>>();
+
+export function prefetchRecordingUrl(callId: string): Promise<string | null> {
+  let pending = _recordingUrlCache.get(callId);
+  if (!pending) {
+    pending = loadRecordingUrl(callId).then((url) => {
+      if (!url) _recordingUrlCache.delete(callId);
+      return url;
+    });
+    _recordingUrlCache.set(callId, pending);
+    pending.catch(() => _recordingUrlCache.delete(callId));
+  }
+  return pending;
 }

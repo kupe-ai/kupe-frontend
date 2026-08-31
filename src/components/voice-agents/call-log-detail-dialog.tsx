@@ -16,7 +16,7 @@ import { AudioPlayer } from "@/components/ui/audio-player";
 import { StatusChip } from "@/components/ui/status-chip";
 import { Message, MessageContent } from "@/components/ui/message";
 import { cn } from "@/lib/utils";
-import { prefetchInteraction, type InteractionDetail } from "@/lib/api/voice/calls";
+import { prefetchInteraction, prefetchRecordingUrl, type InteractionDetail } from "@/lib/api/voice/calls";
 import type { VoiceCall } from "@/lib/api/voice/types";
 
 function copy(text: string) {
@@ -54,9 +54,12 @@ export function CallLogDetailDialog({
     });
     setLoading(true);
     let cancelled = false;
+    let recordingUrl = call?.recording_url ?? null;
     prefetchInteraction(callId, call ?? undefined)
       .then((next) => {
-        if (!cancelled) setDetail(next);
+        if (!cancelled) {
+          setDetail({ ...next, recording_url: recordingUrl ?? next.recording_url });
+        }
       })
       .catch(() => {
         if (!cancelled) toast.error("Couldn't load call details");
@@ -64,6 +67,13 @@ export function CallLogDetailDialog({
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    prefetchRecordingUrl(callId)
+      .then((url) => {
+        if (cancelled || !url) return;
+        recordingUrl = url;
+        setDetail((prev) => (prev ? { ...prev, recording_url: url } : prev));
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
