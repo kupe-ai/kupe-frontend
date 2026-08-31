@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Ban, CircleAlert, Copy, ImageIcon, Upload } from "lucide-react";
+import { Ban, CircleAlert, ImageIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,14 @@ import { cn } from "@/lib/utils";
 import type { PlivoUccComplaintOut, PlivoUccStatus, TelephonyAccount } from "@/types";
 
 const UCC_COLS =
-  "grid-cols-[minmax(8rem,1fr)_minmax(7rem,0.9fr)_6rem_minmax(7.5rem,1fr)_minmax(7.5rem,1fr)_6rem_6.5rem_6.5rem_7.5rem]";
+  "grid-cols-[4.75rem_4.5rem_5.5rem_minmax(6.5rem,1fr)_minmax(6.5rem,1fr)_5.5rem_5.75rem_5.5rem_auto]";
+
+/** Shorten long ids so the action column stays visible. */
+function ellipsize(value: string | null | undefined, head = 8): string {
+  if (!value) return "—";
+  if (value.length <= head) return value;
+  return `${value.slice(0, head)}…`;
+}
 
 const STATUS_FILTERS: { value: "" | PlivoUccStatus; label: string }[] = [
   { value: "", label: "All" },
@@ -72,7 +79,6 @@ export function UccPanel({ orgId, numbers }: { orgId: string; numbers: Telephony
   const [statusFilter, setStatusFilter] = useState<"" | PlivoUccStatus>("");
   const [uploading, setUploading] = useState<PlivoUccComplaintOut | null>(null);
 
-  const callbackUrl = ucc?.summary.callback_url ?? null;
   const hasIndiaPlivo = numbers.some((n) => n.provider === "plivo" && n.country_iso === "IN");
 
   const refresh = useCallback(() => {
@@ -88,12 +94,6 @@ export function UccPanel({ orgId, numbers }: { orgId: string; numbers: Telephony
     refresh();
   }, [refresh]);
 
-  async function copyCallback() {
-    if (!callbackUrl) return;
-    await navigator.clipboard.writeText(callbackUrl);
-    toast.message("UCC callback URL copied");
-  }
-
   async function onProofSubmitted(updated: PlivoUccComplaintOut) {
     setItems((prev) => prev.map((row) => (row.id === updated.id ? updated : row)));
     setUploading(null);
@@ -104,36 +104,6 @@ export function UccPanel({ orgId, numbers }: { orgId: string; numbers: Telephony
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-muted/20 px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium">Callback URL</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Paste this in Plivo Console → Phone Numbers → UCC
-            </p>
-            {callbackUrl ? (
-              <p className="mt-2 truncate font-mono text-xs">{callbackUrl}</p>
-            ) : (
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <CircleAlert className="size-3.5 shrink-0" />
-                HTTPS API base is required to generate this URL.
-              </p>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0 rounded-full"
-            disabled={!callbackUrl}
-            onClick={() => void copyCallback()}
-          >
-            <Copy className="size-3.5" />
-            Copy
-          </Button>
-        </div>
-      </div>
-
       <div className="flex flex-wrap gap-1.5">
         {STATUS_FILTERS.map((f) => (
           <button
@@ -169,7 +139,7 @@ export function UccPanel({ orgId, numbers }: { orgId: string; numbers: Telephony
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <div
-            className={`grid min-w-[64rem] ${UCC_COLS} items-center gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}
+            className={`grid min-w-[52rem] ${UCC_COLS} items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}
           >
             <span>Reference</span>
             <span>Call UUID</span>
@@ -181,24 +151,48 @@ export function UccPanel({ orgId, numbers }: { orgId: string; numbers: Telephony
             <span>Status</span>
             <span className="w-full" />
           </div>
-          <ul className="min-w-[64rem] divide-y divide-border">
+          <ul className="min-w-[52rem] divide-y divide-border">
             {items.map((row) => {
               const overdue = isOverdue(row.deadline_at, row.status);
               const action = proofActionLabel(row.status);
               return (
                 <li
                   key={row.id}
-                  className={`grid ${UCC_COLS} items-center gap-3 px-4 py-3`}
+                  role={action ? "button" : undefined}
+                  tabIndex={action ? 0 : undefined}
+                  onClick={() => {
+                    if (action) setUploading(row);
+                  }}
+                  onKeyDown={(e) => {
+                    if (!action) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setUploading(row);
+                    }
+                  }}
+                  className={cn(
+                    `grid ${UCC_COLS} items-center gap-2 px-4 py-3`,
+                    action && "cursor-pointer hover:bg-muted/40",
+                  )}
                 >
-                  <span className="truncate font-mono text-sm">{row.reference_id}</span>
-                  <span className="truncate font-mono text-xs text-muted-foreground">
-                    {row.call_uuid || "—"}
+                  <span className="truncate font-mono text-sm" title={row.reference_id}>
+                    {ellipsize(row.reference_id, 10)}
+                  </span>
+                  <span
+                    className="truncate font-mono text-xs text-muted-foreground"
+                    title={row.call_uuid ?? undefined}
+                  >
+                    {ellipsize(row.call_uuid, 8)}
                   </span>
                   <span className="text-sm tabular-nums text-muted-foreground">
                     {formatDay(row.initiation_date)}
                   </span>
-                  <span className="truncate font-mono text-sm">{row.from_number}</span>
-                  <span className="truncate font-mono text-sm">{row.to_number}</span>
+                  <span className="truncate font-mono text-sm" title={row.from_number}>
+                    {row.from_number}
+                  </span>
+                  <span className="truncate font-mono text-sm" title={row.to_number}>
+                    {row.to_number}
+                  </span>
                   <span className="text-sm tabular-nums text-muted-foreground">
                     {formatDay(row.created_at)}
                   </span>
@@ -214,14 +208,17 @@ export function UccPanel({ orgId, numbers }: { orgId: string; numbers: Telephony
                   <span className="justify-self-start">
                     <StatusChip status={row.status} />
                   </span>
-                  <span className="justify-self-end">
+                  <span className="justify-self-end shrink-0">
                     {action ? (
                       <Button
                         type="button"
                         variant={row.status === "rejected" ? "destructive" : "outline"}
                         size="sm"
-                        className="rounded-full"
-                        onClick={() => setUploading(row)}
+                        className="rounded-full whitespace-nowrap"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUploading(row);
+                        }}
                       >
                         {row.status === "rejected" ? (
                           <Ban className="size-3.5" />
