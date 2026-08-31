@@ -80,6 +80,9 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   not_evaluated: "secondary",
   idle: "secondary",
   reached_voicemail: "secondary",
+  no_answer: "warning",
+  unanswered: "warning",
+  busy: "warning",
 };
 
 export function statusChipVariant(status: string | null | undefined): BadgeVariant {
@@ -89,6 +92,8 @@ export function statusChipVariant(status: string | null | undefined): BadgeVaria
 }
 
 export function formatStatusLabel(status: string): string {
+  const key = status.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (key === "no_answer" || key === "unanswered") return "Unanswered";
   return status
     .trim()
     .replace(/[_-]+/g, " ")

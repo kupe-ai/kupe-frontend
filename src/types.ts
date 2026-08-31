@@ -844,7 +844,15 @@ export type AnalysisResult = {
 export type TelephonyProviderName = "twilio" | "plivo" | "exotel";
 
 export type BatchStatus = "draft" | "running" | "paused" | "completed" | "cancelled";
-export type ContactStatus = "pending" | "in_progress" | "completed" | "failed" | "exhausted" | "cancelled";
+export type ContactStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "exhausted"
+  | "cancelled"
+  | "no_answer"
+  | "busy";
 
 export type RetryPolicy = {
   max_retries: number;

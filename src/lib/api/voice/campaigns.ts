@@ -26,7 +26,7 @@ export interface VoiceDialJob {
   id: string;
   campaign_id: string;
   phone_e164: string;
-  status: "queued" | "dialing" | "connected" | "failed" | "done";
+  status: "queued" | "dialing" | "connected" | "failed" | "done" | "unanswered";
   variables?: Record<string, unknown>;
   attempt_count?: number;
 }
@@ -282,11 +282,13 @@ export async function listDialJobsPage(
           ? ("connected" as const)
           : c.status === "completed"
             ? ("done" as const)
-            : c.status === "failed" || c.status === "exhausted"
-              ? ("failed" as const)
-              : c.status === "in_progress"
-                ? ("dialing" as const)
-                : ("queued" as const),
+            : c.status === "no_answer"
+              ? ("unanswered" as const)
+              : c.status === "failed" || c.status === "exhausted"
+                ? ("failed" as const)
+                : c.status === "in_progress"
+                  ? ("dialing" as const)
+                  : ("queued" as const),
       raw_status: c.status,
       attempt_status: c.attempt_status ?? null,
       live_status: c.live_status ?? null,

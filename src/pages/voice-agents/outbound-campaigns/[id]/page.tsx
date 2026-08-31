@@ -86,13 +86,14 @@ function liveStatus(p: Pick<PersonRow, "raw_status" | "attempt_status" | "live_s
   }
   if (p.raw_status === "pending") return "left";
   if (p.raw_status === "completed") return "done";
+  if (p.raw_status === "no_answer") return "unanswered";
   return p.raw_status;
 }
 
 function statusBucket(raw: string, live?: string): "ongoing" | "done" | "left" | "other" {
   const key = live || raw;
   if (key === "talking" || key === "ringing" || raw === "in_progress") return "ongoing";
-  if (raw === "completed" || raw === "failed" || raw === "exhausted" || raw === "cancelled" || key === "done") {
+  if (raw === "completed" || raw === "failed" || raw === "exhausted" || raw === "cancelled" || raw === "no_answer" || raw === "busy" || key === "done" || key === "unanswered") {
     return "done";
   }
   if (raw === "pending" || key === "left") return "left";
@@ -102,6 +103,7 @@ function statusBucket(raw: string, live?: string): "ongoing" | "done" | "left" |
 function dialBadgeVariant(live: string): "success" | "destructive" | "default" | "outline" {
   if (live === "done" || live === "completed") return "success";
   if (live === "failed" || live === "exhausted") return "destructive";
+  if (live === "unanswered" || live === "no_answer" || live === "busy") return "outline";
   if (live === "talking") return "default";
   return "outline";
 }
@@ -112,6 +114,8 @@ function dialLabel(live: string): string {
   if (live === "done" || live === "completed") return "Done";
   if (live === "left" || live === "pending") return "Left";
   if (live === "in_progress") return "Ongoing";
+  if (live === "unanswered" || live === "no_answer") return "Unanswered";
+  if (live === "failed") return "Failed";
   return live.replace(/_/g, " ");
 }
 
@@ -410,6 +414,8 @@ export default function VoiceAgentsOutboundDetailPage() {
     const pending = contactsByStatus.pending ?? 0;
     const inProgress = contactsByStatus.in_progress ?? 0;
     const completed = contactsByStatus.completed ?? 0;
+    const unanswered = contactsByStatus.no_answer ?? 0;
+    const busy = contactsByStatus.busy ?? 0;
     const failed = (contactsByStatus.failed ?? 0) + (contactsByStatus.exhausted ?? 0);
     const cancelled = contactsByStatus.cancelled ?? 0;
     const total = Object.values(contactsByStatus).reduce((a, b) => a + b, 0);
@@ -419,9 +425,9 @@ export default function VoiceAgentsOutboundDetailPage() {
       (attemptsByStatus.queued ?? 0) + (attemptsByStatus.dialing ?? 0) + (attemptsByStatus.ringing ?? 0);
     const ongoing = talking || inProgress;
     const left = pending;
-    const done = completed + failed + cancelled;
+    const done = completed + failed + cancelled + unanswered + busy;
     const answerRate = total > 0 ? answered / total : 0;
-    return { total, answered, ongoing, talking, ringing, left, done, failed, cancelled, answerRate };
+    return { total, answered, unanswered, busy, ongoing, talking, ringing, left, done, failed, cancelled, answerRate };
   }, [contactsByStatus, attemptsByStatus]);
 
   const statusBars = useMemo(
@@ -430,7 +436,9 @@ export default function VoiceAgentsOutboundDetailPage() {
         { key: "pending", label: "Left", count: overview.left },
         { key: "talking", label: "Talking", count: overview.talking },
         { key: "completed", label: "Answered", count: overview.answered },
+        { key: "no_answer", label: "Unanswered", count: overview.unanswered },
         { key: "failed", label: "Failed", count: overview.failed },
+        ...(overview.busy > 0 ? [{ key: "busy", label: "Busy", count: overview.busy }] : []),
       ].filter((r) => r.count > 0 || overview.total > 0),
     [overview],
   );
@@ -519,10 +527,11 @@ export default function VoiceAgentsOutboundDetailPage() {
             </div>
           ) : (
             <>
-              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
                 {[
                   { id: "total", label: "Total recipients", value: overview.total.toLocaleString() },
                   { id: "answered", label: "Answered", value: overview.answered.toLocaleString() },
+                  { id: "unanswered", label: "Unanswered", value: overview.unanswered.toLocaleString() },
                   { id: "talking", label: "Talking", value: overview.talking.toLocaleString() },
                   { id: "left", label: "Left", value: overview.left.toLocaleString() },
                   { id: "failed", label: "Failed", value: overview.failed.toLocaleString() },
@@ -653,6 +662,7 @@ export default function VoiceAgentsOutboundDetailPage() {
                   <SelectItem value="ringing">Ringing</SelectItem>
                   <SelectItem value="left">Left</SelectItem>
                   <SelectItem value="done">Done</SelectItem>
+                  <SelectItem value="no_answer">Unanswered</SelectItem>
                   <SelectItem value="failed">Failed</SelectItem>
                   <SelectItem value="exhausted">Exhausted</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
