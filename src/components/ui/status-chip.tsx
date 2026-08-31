@@ -36,6 +36,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   pending: "warning",
   processing: "warning",
   connecting: "warning",
+  calling: "warning",
   queued: "warning",
   running: "warning",
   dialing: "warning",

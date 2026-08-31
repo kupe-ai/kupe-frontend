@@ -29,7 +29,8 @@ export async function createWebCall(
 function connectivityOf(status: string): string {
   if (status === "failed") return "failed";
   if (status === "ended" || status === "active") return "connected";
-  return status || "starting";
+  if (status === "starting") return "calling";
+  return status || "calling";
 }
 
 function directionOf(s: { channel: string; direction?: string | null }): VoiceCall["direction"] {

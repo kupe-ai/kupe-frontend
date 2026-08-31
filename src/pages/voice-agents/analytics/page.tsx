@@ -53,6 +53,29 @@ import { cn } from "@/lib/utils";
 import type { VoiceCampaign } from "@/lib/api/voice/campaigns";
 import type { CampaignOutcomeRow } from "@/types";
 
+function formatClock(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function LiveCallDuration({ call }: { call: VoiceCall }) {
+  const live = call.status === "active" && !call.ended_at;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!live) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [live]);
+  if (live) {
+    const start = new Date(call.started_at).getTime();
+    const sec = Number.isFinite(start) ? Math.max(0, Math.floor((now - start) / 1000)) : 0;
+    return <span className="font-mono tabular-nums">{formatClock(sec)}</span>;
+  }
+  if (call.duration_seconds != null) return <>{call.duration_seconds}s</>;
+  return <>{"—"}</>;
+}
+
 const ANALYTICS_TABS = [
   { id: "overview", label: "Overview" },
   { id: "connectivity", label: "Connectivity" },
@@ -95,7 +118,8 @@ export default function VoiceAgentsAnalyticsPage() {
     document.title = "Agent analytics · Voice Agents · Kupe";
   }, []);
 
-  const refreshTabData = useCallback(() => {
+  const refreshTabData = useCallback((opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
     if (tab === "overview") getAnalyticsOverview().then(setOverview).catch(() => setOverview(null));
     if (tab === "connectivity") {
       getAnalyticsOverview().then(setOverview).catch(() => setOverview(null));
@@ -115,7 +139,7 @@ export default function VoiceAgentsAnalyticsPage() {
         .catch(() => setCampaignOptions([]));
     }
     if (tab === "calllogs") {
-      setCallsLoading(true);
+      if (!silent) setCallsLoading(true);
       listInteractions({
         connectivity: logFilter === "connected" ? "connected" : undefined,
         page,
@@ -129,7 +153,9 @@ export default function VoiceAgentsAnalyticsPage() {
           setCalls([]);
           setCallsTotal(0);
         })
-        .finally(() => setCallsLoading(false));
+        .finally(() => {
+          if (!silent) setCallsLoading(false);
+        });
     }
   }, [tab, logFilter, page, perPage, campaignFilter, groupSearch]);
 
@@ -141,6 +167,12 @@ export default function VoiceAgentsAnalyticsPage() {
   useEffect(() => {
     refreshTabData();
   }, [refreshTabData]);
+
+  useEffect(() => {
+    if (tab !== "calllogs") return;
+    const id = window.setInterval(() => refreshTabData({ silent: true }), 2000);
+    return () => window.clearInterval(id);
+  }, [tab, refreshTabData]);
 
   return (
     <div
@@ -708,7 +740,7 @@ function CallLogsTab({
                       <StatusChip status={call.ended_by} />
                     </td>
                     <td className="px-3 py-3 tabular-nums">
-                      {call.duration_seconds != null ? `${call.duration_seconds}s` : "—"}
+                      <LiveCallDuration call={call} />
                       {call.transfer_duration_seconds != null && call.transfer_duration_seconds > 0 ? (
                         <div className="text-[11px] text-muted-foreground">
                           agent {call.agent_duration_seconds ?? "—"}s · after {call.transfer_duration_seconds}s
