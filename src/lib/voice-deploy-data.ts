@@ -12,6 +12,7 @@ export type DeployApiSlug =
   | "billing"
   | "agents-sdk"
   | "dnd-lists"
+  | "ucc-complaints"
   | "agent-management"
   | "workspace-timezone"
   | "caller-memory"
@@ -1071,6 +1072,82 @@ console.log(voice.id);
         id: "list-contacts",
         label: "list-contacts",
         code: `curl "${API_BASE_URL}/v1/batches/<batch_id>/contacts?status=queued" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+    ],
+  },
+  {
+    slug: "ucc-complaints",
+    title: "UCC complaints",
+    description: "India Plivo UCC — list complaints, submit opt-in proof, and never call the complainant again.",
+    kind: "forbidden",
+    tone: "rose",
+    headline: "Five business days to submit opt-in proof. Then do not call that number again.",
+    about:
+      "Plivo UCC (Unsolicited Commercial Communication) is India voice only (landline + 160-series). Paste https://x.kupe.in/v1/plivo/webhooks/ucc into Plivo Console → Phone Numbers → UCC. Proof is PDF/PNG/JPEG ≤ 10 MB and must show your business logo, an opt-in date within 6 months, and the complainant phone. Status pending or rejected surfaces a hub popup; after you resubmit (in_review) the popup is hidden for those rows. Kupe suppresses to_number on outbound so you cannot dial the complainant again. POST .../ucc/sync force-pulls from Plivo if the callback was never registered.",
+    endpoints: [
+      { method: "GET", path: "/v1/orgs/{org_id}/plivo/ucc", summary: "List complaints. Query status (pending | in_review | accepted | rejected) and from_number. Returns { items, total }." },
+      { method: "GET", path: "/v1/orgs/{org_id}/plivo/ucc/summary", summary: "Actionable counts for popup and red dots: { actionable_count, pending, rejected, overdue, callback_url }." },
+      { method: "GET", path: "/v1/orgs/{org_id}/plivo/ucc/{reference_id}", summary: "Get one complaint by Plivo reference_id (PUCC-YYYY-…)." },
+      { method: "POST", path: "/v1/orgs/{org_id}/plivo/ucc/{reference_id}/proof", summary: "Upload opt-in proof as multipart file (PDF/PNG/JPEG ≤ 10 MB). Sets status in_review." },
+      { method: "POST", path: "/v1/orgs/{org_id}/plivo/ucc/sync", summary: "Force-pull complaints from Plivo into Kupe." },
+    ],
+    curlTabs: [
+      sdkPython(`# pip install kupe
+from kupe import Kupe
+
+client = Kupe()
+org_id = "<org_id>"
+summary = client.phones.ucc_summary(org_id)
+page = client.phones.ucc_list(org_id, status="pending")
+complaint = client.phones.ucc_retrieve(org_id, page.items[0].reference_id)
+client.phones.ucc_submit_proof(
+    org_id,
+    complaint.reference_id,
+    file=open("opt-in.pdf", "rb"),
+)
+client.phones.ucc_sync(org_id)
+print(summary.actionable_count, complaint.status)
+`),
+      sdkTypescript(`// npm install kupe-sdk
+import { Kupe } from "kupe-sdk";
+import { readFile } from "node:fs/promises";
+
+const kupe = new Kupe();
+const orgId = "<org_id>";
+const summary = await kupe.phones.ucc.summary({ org_id: orgId });
+const page = await kupe.phones.ucc.list({ org_id: orgId, status: "pending" });
+const complaint = await kupe.phones.ucc.retrieve(page.items[0].reference_id, {
+  org_id: orgId,
+});
+const file = await readFile("opt-in.pdf");
+await kupe.phones.ucc.submitProof(complaint.reference_id, file, { org_id: orgId });
+await kupe.phones.ucc.sync({ org_id: orgId });
+console.log(summary.actionable_count, complaint.status);
+`),
+      {
+        id: "list",
+        label: "list",
+        code: `curl "${API_BASE_URL}/v1/orgs/<org_id>/plivo/ucc?status=pending" \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "summary",
+        label: "summary",
+        code: `curl ${API_BASE_URL}/v1/orgs/<org_id>/plivo/ucc/summary \\
+  -H "Authorization: Bearer $KUPE_API_KEY"`,
+      },
+      {
+        id: "submit-proof",
+        label: "submit-proof",
+        code: `curl -X POST ${API_BASE_URL}/v1/orgs/<org_id>/plivo/ucc/<reference_id>/proof \\
+  -H "Authorization: Bearer $KUPE_API_KEY" \\
+  -F "file=@opt-in.pdf"`,
+      },
+      {
+        id: "sync",
+        label: "sync",
+        code: `curl -X POST ${API_BASE_URL}/v1/orgs/<org_id>/plivo/ucc/sync \\
   -H "Authorization: Bearer $KUPE_API_KEY"`,
       },
     ],

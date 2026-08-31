@@ -948,6 +948,41 @@ export type PlivoComplianceApplication = {
   updated_at: string;
 };
 
+export type PlivoUccStatus = "pending" | "in_review" | "accepted" | "rejected";
+
+export type PlivoUccComplaintOut = {
+  id: string;
+  org_id: string;
+  reference_id: string;
+  status: PlivoUccStatus;
+  from_number: string;
+  to_number: string;
+  initiation_date: string | null;
+  complaint_category: string | null;
+  call_uuid: string | null;
+  opt_in_proof_url: string | null;
+  rejection_reason: string | null;
+  deadline_at: string | null;
+  telephony_account_id: string | null;
+  last_callback_status: string | null;
+  last_callback_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PlivoUccListOut = {
+  items: PlivoUccComplaintOut[];
+  total: number;
+};
+
+export type PlivoUccSummaryOut = {
+  actionable_count: number;
+  pending: number;
+  rejected: number;
+  overdue: number;
+  callback_url: string | null;
+};
+
 export type TelephonyAccountBody = {
   provider: TelephonyProviderName;
   label?: string;

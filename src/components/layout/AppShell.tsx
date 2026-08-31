@@ -32,6 +32,7 @@ import {
   isVoiceAgentsNavActive,
 } from "@/lib/voice-agents-nav";
 import { useFeatureFlags } from "@/context/feature-flags-context";
+import { PlivoUccProvider, usePlivoUccOptional } from "@/context/plivo-ucc-context";
 import { pushRecentActivity } from "@/lib/recent-activity";
 
 const SETTINGS_HREF = "/settings";
@@ -52,6 +53,8 @@ function NavLinks({
   const navigate = useNavigate();
   const settings = useSettingsDialogOptional();
   const { isEnabled } = useFeatureFlags();
+  const ucc = usePlivoUccOptional();
+  const phoneUccDot = Boolean(ucc?.hasActionable);
   let idx = 0;
 
   return (
@@ -98,7 +101,14 @@ function NavLinks({
                 : "font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             );
 
-            const icon = <NavItemIcon id={item.id} icon={item.icon} className="size-5" />;
+            const icon = (
+              <span className="relative shrink-0">
+                <NavItemIcon id={item.id} icon={item.icon} className="size-5" />
+                {item.id === "phone-numbers" && phoneUccDot ? (
+                  <span className="absolute -right-0.5 -top-0.5 size-1.5 rounded-full bg-destructive" aria-hidden />
+                ) : null}
+              </span>
+            );
 
             const link = isSettings ? (
               <button
@@ -109,6 +119,9 @@ function NavLinks({
               >
                 {icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
+                {item.id === "phone-numbers" && phoneUccDot ? (
+                  <span className="sr-only">UCC complaints need attention</span>
+                ) : null}
               </button>
             ) : external ? (
               <a
@@ -124,6 +137,9 @@ function NavLinks({
               >
                 {icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
+                {item.id === "phone-numbers" && phoneUccDot ? (
+                  <span className="sr-only">UCC complaints need attention</span>
+                ) : null}
               </a>
             ) : (
               <Link
@@ -137,6 +153,9 @@ function NavLinks({
               >
                 {icon}
                 {!collapsed && <span className="truncate">{item.label}</span>}
+                {item.id === "phone-numbers" && phoneUccDot ? (
+                  <span className="sr-only">UCC complaints need attention</span>
+                ) : null}
               </Link>
             );
 
@@ -183,8 +202,10 @@ function SettingsDeepLink() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SettingsDialogProvider enabled>
-      <AppShellInner>{children}</AppShellInner>
-      <SettingsDialog />
+      <PlivoUccProvider>
+        <AppShellInner>{children}</AppShellInner>
+        <SettingsDialog />
+      </PlivoUccProvider>
     </SettingsDialogProvider>
   );
 }

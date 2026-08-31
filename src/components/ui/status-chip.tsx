@@ -34,6 +34,7 @@ const STATUS_VARIANT: Record<string, BadgeVariant> = {
   missed: "destructive",
 
   pending: "warning",
+  in_review: "warning",
   processing: "warning",
   connecting: "warning",
   calling: "warning",

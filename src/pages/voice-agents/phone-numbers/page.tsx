@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
@@ -27,11 +28,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
+import { usePlivoUccOptional } from "@/context/plivo-ucc-context";
 import { api } from "@/lib/api";
 import { flagForNumber } from "@/lib/country-flag";
 import { requireScope } from "@/lib/api/workspace-scope";
+import { cn } from "@/lib/utils";
 import type { TelephonyAccount } from "@/types";
+import { UccPanel } from "./ucc-panel";
 
 const NUMBER_COLS =
   "grid-cols-[minmax(0,1fr)_minmax(9rem,1.1fr)_5.5rem_8.5rem_7rem_7rem_7rem_2.5rem]";
@@ -54,6 +59,8 @@ function formatDay(iso: string | null | undefined): string {
 }
 
 export default function VoiceAgentsPhoneNumbersPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const ucc = usePlivoUccOptional();
   const [numbers, setNumbers] = useState<TelephonyAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
@@ -76,6 +83,18 @@ export default function VoiceAgentsPhoneNumbersPage() {
     refresh();
   }, [refresh]);
 
+  const hasPlivo = numbers.some((n) => n.provider === "plivo");
+  const tab = hasPlivo && searchParams.get("tab") === "ucc" ? "ucc" : "numbers";
+  const showUccDot = Boolean(ucc?.hasActionable);
+
+  function setTab(next: string) {
+    if (next === "ucc") {
+      setSearchParams({ tab: "ucc" }, { replace: true });
+      return;
+    }
+    setSearchParams({}, { replace: true });
+  }
+
   async function confirmDelete() {
     if (!toDelete || deleting) return;
     setDeleting(true);
@@ -94,113 +113,141 @@ export default function VoiceAgentsPhoneNumbersPage() {
 
   const { orgId } = requireScope();
 
+  const addNumberButton = (
+    <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
+      <KupeIcon name="plus" className="size-4" />
+      Add number
+    </Button>
+  );
+
+  const numbersTable = (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <div className={`grid ${NUMBER_COLS} items-center gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}>
+        <span className="text-left">Name</span>
+        <span className="text-left">Number</span>
+        <span className="text-left">Provider</span>
+        <span className="text-left">Source</span>
+        <span className="text-left">Purchased</span>
+        <span className="text-left">Next renewal</span>
+        <span className="text-left">Monthly rent</span>
+        <span className="w-full" />
+      </div>
+      <ul className="divide-y divide-border">
+        {numbers.map((n) => {
+          const name = numberName(n);
+          return (
+            <QuickContextMenu
+              key={n.id}
+              title={name || n.from_number}
+              items={[
+                {
+                  label: "Copy number",
+                  icon: Copy,
+                  onSelect: () => {
+                    void navigator.clipboard.writeText(n.from_number);
+                    toast.message("Number copied");
+                  },
+                },
+                { type: "separator" },
+                {
+                  label: n.managed_by_kupe ? "Release number" : "Remove",
+                  icon: Trash2,
+                  variant: "destructive",
+                  onSelect: () => setToDelete(n),
+                },
+              ]}
+            >
+              <li
+                className={`grid cursor-pointer ${NUMBER_COLS} items-center gap-3 px-4 py-3 hover:bg-muted/40`}
+                onClick={() => setSelected(n)}
+              >
+                <span className="truncate text-sm font-medium">{name || "—"}</span>
+                <span className="flex min-w-0 items-center gap-2 font-mono text-sm">
+                  <span aria-hidden>{flagForNumber(n.from_number, n.country_iso)}</span>
+                  <span className="truncate">{n.from_number}</span>
+                </span>
+                <span className="text-left text-sm capitalize text-muted-foreground">{n.provider}</span>
+                <span className="justify-self-start">
+                  <StatusChip status={n.managed_by_kupe ? "active" : "info"}>
+                    {n.managed_by_kupe ? "Kupe managed" : "Your own"}
+                  </StatusChip>
+                </span>
+                <span className="text-left text-sm tabular-nums text-muted-foreground">
+                  {n.managed_by_kupe ? formatDay(n.created_at) : "—"}
+                </span>
+                <span className="text-left text-sm tabular-nums text-muted-foreground">
+                  {n.managed_by_kupe ? formatDay(n.next_rent_charge_at) : "—"}
+                </span>
+                <span className="text-left text-sm text-muted-foreground">
+                  {n.managed_by_kupe && n.monthly_rent_minor_units
+                    ? `₹${(n.monthly_rent_minor_units / 100).toFixed(0)}/mo`
+                    : "—"}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="justify-self-end"
+                  aria-label={`Remove ${n.from_number}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setToDelete(n);
+                  }}
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </li>
+            </QuickContextMenu>
+          );
+        })}
+      </ul>
+    </div>
+  );
+
+  const numbersBody = loading ? (
+    <VoiceTableShimmer rows={4} />
+  ) : numbers.length === 0 ? (
+    <AsciiEmptyState
+      kind="phone"
+      tone="coral"
+      title="Connect your first number"
+      description="Bring your own Twilio number, or buy one through Plivo — billed from your Kupe wallet."
+      className="min-h-[280px]"
+      actions={addNumberButton}
+    />
+  ) : (
+    numbersTable
+  );
+
   return (
-    <div className="voice-page voice-page-md">
+    <div className={cn("voice-page", hasPlivo ? "voice-page-wide" : "voice-page-md")}>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-title">Phone numbers</h1>
-        <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
-          <KupeIcon name="plus" className="size-4" />
-          Add number
-        </Button>
+        {tab === "numbers" ? addNumberButton : null}
       </div>
 
-      {loading ? (
-        <VoiceTableShimmer rows={4} />
-      ) : numbers.length === 0 ? (
-        <AsciiEmptyState
-          kind="phone"
-          tone="coral"
-          title="Connect your first number"
-          description="Bring your own Twilio number, or buy one through Plivo — billed from your Kupe wallet."
-          className="min-h-[280px]"
-          actions={
-            <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
-              <KupeIcon name="plus" className="size-4" />
-              Add number
-            </Button>
-          }
-        />
+      {hasPlivo ? (
+        <Tabs value={tab} onValueChange={setTab} className="mt-0">
+          <TabsList>
+            <TabsTrigger value="numbers">Numbers</TabsTrigger>
+            <TabsTrigger value="ucc">
+              UCC
+              {showUccDot ? (
+                <span
+                  className="size-1.5 rounded-full bg-destructive"
+                  aria-label="Action required"
+                />
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="numbers" className="mt-4">
+            {numbersBody}
+          </TabsContent>
+          <TabsContent value="ucc" className="mt-4">
+            <UccPanel orgId={orgId} numbers={numbers} />
+          </TabsContent>
+        </Tabs>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border">
-          <div className={`grid ${NUMBER_COLS} items-center gap-3 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground`}>
-            <span className="text-left">Name</span>
-            <span className="text-left">Number</span>
-            <span className="text-left">Provider</span>
-            <span className="text-left">Source</span>
-            <span className="text-left">Purchased</span>
-            <span className="text-left">Next renewal</span>
-            <span className="text-left">Monthly rent</span>
-            <span className="w-full" />
-          </div>
-          <ul className="divide-y divide-border">
-            {numbers.map((n) => {
-              const name = numberName(n);
-              return (
-                <QuickContextMenu
-                  key={n.id}
-                  title={name || n.from_number}
-                  items={[
-                    {
-                      label: "Copy number",
-                      icon: Copy,
-                      onSelect: () => {
-                        void navigator.clipboard.writeText(n.from_number);
-                        toast.message("Number copied");
-                      },
-                    },
-                    { type: "separator" },
-                    {
-                      label: n.managed_by_kupe ? "Release number" : "Remove",
-                      icon: Trash2,
-                      variant: "destructive",
-                      onSelect: () => setToDelete(n),
-                    },
-                  ]}
-                >
-                  <li
-                    className={`grid cursor-pointer ${NUMBER_COLS} items-center gap-3 px-4 py-3 hover:bg-muted/40`}
-                    onClick={() => setSelected(n)}
-                  >
-                    <span className="truncate text-sm font-medium">{name || "—"}</span>
-                    <span className="flex min-w-0 items-center gap-2 font-mono text-sm">
-                      <span aria-hidden>{flagForNumber(n.from_number, n.country_iso)}</span>
-                      <span className="truncate">{n.from_number}</span>
-                    </span>
-                    <span className="text-left text-sm capitalize text-muted-foreground">{n.provider}</span>
-                    <span className="justify-self-start">
-                      <StatusChip status={n.managed_by_kupe ? "active" : "info"}>
-                        {n.managed_by_kupe ? "Kupe managed" : "Your own"}
-                      </StatusChip>
-                    </span>
-                    <span className="text-left text-sm tabular-nums text-muted-foreground">
-                      {n.managed_by_kupe ? formatDay(n.created_at) : "—"}
-                    </span>
-                    <span className="text-left text-sm tabular-nums text-muted-foreground">
-                      {n.managed_by_kupe ? formatDay(n.next_rent_charge_at) : "—"}
-                    </span>
-                    <span className="text-left text-sm text-muted-foreground">
-                      {n.managed_by_kupe && n.monthly_rent_minor_units
-                        ? `₹${(n.monthly_rent_minor_units / 100).toFixed(0)}/mo`
-                        : "—"}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      className="justify-self-end"
-                      aria-label={`Remove ${n.from_number}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setToDelete(n);
-                      }}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  </li>
-                </QuickContextMenu>
-              );
-            })}
-          </ul>
-        </div>
+        numbersBody
       )}
 
       <AddNumberDialog open={addOpen} onOpenChange={setAddOpen} orgId={orgId} onDone={refresh} />

@@ -47,6 +47,9 @@ import type {
   PlivoComplianceSubmitBody,
   PlivoNumberSearchOut,
   PlivoPurchaseBody,
+  PlivoUccComplaintOut,
+  PlivoUccListOut,
+  PlivoUccSummaryOut,
   PostCallAnalysis,
   Project,
   RateLimitConfig,
@@ -538,6 +541,27 @@ export const api = {
     }),
   refreshPlivoCompliance: (orgId: string) =>
     authedJson<PlivoComplianceApplication | null>(`/v1/orgs/${orgId}/plivo/compliance/refresh`, { method: "POST" }),
+  listPlivoUcc: (orgId: string, params?: { status?: string; from_number?: string }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set("status", params.status);
+    if (params?.from_number) sp.set("from_number", params.from_number);
+    const q = sp.toString();
+    return authedJson<PlivoUccListOut>(`/v1/orgs/${orgId}/plivo/ucc${q ? `?${q}` : ""}`);
+  },
+  getPlivoUccSummary: (orgId: string) =>
+    authedJson<PlivoUccSummaryOut>(`/v1/orgs/${orgId}/plivo/ucc/summary`),
+  getPlivoUcc: (orgId: string, referenceId: string) =>
+    authedJson<PlivoUccComplaintOut>(`/v1/orgs/${orgId}/plivo/ucc/${encodeURIComponent(referenceId)}`),
+  submitPlivoUccProof: (orgId: string, referenceId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    return authedJson<PlivoUccComplaintOut>(
+      `/v1/orgs/${orgId}/plivo/ucc/${encodeURIComponent(referenceId)}/proof`,
+      { method: "POST", body: form },
+    );
+  },
+  syncPlivoUcc: (orgId: string) =>
+    authedJson<PlivoUccListOut>(`/v1/orgs/${orgId}/plivo/ucc/sync`, { method: "POST" }),
 
   listRateLimitConfigs: (orgId?: string) =>
     authedJson<RateLimitConfig[]>(`/v1/rate-limit-configs${orgId ? `?org_id=${orgId}` : ""}`),
