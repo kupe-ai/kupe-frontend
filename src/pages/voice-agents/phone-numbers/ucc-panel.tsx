@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Ban, CircleAlert, Copy, Upload } from "lucide-react";
+import { Ban, CircleAlert, Copy, ImageIcon, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { AsciiEmptyState } from "@/components/voice-agents/ascii-icons";
 import { Button } from "@/components/ui/button";
@@ -310,7 +310,7 @@ function UccProofDialog({
 
   return (
     <Dialog open={Boolean(complaint)} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-md" showCloseButton>
+      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-lg" showCloseButton>
         <DialogHeader>
           <DialogTitle>{rejected ? "Re-upload opt-in proof" : "Upload opt-in proof"}</DialogTitle>
           <DialogDescription>
@@ -336,11 +336,66 @@ function UccProofDialog({
 
           <div className="space-y-1.5">
             <Label>Proof file</Label>
-            <label className="pressable flex cursor-pointer items-center justify-between rounded-lg border border-dashed border-border px-3 py-2.5 text-sm hover:bg-muted/40">
-              <span className={cn("truncate", !file && "text-muted-foreground")}>
-                {file?.name ?? "PDF, JPEG, or PNG"}
-              </span>
-              <Upload className="size-4 shrink-0 text-muted-foreground" />
+            <label
+              className={cn(
+                "pressable flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border px-4 py-5 text-center transition-colors hover:bg-muted/40",
+                file && "border-solid bg-muted/20",
+              )}
+            >
+              {file ? (
+                <>
+                  <div className="flex size-11 items-center justify-center rounded-lg bg-muted">
+                    {file.type.startsWith("image/") ? (
+                      <ImageIcon className="size-5 text-foreground" />
+                    ) : (
+                      <Upload className="size-5 text-foreground" />
+                    )}
+                  </div>
+                  <div className="min-w-0 max-w-full">
+                    <p className="truncate text-sm font-medium">{file.name}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {(file.size / 1024).toFixed(0)} KB · click to replace
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="w-full max-w-[13.5rem] overflow-hidden rounded-lg border border-border bg-background shadow-sm"
+                    aria-hidden
+                  >
+                    <div className="flex items-center gap-1.5 border-b border-border bg-muted/50 px-2 py-1.5">
+                      <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                      <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                      <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+                      <span className="ml-1 truncate font-mono text-[9px] text-muted-foreground">
+                        CRM · opt-in record
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 p-2.5">
+                      <div className="h-1.5 w-2/5 rounded-full bg-primary/35" />
+                      <div className="h-1.5 w-4/5 rounded-full bg-muted-foreground/20" />
+                      <div className="h-1.5 w-3/5 rounded-full bg-muted-foreground/20" />
+                      <div className="mt-1 flex items-center justify-between rounded-md bg-muted/60 px-2 py-1.5">
+                        <span className="font-mono text-[9px] text-muted-foreground">
+                          {complaint?.to_number ?? "+91…"}
+                        </span>
+                        <span className="text-[9px] font-medium text-primary">Opted in</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Add a CRM screenshot or export</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      PDF, PNG, or JPEG · up to 10 MB
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                    <Upload className="size-3.5" />
+                    Choose file
+                  </span>
+                </>
+              )}
               <input
                 type="file"
                 accept={PROOF_ACCEPT}
