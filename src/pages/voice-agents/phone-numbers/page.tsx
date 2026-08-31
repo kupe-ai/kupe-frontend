@@ -31,9 +31,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VoiceTableShimmer } from "@/components/ui/shimmer";
 import { usePlivoUccOptional } from "@/context/plivo-ucc-context";
+import { useWorkspaceOptional } from "@/context/workspace-context";
 import { api } from "@/lib/api";
 import { flagForNumber } from "@/lib/country-flag";
-import { requireScope } from "@/lib/api/workspace-scope";
+import { getWorkspaceScope } from "@/lib/api/workspace-scope";
 import { cn } from "@/lib/utils";
 import type { TelephonyAccount } from "@/types";
 import { UccPanel } from "./ucc-panel";
@@ -60,6 +61,9 @@ function formatDay(iso: string | null | undefined): string {
 
 export default function VoiceAgentsPhoneNumbersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const workspace = useWorkspaceOptional();
+  const orgId = workspace?.org?.id ?? getWorkspaceScope()?.orgId ?? "";
+  const scopeReady = Boolean(orgId) && Boolean(workspace?.project?.id ?? getWorkspaceScope()?.projectId);
   const ucc = usePlivoUccOptional();
   const [numbers, setNumbers] = useState<TelephonyAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,19 +73,27 @@ export default function VoiceAgentsPhoneNumbersPage() {
   const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(() => {
+    if (!orgId) {
+      setNumbers([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const { orgId } = requireScope();
     api
       .listTelephonyAccounts(orgId)
       .then(setNumbers)
       .catch(() => setNumbers([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [orgId]);
 
   useEffect(() => {
     document.title = "Phone numbers · Voice Agents · Kupe";
+    if (!scopeReady) {
+      setLoading(Boolean(workspace?.loading));
+      return;
+    }
     refresh();
-  }, [refresh]);
+  }, [refresh, scopeReady, workspace?.loading]);
 
   const hasPlivo = numbers.some((n) => n.provider === "plivo");
   const tab = hasPlivo && searchParams.get("tab") === "ucc" ? "ucc" : "numbers";
@@ -111,7 +123,14 @@ export default function VoiceAgentsPhoneNumbersPage() {
     }
   }
 
-  const { orgId } = requireScope();
+  if (!scopeReady) {
+    return (
+      <div className="voice-page voice-page-md">
+        <h1 className="text-title">Phone numbers</h1>
+        <VoiceTableShimmer rows={4} />
+      </div>
+    );
+  }
 
   const addNumberButton = (
     <Button className="group/nav rounded-full" onClick={() => setAddOpen(true)}>
