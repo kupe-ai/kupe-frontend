@@ -1,5 +1,12 @@
 /** In-app paths that should never be used as a post-auth return URL. */
-const AUTH_PATHS = new Set(["/login", "/auth/callback", "/onboarding", "/integrations/callback"]);
+const AUTH_PATHS = new Set([
+  "/login",
+  "/auth/callback",
+  "/onboarding",
+  "/integrations/callback",
+  "/forgot-password",
+  "/reset-password",
+]);
 
 /**
  * Only allow same-origin relative paths. Blocks `//evil`, `https://…`, and

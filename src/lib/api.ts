@@ -234,6 +234,12 @@ export const api = {
     }
     return res.blob();
   },
+  /** Fire after successful password or OAuth sign-in. Never blocks login UX. */
+  notifyLoginActivity: () =>
+    authedJson<{ sent: number; skipped: number; failed: number; reason?: string | null }>(
+      "/v1/me/login-activity",
+      { method: "POST" },
+    ),
   listOrgs: (params?: ListParams) => authedJson<Page<Organization>>(`/v1/orgs${qs(params)}`),
   createOrg: (name: string) =>
     authedJson<Organization>("/v1/orgs", { method: "POST", body: JSON.stringify({ name }) }),

@@ -14,6 +14,8 @@ function Flagged({ flag, children }: { flag: string; children: ReactNode }) {
 }
 
 const LoginPage = lazyWithRetry(() => import("@/pages/login/page"));
+const ForgotPasswordPage = lazyWithRetry(() => import("@/pages/forgot-password/page"));
+const ResetPasswordPage = lazyWithRetry(() => import("@/pages/reset-password/page"));
 const AuthCallbackPage = lazyWithRetry(() => import("@/pages/auth-callback/page"));
 const IntegrationsCallbackPage = lazyWithRetry(() => import("@/pages/integrations-callback/page"));
 const OnboardingPage = lazyWithRetry(() => import("@/pages/onboarding/page"));
@@ -76,6 +78,8 @@ export default function AppRoutes() {
     <Suspense fallback={<PageFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/integrations/callback" element={<IntegrationsCallbackPage />} />
         <Route path="/onboarding" element={<OnboardingPage />} />

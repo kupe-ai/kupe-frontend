@@ -8,7 +8,15 @@ import { ProductTrailer } from "@/components/auth/product-trailer";
  * Claude-style split login landing — dark/light aware.
  * Left: brand + auth. Right: continuous product trailer (cream stage always).
  */
-export function LoginLanding({ children }: { children: React.ReactNode }) {
+export function LoginLanding({
+  children,
+  title,
+  description,
+}: {
+  children: React.ReactNode;
+  title?: React.ReactNode;
+  description?: string;
+}) {
   return (
     <div className="login-landing flex h-full min-h-0 flex-col overflow-y-auto bg-[#f9f7f2] text-[#1d1d1c] transition-colors duration-300 dark:bg-[#0e0e0e] dark:text-[#f5f2eb]">
       <header className="relative z-20 flex h-14 shrink-0 items-center justify-center px-5 sm:h-16 sm:px-8 lg:px-10">
@@ -24,13 +32,17 @@ export function LoginLanding({ children }: { children: React.ReactNode }) {
         >
           <div className="mx-auto w-full max-w-[380px] animate-fade-in">
             <h1 className="text-[2rem] leading-[1.12] font-semibold tracking-tight text-[#1d1d1c] sm:text-[2.35rem] dark:text-white">
-              Voice agents,
-              <br />
-              live in minutes.
+              {title ?? (
+                <>
+                  Voice agents,
+                  <br />
+                  live in minutes.
+                </>
+              )}
             </h1>
             <p className="mt-3 text-[15px] leading-relaxed text-[#1d1d1c]/55 dark:text-white/55">
-              Build, deploy, and monitor phone agents that sound human — inbound,
-              outbound, and everything in between.
+              {description ??
+                "Build, deploy, and monitor phone agents that sound human — inbound, outbound, and everything in between."}
             </p>
 
             <div className="mt-8 rounded-[1.35rem] border border-black/[0.06] bg-white p-5 shadow-[0_8px_30px_-18px_rgba(29,29,28,0.35)] sm:p-6 dark:border-white/10 dark:bg-[#161616] dark:shadow-none">

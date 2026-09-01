@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { safeNextPath } from "@/lib/safe-next";
 import { GoogleButton, OrDivider } from "@/components/auth/google-button";
@@ -32,7 +33,12 @@ export function LoginForm() {
     setLoading(true);
     try {
       if (mode === "sign-up") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const emailRedirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo },
+        });
         if (error) throw error;
         toast.success("Check your email to confirm your account, then sign in.");
         setMode("sign-in");
@@ -40,6 +46,7 @@ export function LoginForm() {
       }
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      void api.notifyLoginActivity().catch(() => undefined);
       navigate(next, { replace: true });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not sign in. Check your credentials.");
@@ -91,9 +98,20 @@ export function LoginForm() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password" className="text-[13px]">
-              Password
-            </Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="password" className="text-[13px]">
+                Password
+              </Label>
+              {mode === "sign-in" && (
+                <Link
+                  to="/forgot-password"
+                  className="text-[12px] text-muted-foreground hover:text-foreground"
+                  tabIndex={busy ? -1 : undefined}
+                >
+                  Forgot password?
+                </Link>
+              )}
+            </div>
             <div className="relative">
               <Input
                 id="password"
