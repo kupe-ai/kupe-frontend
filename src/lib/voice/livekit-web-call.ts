@@ -93,11 +93,15 @@ export interface WebCallCallbacks {
 }
 
 const SAMPLE_RATE = 24000;
+/** 20 ms of 24 kHz PCM — same cadence as telephony packets, not the 2.7 ms
+ * AudioWorklet quantum. Tiny JSON frames flooded the 24 kHz pipeline and
+ * made STT/VAD run late. */
+const FRAME_SAMPLES = SAMPLE_RATE / 50;
 const CAPTURE_PROCESSOR = `
 class CaptureProcessor extends AudioWorkletProcessor {
   process(inputs) {
     const ch = inputs[0] && inputs[0][0];
-    if (ch && ch.length) this.port.postMessage(ch);
+    if (ch && ch.length) this.port.postMessage(ch.slice());
     return true;
   }
 }
@@ -113,19 +117,49 @@ function floatToPcm16(input: Float32Array): ArrayBuffer {
   return out.buffer;
 }
 
-function resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
-  if (fromRate === toRate) return input;
-  const ratio = fromRate / toRate;
-  const outLen = Math.max(1, Math.floor(input.length / ratio));
-  const out = new Float32Array(outLen);
-  for (let i = 0; i < outLen; i++) {
-    const src = i * ratio;
-    const i0 = Math.floor(src);
-    const i1 = Math.min(i0 + 1, input.length - 1);
-    const frac = src - i0;
-    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+/** Streaming linear resampler that keeps the fractional read head so 48 kHz
+ * worklet quanta do not drop samples when the AudioContext is not 24 kHz. */
+class StreamResampler {
+  private pos = 0;
+
+  resample(input: Float32Array, fromRate: number, toRate: number): Float32Array {
+    if (fromRate === toRate) {
+      this.pos = 0;
+      return input;
+    }
+    const ratio = fromRate / toRate;
+    const out: number[] = [];
+    let src = this.pos;
+    while (src < input.length) {
+      const i0 = Math.floor(src);
+      const i1 = Math.min(i0 + 1, input.length - 1);
+      const frac = src - i0;
+      out.push(input[i0] * (1 - frac) + input[i1] * frac);
+      src += ratio;
+    }
+    this.pos = src - input.length;
+    return Float32Array.from(out);
   }
-  return out;
+}
+
+class PcmFramePacker {
+  private buf = new Int16Array(FRAME_SAMPLES);
+  private filled = 0;
+
+  push(pcm: ArrayBuffer, send: (frame: ArrayBuffer) => void) {
+    const src = new Int16Array(pcm);
+    let offset = 0;
+    while (offset < src.length) {
+      const take = Math.min(this.buf.length - this.filled, src.length - offset);
+      this.buf.set(src.subarray(offset, offset + take), this.filled);
+      this.filled += take;
+      offset += take;
+      if (this.filled === this.buf.length) {
+        send(this.buf.slice().buffer);
+        this.filled = 0;
+      }
+    }
+  }
 }
 
 function pcm16ToFloat(bytes: ArrayBuffer): Float32Array {
@@ -148,6 +182,7 @@ function bytesToB64(buf: ArrayBuffer): string {
 class PcmPlayer {
   private ctx: AudioContext;
   private next = 0;
+  private primed = false;
   private sources: AudioBufferSourceNode[] = [];
   readonly stream: MediaStream;
   private gain: GainNode;
@@ -165,7 +200,7 @@ class PcmPlayer {
     if (this.ctx.state === "suspended") await this.ctx.resume();
   }
 
-  enqueue(pcm: ArrayBuffer) {
+    enqueue(pcm: ArrayBuffer) {
     const samples = pcm16ToFloat(pcm);
     if (!samples.length) return;
     const buffer = this.ctx.createBuffer(1, samples.length, SAMPLE_RATE);
@@ -174,7 +209,11 @@ class PcmPlayer {
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.connect(this.gain);
-    const startAt = Math.max(this.ctx.currentTime, this.next);
+    let startAt = Math.max(this.ctx.currentTime, this.next);
+    if (!this.primed) {
+      startAt = this.ctx.currentTime + 0.08;
+      this.primed = true;
+    }
     src.start(startAt);
     this.next = startAt + buffer.duration;
     this.sources.push(src);
@@ -192,6 +231,7 @@ class PcmPlayer {
       }
     }
     this.sources = [];
+    this.primed = false;
     this.next = this.ctx.currentTime;
   }
 
@@ -280,12 +320,14 @@ export async function startWebCall(
         noiseSuppression: true,
         autoGainControl: true,
         channelCount: 1,
+        sampleRate: SAMPLE_RATE,
       },
     });
     const local = media.getAudioTracks()[0];
     if (local) callbacks.onLocalTrack?.(local.clone());
 
-    captureCtx = new AudioContext();
+    captureCtx = new AudioContext({ sampleRate: SAMPLE_RATE });
+    if (captureCtx.state === "suspended") await captureCtx.resume();
     const workletUrl = URL.createObjectURL(new Blob([CAPTURE_PROCESSOR], { type: "text/javascript" }));
     await captureCtx.audioWorklet.addModule(workletUrl);
     URL.revokeObjectURL(workletUrl);
@@ -299,11 +341,14 @@ export async function startWebCall(
       socket!.onerror = () => reject(new Error("Realtime WebSocket failed to connect"));
     });
 
+    const resampler = new StreamResampler();
+    const packer = new PcmFramePacker();
     node.port.onmessage = (ev: MessageEvent<Float32Array>) => {
       if (!micEnabled || socket?.readyState !== WebSocket.OPEN) return;
-      const resampled = resample(ev.data, captureCtx!.sampleRate, SAMPLE_RATE);
-      const pcm = floatToPcm16(resampled);
-      socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: bytesToB64(pcm) }));
+      const resampled = resampler.resample(ev.data, captureCtx!.sampleRate, SAMPLE_RATE);
+      packer.push(floatToPcm16(resampled), (frame) => {
+        socket!.send(JSON.stringify({ type: "input_audio_buffer.append", audio: bytesToB64(frame) }));
+      });
     };
 
     const emitKind = (obj: unknown) => {
