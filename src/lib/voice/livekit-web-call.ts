@@ -317,7 +317,8 @@ export async function startWebCall(
     media = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
-        noiseSuppression: true,
+        // Browser NS + server RNNoise was double-denoising and starving STT.
+        noiseSuppression: false,
         autoGainControl: true,
         channelCount: 1,
         sampleRate: SAMPLE_RATE,
