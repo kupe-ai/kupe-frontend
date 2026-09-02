@@ -1,4 +1,5 @@
 import { lazy, type ComponentType } from "react";
+import { getLazyRouteComponent, recoverMissingLazyRoute } from "./lazy-route-module";
 import { isStaleChunkError } from "./network-error";
 
 /**
@@ -9,6 +10,9 @@ import { isStaleChunkError } from "./network-error";
  * flag stops a reload loop if the file is genuinely missing.
  */
 const RELOAD_KEY = "kupe:stale-chunk-reload";
+
+/** True only for a reload started during this JS lifetime — not a prior tab load. */
+let reloadTriggeredThisPage = false;
 
 export function isChunkLoadError(error: unknown): boolean {
   return isStaleChunkError(error);
@@ -22,6 +26,7 @@ export function reloadOnceForStaleChunk(): boolean {
   } catch {
     return false;
   }
+  reloadTriggeredThisPage = true;
   window.location.reload();
   return true;
 }
@@ -32,6 +37,10 @@ function clearStaleChunkReloadFlag(): void {
   } catch {
     // private mode / blocked storage
   }
+}
+
+function waitForReload(): Promise<never> {
+  return new Promise<never>(() => {});
 }
 
 /** Vite's official hook for deleted chunks after a new deploy. */
@@ -54,17 +63,22 @@ export function lazyWithRetry<T extends { default: ComponentType }>(
   return lazy(async () => {
     try {
       const mod = await factory();
-      // React.lazy does `payload._result.default`. A resolved-but-undefined
-      // module throws TypeError: can't access property "default", _result is undefined.
-      if (!mod?.default) {
+      const component = getLazyRouteComponent(mod);
+      if (!component) {
+        // preventDefault() on vite:preloadError makes __vitePreload resolve
+        // to undefined instead of rejecting. Hang until the reload lands so
+        // we don't report "missing a default export" to PostHog.
+        if (recoverMissingLazyRoute(reloadTriggeredThisPage, reloadOnceForStaleChunk) === "wait") {
+          return waitForReload();
+        }
         throw new TypeError("Lazy route module is missing a default export");
       }
       clearStaleChunkReloadFlag();
-      return mod;
+      return { default: component } as T;
     } catch (error) {
       if (!isChunkLoadError(error)) throw error;
-      if (reloadOnceForStaleChunk()) {
-        await new Promise<never>(() => {});
+      if (recoverMissingLazyRoute(reloadTriggeredThisPage, reloadOnceForStaleChunk) === "wait") {
+        return waitForReload();
       }
       throw error;
     }
