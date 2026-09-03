@@ -64,7 +64,7 @@ export default function VoiceAgentsIntegrationsPage() {
   const q = search.trim().toLowerCase();
   const filteredToolkits = toolkits.filter((t) => !q || t.name.toLowerCase().includes(q) || t.slug.includes(q));
   const customTools = catalogTools.filter((t) => t.kind === "custom_webhook");
-  const mcpTools = catalogTools.filter((t) => t.kind === "mcp");
+  const mcpTools = catalogTools.filter((t) => t.kind === "mcp" && !t.composio_toolkit_slug);
   const rowCount = connections.length + customTools.length + mcpTools.length;
   const filteredRows = useMemo(() => {
     type Row =
@@ -247,7 +247,7 @@ export default function VoiceAgentsIntegrationsPage() {
                           <div className="flex justify-end gap-2">
                             {c.status === "active" && (
                               <Button size="sm" variant="outline" className="rounded-full" onClick={() => toolkit && setManageToolkit(toolkit)}>
-                                Manage tools
+                                Manage MCP
                               </Button>
                             )}
                             <Button size="sm" variant="ghost" className="rounded-full text-destructive" onClick={() => void disconnect(c)}>
@@ -315,7 +315,7 @@ export default function VoiceAgentsIntegrationsPage() {
                       {tk.connected ? (
                         <Button size="sm" variant="outline" className="rounded-full" onClick={() => setManageToolkit(tk)}>
                           <Check className="size-3.5 text-emerald-600" />
-                          Manage tools
+                          Manage MCP
                         </Button>
                       ) : (
                         <Button size="sm" className="rounded-full" disabled={connecting === tk.slug} onClick={() => void connect(tk)}>
@@ -665,12 +665,13 @@ function ManageToolsDialog({
   const [tools, setTools] = useState<ComposioTool[]>([]);
   const [loading, setLoading] = useState(true);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [attaching, setAttaching] = useState<string | null>(null);
-  const [pickAgentFor, setPickAgentFor] = useState<ComposioTool | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const [pickAgent, setPickAgent] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
+    setPickAgent(false);
     const { projectId } = requireScope();
     Promise.allSettled([
       api.listComposioToolkitTools(orgId, toolkit.slug).then((p) => setTools(p.items)),
@@ -678,34 +679,31 @@ function ManageToolsDialog({
     ]).finally(() => setLoading(false));
   }, [open, orgId, toolkit.slug]);
 
-  async function attachAndPickAgent(tool: ComposioTool, agentId: string) {
+  async function attachMcpToAgent(agentId: string) {
     if (!connection) return;
-    setAttaching(tool.slug);
+    setAttaching(true);
     try {
-      const created = await api.attachComposioTool(orgId, {
+      await api.attachComposioTool(orgId, {
         toolkit_slug: toolkit.slug,
-        tool_slug: tool.slug,
         connection_id: connection.id,
-        name: tool.slug.toLowerCase(),
-        label: tool.name,
+        agent_id: agentId,
       });
-      await api.attachAgentTool(agentId, created.id, true);
-      toast.message(`${tool.name} added to your agent`);
-      setPickAgentFor(null);
+      toast.message(`${toolkit.name} MCP added to your agent`);
+      setPickAgent(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add this tool");
+      toast.error(err instanceof Error ? err.message : "Couldn't add this MCP");
     } finally {
-      setAttaching(null);
+      setAttaching(false);
     }
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogTitle className="sr-only">{toolkit.name} tools</DialogTitle>
+        <DialogTitle className="sr-only">{toolkit.name} MCP</DialogTitle>
         <div className="flex items-center gap-2 border-b border-border px-5 py-4">
           <img src={toolkit.logo} alt={toolkit.name} className="size-6 rounded bg-white object-contain p-0.5 ring-1 ring-border" />
-          <h2 className="text-base font-semibold tracking-tight">{toolkit.name} actions</h2>
+          <h2 className="text-base font-semibold tracking-tight">{toolkit.name} MCP</h2>
         </div>
 
         <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
@@ -716,50 +714,53 @@ function ManageToolsDialog({
               <Loader2 className="size-5 animate-spin" />
             </div>
           ) : (
-            <ul className="divide-y divide-border">
-              {tools.map((t) => (
-                <li key={t.slug} className="py-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium">{t.name}</p>
-                      <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="shrink-0 rounded-full"
-                      disabled={attaching === t.slug}
-                      onClick={() => setPickAgentFor(t)}
-                    >
-                      Add to agent
-                    </Button>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Agents get the Composio-hosted {toolkit.name} MCP — every action below — not a single
+                tool. Adding it twice updates the same MCP.
+              </p>
+              <div>
+                <Button
+                  size="sm"
+                  className="rounded-full"
+                  disabled={attaching}
+                  onClick={() => setPickAgent((openPicker) => !openPicker)}
+                >
+                  {attaching ? "Adding…" : "Add MCP to agent"}
+                </Button>
+                {pickAgent && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 rounded-lg bg-muted/40 p-2">
+                    {agents.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">No agents yet — create one first.</span>
+                    ) : (
+                      agents.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className="pressable rounded-full border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
+                          disabled={attaching}
+                          onClick={() => void attachMcpToAgent(a.id)}
+                        >
+                          {a.name}
+                        </button>
+                      ))
+                    )}
                   </div>
-                  {pickAgentFor?.slug === t.slug && (
-                    <div className="mt-2 flex flex-wrap gap-1.5 rounded-lg bg-muted/40 p-2">
-                      {agents.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">No agents yet — create one first.</span>
-                      ) : (
-                        agents.map((a) => (
-                          <button
-                            key={a.id}
-                            type="button"
-                            className="pressable rounded-full border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
-                            disabled={attaching === t.slug}
-                            onClick={() => void attachAndPickAgent(t, a.id)}
-                          >
-                            {a.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
+                )}
+              </div>
+              <ul className="divide-y divide-border">
+                {tools.map((t) => (
+                  <li key={t.slug} className="py-3">
+                    <p className="text-sm font-medium">{t.name}</p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
         <div className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-muted-foreground">
-          <span>{tools.length} actions available</span>
+          <span>{tools.length} actions on this MCP</span>
           <a href={`https://composio.dev/toolkits/${toolkit.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">
             View on Composio <ExternalLink className="size-3" />
           </a>

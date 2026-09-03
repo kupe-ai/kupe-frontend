@@ -751,8 +751,9 @@ export const api = {
     orgId: string,
     body: {
       toolkit_slug: string;
-      tool_slug: string;
       connection_id: string;
+      agent_id?: string;
+      tool_slug?: string;
       name?: string;
       label?: string;
     },
