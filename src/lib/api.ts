@@ -725,16 +725,26 @@ export const api = {
     }),
   deleteInbound: (deploymentId: string) => authedJson<void>(`/v1/inbound/${deploymentId}`, { method: "DELETE" }),
 
-  listComposioToolkits: (orgId: string, params?: { category?: string; cursor?: string }) => {
+  listComposioToolkits: (orgId: string, params?: { category?: string; cursor?: string; search?: string }) => {
     const sp = new URLSearchParams();
     if (params?.category) sp.set("category", params.category);
     if (params?.cursor) sp.set("cursor", params.cursor);
+    if (params?.search) sp.set("search", params.search);
     const q = sp.toString();
     return authedJson<ComposioToolkitsPage>(`/v1/orgs/${orgId}/composio/toolkits${q ? `?${q}` : ""}`);
   },
-  listComposioToolkitTools: (orgId: string, toolkitSlug: string, cursor?: string) => {
-    const q = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-    return authedJson<ComposioToolsPage>(`/v1/orgs/${orgId}/composio/toolkits/${toolkitSlug}/tools${q}`);
+  listComposioToolkitTools: (
+    orgId: string,
+    toolkitSlug: string,
+    params?: { cursor?: string; important?: boolean },
+  ) => {
+    const sp = new URLSearchParams();
+    if (params?.cursor) sp.set("cursor", params.cursor);
+    if (params?.important != null) sp.set("important", String(params.important));
+    const q = sp.toString();
+    return authedJson<ComposioToolsPage>(
+      `/v1/orgs/${orgId}/composio/toolkits/${toolkitSlug}/tools${q ? `?${q}` : ""}`,
+    );
   },
   listComposioConnections: (orgId: string) =>
     authedJson<ComposioConnection[]>(`/v1/orgs/${orgId}/composio/connections`),
@@ -754,6 +764,7 @@ export const api = {
       connection_id: string;
       agent_id?: string;
       tool_slug?: string;
+      tool_slugs?: string[];
       name?: string;
       label?: string;
     },

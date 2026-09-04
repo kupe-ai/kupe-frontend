@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ExternalLink, Loader2, Plug, Search, Unplug } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -41,20 +42,26 @@ export default function VoiceAgentsIntegrationsPage() {
   const [catalogTools, setCatalogTools] = useState<CatalogTool[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [manageToolkit, setManageToolkit] = useState<ComposioToolkit | null>(null);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [addMode, setAddMode] = useState<AddMode>(null);
   const [editingTool, setEditingTool] = useState<CatalogTool | null>(null);
   const autoTabbed = useRef(false);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const refresh = useCallback(() => {
     setLoading(true);
     Promise.allSettled([
-      api.listComposioToolkits(orgId, {}).then((p) => setToolkits(p.items)),
+      api.listComposioToolkits(orgId, { search: debouncedSearch || undefined }).then((p) => setToolkits(p.items)),
       api.listComposioConnections(orgId).then(setConnections),
       api.listTools(orgId, { limit: 100 }).then((p) => setCatalogTools(p.items)),
     ]).finally(() => setLoading(false));
-  }, [orgId]);
+  }, [orgId, debouncedSearch]);
 
   useEffect(() => {
     document.title = "Integrations · Voice Agents · Kupe";
@@ -62,7 +69,7 @@ export default function VoiceAgentsIntegrationsPage() {
   }, [refresh]);
 
   const q = search.trim().toLowerCase();
-  const filteredToolkits = toolkits.filter((t) => !q || t.name.toLowerCase().includes(q) || t.slug.includes(q));
+  const filteredToolkits = toolkits;
   const customTools = catalogTools.filter((t) => t.kind === "custom_webhook");
   const mcpTools = catalogTools.filter((t) => t.kind === "mcp" && !t.composio_toolkit_slug);
   const rowCount = connections.length + customTools.length + mcpTools.length;
@@ -247,7 +254,7 @@ export default function VoiceAgentsIntegrationsPage() {
                           <div className="flex justify-end gap-2">
                             {c.status === "active" && (
                               <Button size="sm" variant="outline" className="rounded-full" onClick={() => toolkit && setManageToolkit(toolkit)}>
-                                Manage MCP
+                                Choose actions
                               </Button>
                             )}
                             <Button size="sm" variant="ghost" className="rounded-full text-destructive" onClick={() => void disconnect(c)}>
@@ -315,7 +322,7 @@ export default function VoiceAgentsIntegrationsPage() {
                       {tk.connected ? (
                         <Button size="sm" variant="outline" className="rounded-full" onClick={() => setManageToolkit(tk)}>
                           <Check className="size-3.5 text-emerald-600" />
-                          Manage MCP
+                          Choose actions
                         </Button>
                       ) : (
                         <Button size="sm" className="rounded-full" disabled={connecting === tk.slug} onClick={() => void connect(tk)}>
@@ -338,9 +345,13 @@ export default function VoiceAgentsIntegrationsPage() {
         <ManageToolsDialog
           toolkit={manageToolkit}
           connection={connections.find((c) => c.toolkit_slug === manageToolkit.slug && c.status === "active") ?? null}
+          catalogTool={
+            catalogTools.find((t) => t.composio_toolkit_slug === manageToolkit.slug && !t.composio_tool_slug) ?? null
+          }
           orgId={orgId}
           open={!!manageToolkit}
           onOpenChange={(open) => !open && setManageToolkit(null)}
+          onSaved={refresh}
         />
       )}
 
@@ -652,18 +663,24 @@ function AddMcpToolDialog({
 function ManageToolsDialog({
   toolkit,
   connection,
+  catalogTool,
   orgId,
   open,
   onOpenChange,
+  onSaved,
 }: {
   toolkit: ComposioToolkit;
   connection: ComposioConnection | null;
+  catalogTool: CatalogTool | null;
   orgId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSaved: () => void;
 }) {
   const [tools, setTools] = useState<ComposioTool[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [showingAll, setShowingAll] = useState(false);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [attaching, setAttaching] = useState(false);
   const [pickAgent, setPickAgent] = useState(false);
@@ -672,26 +689,57 @@ function ManageToolsDialog({
     if (!open) return;
     setLoading(true);
     setPickAgent(false);
+    setShowingAll(false);
     const { projectId } = requireScope();
     Promise.allSettled([
-      api.listComposioToolkitTools(orgId, toolkit.slug).then((p) => setTools(p.items)),
+      api.listComposioToolkitTools(orgId, toolkit.slug, { important: true }).then((p) => {
+        setTools(p.items);
+        const saved = catalogTool?.composio_allowed_tool_slugs?.filter(Boolean) ?? [];
+        setSelected(new Set(saved.length ? saved : p.items.map((t) => t.slug)));
+      }),
       api.listAgents(orgId, projectId, { limit: 100 }).then((p) => setAgents(p.items)),
     ]).finally(() => setLoading(false));
-  }, [open, orgId, toolkit.slug]);
+  }, [open, orgId, toolkit.slug, catalogTool?.id]);
 
-  async function attachMcpToAgent(agentId: string) {
+  async function loadAll() {
+    setShowingAll(true);
+    const page = await api.listComposioToolkitTools(orgId, toolkit.slug);
+    setTools(page.items);
+  }
+
+  function toggle(slug: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }
+
+  async function save(agentId?: string) {
     if (!connection) return;
+    const tool_slugs = [...selected];
+    if (tool_slugs.length === 0) {
+      toast.message("Pick at least one action");
+      return;
+    }
     setAttaching(true);
     try {
       await api.attachComposioTool(orgId, {
         toolkit_slug: toolkit.slug,
         connection_id: connection.id,
+        tool_slugs,
         agent_id: agentId,
       });
-      toast.message(`${toolkit.name} MCP added to your agent`);
+      toast.message(
+        agentId
+          ? `${toolkit.name} added to your agent (${tool_slugs.length} actions)`
+          : `${toolkit.name} saved (${tool_slugs.length} actions)`,
+      );
       setPickAgent(false);
+      onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't add this MCP");
+      toast.error(err instanceof Error ? err.message : "Couldn't save these actions");
     } finally {
       setAttaching(false);
     }
@@ -700,10 +748,10 @@ function ManageToolsDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-lg">
-        <DialogTitle className="sr-only">{toolkit.name} MCP</DialogTitle>
+        <DialogTitle className="sr-only">{toolkit.name} actions</DialogTitle>
         <div className="flex items-center gap-2 border-b border-border px-5 py-4">
           <img src={toolkit.logo} alt={toolkit.name} className="size-6 rounded bg-white object-contain p-0.5 ring-1 ring-border" />
-          <h2 className="text-base font-semibold tracking-tight">{toolkit.name} MCP</h2>
+          <h2 className="text-base font-semibold tracking-tight">{toolkit.name} actions</h2>
         </div>
 
         <div className="max-h-[65vh] overflow-y-auto px-5 py-4">
@@ -716,43 +764,60 @@ function ManageToolsDialog({
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Agents get the Composio-hosted {toolkit.name} MCP — every action below — not a single
-                tool. Adding it twice updates the same MCP.
+                Voice agents only see the actions you pick. Featured actions are selected by default —
+                keep that set small.
               </p>
-              <div>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" className="rounded-full" disabled={attaching} onClick={() => void save()}>
+                  {attaching ? "Saving…" : "Save actions"}
+                </Button>
                 <Button
                   size="sm"
+                  variant="outline"
                   className="rounded-full"
                   disabled={attaching}
                   onClick={() => setPickAgent((openPicker) => !openPicker)}
                 >
-                  {attaching ? "Adding…" : "Add MCP to agent"}
+                  Save and add to agent
                 </Button>
-                {pickAgent && (
-                  <div className="mt-2 flex flex-wrap gap-1.5 rounded-lg bg-muted/40 p-2">
-                    {agents.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">No agents yet — create one first.</span>
-                    ) : (
-                      agents.map((a) => (
-                        <button
-                          key={a.id}
-                          type="button"
-                          className="pressable rounded-full border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
-                          disabled={attaching}
-                          onClick={() => void attachMcpToAgent(a.id)}
-                        >
-                          {a.name}
-                        </button>
-                      ))
-                    )}
-                  </div>
+                {!showingAll && (
+                  <Button size="sm" variant="ghost" className="rounded-full" onClick={() => void loadAll()}>
+                    Show all actions
+                  </Button>
                 )}
               </div>
+              {pickAgent && (
+                <div className="flex flex-wrap gap-1.5 rounded-lg bg-muted/40 p-2">
+                  {agents.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">No agents yet — create one first.</span>
+                  ) : (
+                    agents.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className="pressable rounded-full border border-border bg-background px-2.5 py-1 text-xs hover:bg-muted"
+                        disabled={attaching}
+                        onClick={() => void save(a.id)}
+                      >
+                        {a.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
               <ul className="divide-y divide-border">
                 {tools.map((t) => (
-                  <li key={t.slug} className="py-3">
-                    <p className="text-sm font-medium">{t.name}</p>
-                    <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
+                  <li key={t.slug} className="flex items-start gap-3 py-3">
+                    <Checkbox
+                      checked={selected.has(t.slug)}
+                      onCheckedChange={() => toggle(t.slug)}
+                      className="mt-0.5"
+                      aria-label={t.name}
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{t.name}</p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{t.description}</p>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -760,7 +825,10 @@ function ManageToolsDialog({
           )}
         </div>
         <div className="flex items-center justify-between border-t border-border px-5 py-3 text-xs text-muted-foreground">
-          <span>{tools.length} actions on this MCP</span>
+          <span>
+            {selected.size} selected
+            {showingAll ? ` · ${tools.length} listed` : " · featured"}
+          </span>
           <a href={`https://composio.dev/toolkits/${toolkit.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 hover:text-foreground">
             View on Composio <ExternalLink className="size-3" />
           </a>

@@ -808,6 +808,7 @@ export type CatalogTool = {
   composio_toolkit_slug: string | null;
   composio_tool_slug: string | null;
   composio_connection_id: string | null;
+  composio_allowed_tool_slugs?: string[];
   mcp_tool_name: string | null;
 };
 
@@ -1224,6 +1225,7 @@ export type ComposioTool = {
   name: string;
   description: string;
   input_parameters: Record<string, unknown>;
+  important?: boolean;
 };
 
 export type ComposioToolsPage = {
